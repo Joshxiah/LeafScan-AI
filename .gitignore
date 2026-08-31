@@ -1,0 +1,79 @@
+# ============================================
+# LeafScan AI - Git Ignore Rules
+# ============================================
+
+# ---------- Node.js dependencies ----------
+node_modules/
+mobile/node_modules/
+admin-web/node_modules/
+backend/node_modules/
+
+# ---------- Environment variables (SECRETS) ----------
+# NEVER commit these. They contain database passwords and JWT secrets.
+.env
+.env.local
+.env.*.local
+backend/.env
+mobile/.env
+admin-web/.env
+
+# ---------- Build output ----------
+dist/
+build/
+backend/dist/
+admin-web/dist/
+*.tsbuildinfo
+
+# ---------- Expo / React Native ----------
+.expo/
+.expo-shared/
+mobile/.expo/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+
+# ---------- Python ----------
+venv/
+.venv/
+env/
+ai-model/venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# ---------- AI dataset and models (too large for Git) ----------
+ai-model/dataset/raw/
+ai-model/dataset/train/
+ai-model/dataset/validation/
+ai-model/dataset/test/
+*.h5
+*.keras
+*.tflite
+*.pb
+
+# ---------- Uploaded images ----------
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# ---------- Logs ----------
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+
+# ---------- Operating system files ----------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- Editor files ----------
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
