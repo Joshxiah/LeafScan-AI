@@ -6,14 +6,6 @@ Recommendation System for Farmers.
 An undergraduate thesis submitted to the Department of Computer Science,
 College of Computing Studies, Western Mindanao State University.
 
-## Researchers
-
-- Realyn Joy T. Danong
-- Virlyn G. Sandialan
-- Jhoanna Marie S. Sumalpong
-
-**Adviser:** Ferlyn P. Calanda
-
 ## Description
 
 LeafScan AI detects and classifies corn leaf diseases from smartphone
