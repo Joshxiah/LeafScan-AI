@@ -56,7 +56,8 @@ export interface ApiResponse<T> {
 /** What the Create Account screen sends. */
 export interface RegisterPayload {
   fullName: string;
-  email: string;
+  email?: string;
+  username?: string;
   password: string;
   phoneNumber?: string;
   address?: string;
@@ -68,6 +69,7 @@ export interface RegisterPayload {
 
 /** What the Login screen sends. */
 export interface LoginPayload {
-  email: string;
+  email?: string;
+  username?: string;
   password: string;
 }

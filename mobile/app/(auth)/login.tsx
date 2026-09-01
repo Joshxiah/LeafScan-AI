@@ -1,12 +1,3 @@
-/**
- * Login Screen.
- *
- * Route: /login
- *
- * Calls POST /api/auth/login through AuthContext. On success the
- * token is stored and the routing guard sends the user to Home.
- */
-
 import { useState } from 'react';
 import {
   View,
@@ -14,32 +5,28 @@ import {
   TextInput,
   Pressable,
   ScrollView,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useRouter, Link } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '../../src/context/AuthContext';
-import { ApiError } from '../../src/services/api';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { login } = useAuth();
 
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleLogin() {
     setErrorMessage(null);
 
-    // Check the obvious problems before spending a network call.
-    if (!email.trim()) {
-      setErrorMessage('Please enter your email address.');
+    if (!username.trim()) {
+      setErrorMessage('Please enter your username.');
       return;
     }
 
@@ -48,24 +35,12 @@ export default function LoginScreen() {
       return;
     }
 
-    setIsSubmitting(true);
-
     try {
-      await login({
-        email: email.trim().toLowerCase(),
-        password,
-      });
-
-      // The routing guard handles navigation once user is set.
+      await login({ username: username.trim(), password });
       router.replace('/home');
     } catch (error) {
-      if (error instanceof ApiError) {
-        setErrorMessage(error.message);
-      } else {
-        setErrorMessage('Something went wrong. Please try again.');
-      }
-    } finally {
-      setIsSubmitting(false);
+      setErrorMessage('Unable to log in right now. Please try again.');
+      console.log('[login] failed', error);
     }
   }
 
@@ -76,53 +51,35 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
-          contentContainerClassName="flex-grow px-6 py-8"
+          contentContainerClassName="px-6 py-6"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* ---------- Header ---------- */}
-          <View className="items-center">
-            <View className="h-20 w-20 items-center justify-center rounded-2xl bg-leaf-600">
-              <Text className="text-3xl">🌽</Text>
-            </View>
+          <Text className="text-6xl font-bold text-leaf-800">Log in</Text>
+          <Text className="mt-4 text-2xl text-gray-500">
+            Sign in to continue checking your corn leaf scans.
+          </Text>
 
-            <Text className="mt-5 text-2xl font-bold text-leaf-800">
-              Welcome Back
-            </Text>
-
-            <Text className="mt-1 text-sm text-gray-500">
-              Log in to continue scanning corn leaves
-            </Text>
-          </View>
-
-          {/* ---------- Error banner ---------- */}
-          {errorMessage && (
-            <View className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+          {errorMessage ? (
+            <View className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
               <Text className="text-sm text-red-700">{errorMessage}</Text>
             </View>
-          )}
+          ) : null}
 
-          {/* ---------- Form ---------- */}
           <View className="mt-8">
-            <Text className="mb-1.5 text-sm font-medium text-gray-700">
-              Email
-            </Text>
+            <Text className="mb-2 text-base text-gray-700">Username</Text>
             <TextInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder="juan@example.com"
+              value={username}
+              onChangeText={setUsername}
+              placeholder="farmer123"
               placeholderTextColor="#9ca3af"
-              keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
-              editable={!isSubmitting}
-              className="rounded-xl border border-gray-300 bg-white px-4 py-3.5 text-base text-gray-900"
+              className="rounded-2xl border border-gray-300 bg-gray-100 px-4 py-4 text-lg text-gray-900"
             />
 
-            <Text className="mb-1.5 mt-5 text-sm font-medium text-gray-700">
-              Password
-            </Text>
-            <View className="flex-row items-center rounded-xl border border-gray-300 bg-white pr-3">
+            <Text className="mb-2 mt-5 text-base text-gray-700">Password</Text>
+            <View className="flex-row items-center rounded-2xl border border-gray-300 bg-gray-100 pr-3">
               <TextInput
                 value={password}
                 onChangeText={setPassword}
@@ -130,9 +87,7 @@ export default function LoginScreen() {
                 placeholderTextColor="#9ca3af"
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
-                autoCorrect={false}
-                editable={!isSubmitting}
-                className="flex-1 px-4 py-3.5 text-base text-gray-900"
+                className="flex-1 px-4 py-4 text-lg text-gray-900"
               />
               <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={8}>
                 <Text className="text-sm font-medium text-leaf-700">
@@ -142,37 +97,19 @@ export default function LoginScreen() {
             </View>
           </View>
 
-          {/* ---------- Submit ---------- */}
           <Pressable
             onPress={handleLogin}
-            disabled={isSubmitting}
-            className={`mt-8 flex-row items-center justify-center rounded-xl py-4 ${
-              isSubmitting ? 'bg-leaf-400' : 'bg-leaf-600 active:bg-leaf-700'
-            }`}
+            className="mt-8 items-center rounded-2xl bg-leaf-700 py-4"
           >
-            {isSubmitting && (
-              <ActivityIndicator size="small" color="#ffffff" className="mr-2" />
-            )}
-            <Text className="text-base font-semibold text-white">
-              {isSubmitting ? 'Logging in...' : 'Log In'}
-            </Text>
+            <Text className="text-3xl font-bold text-white">Continue</Text>
           </Pressable>
 
-          <View className="flex-1" />
-
-          {/* ---------- Link to register ---------- */}
-          <View className="mt-8 flex-row justify-center">
-            <Text className="text-sm text-gray-500">
-              Don&apos;t have an account?{' '}
-            </Text>
-            <Link href="/register" asChild>
-              <Pressable>
-                <Text className="text-sm font-semibold text-leaf-700">
-                  Create one
-                </Text>
-              </Pressable>
-            </Link>
-          </View>
+          <Pressable
+            onPress={() => router.back()}
+            className="mt-6 items-center rounded-2xl border-2 border-leaf-700 bg-white py-4"
+          >
+            <Text className="text-3xl font-bold text-leaf-700">Back</Text>
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

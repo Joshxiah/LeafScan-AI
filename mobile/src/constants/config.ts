@@ -17,7 +17,7 @@
 // ----------------------------------------------------------
 // CHANGE THIS LINE to match your computer's IPv4 address
 // ----------------------------------------------------------
-const DEV_MACHINE_IP = '192.168.68.119';
+const DEV_MACHINE_IP = '192.168.1.9';
 
 const BACKEND_PORT = 4000;
 

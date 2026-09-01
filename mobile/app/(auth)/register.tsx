@@ -1,16 +1,3 @@
-/**
- * Create Account Screen.
- *
- * Route: /register
- *
- *   Full Name        (required)
- *   Email            (required - the login identifier)
- *   Password         (required)
- *   Confirm Password (required)
- *   Phone Number     (optional)
- *   Address          (optional)
- */
-
 import { useState } from 'react';
 import {
   View,
@@ -18,78 +5,63 @@ import {
   TextInput,
   Pressable,
   ScrollView,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useRouter, Link } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '../../src/context/AuthContext';
-import { ApiError } from '../../src/services/api';
-import { RegisterPayload } from '../../src/types';
 
 export default function RegisterScreen() {
   const router = useRouter();
   const { register } = useAuth();
 
   const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [address, setAddress] = useState('');
-
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleRegister() {
     setErrorMessage(null);
 
-    if (fullName.trim().length < 2) {
+    if (!fullName.trim()) {
       setErrorMessage('Please enter your full name.');
       return;
     }
 
-    if (!email.trim().includes('@')) {
-      setErrorMessage('Please enter a valid email address.');
+    if (!username.trim()) {
+      setErrorMessage('Please enter a username.');
       return;
     }
 
-    if (password.length < 8) {
-      setErrorMessage('Password must be at least 8 characters.');
+    if (password.length < 6) {
+      setErrorMessage('Password must be at least 6 characters.');
       return;
     }
 
     if (password !== confirmPassword) {
-      setErrorMessage('The two passwords do not match.');
+      setErrorMessage('Passwords do not match.');
       return;
     }
 
-    setIsSubmitting(true);
-
     try {
-      const payload: RegisterPayload = {
+      await register({
         fullName: fullName.trim(),
-        email: email.trim().toLowerCase(),
+        username: username.trim(),
         password,
-      };
-
-      if (phoneNumber.trim()) payload.phoneNumber = phoneNumber.trim();
-      if (address.trim()) payload.address = address.trim();
-
-      await register(payload);
-
+        phoneNumber: phoneNumber.trim() || undefined,
+        address: address.trim() || undefined,
+      });
       router.replace('/home');
     } catch (error) {
-      if (error instanceof ApiError) {
-        setErrorMessage(error.message);
-      } else {
-        setErrorMessage('Something went wrong. Please try again.');
-      }
-    } finally {
-      setIsSubmitting(false);
+      setErrorMessage('Unable to create account right now. Please try again.');
+      console.log('[register] failed', error);
     }
   }
 
@@ -100,150 +72,112 @@ export default function RegisterScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
-          contentContainerClassName="px-6 py-8"
+          contentContainerClassName="px-5 py-6"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Text className="text-2xl font-bold text-leaf-800">
-            Create Account
-          </Text>
-          <Text className="mt-1 text-sm text-gray-500">
-            Register as a corn farmer to start scanning
-          </Text>
+          <View className="rounded-[28px] bg-white px-4 py-4 shadow-sm">
+            {errorMessage ? (
+              <View className="mb-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2">
+                <Text className="text-sm text-red-700">{errorMessage}</Text>
+              </View>
+            ) : null}
 
-          {errorMessage && (
-            <View className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-              <Text className="text-sm text-red-700">{errorMessage}</Text>
-            </View>
-          )}
-
-          {/* Full Name */}
-          <Text className="mb-1.5 mt-6 text-sm font-medium text-gray-700">
-            Full Name <Text className="text-red-500">*</Text>
-          </Text>
-          <TextInput
-            value={fullName}
-            onChangeText={setFullName}
-            placeholder="Juan Dela Cruz"
-            placeholderTextColor="#9ca3af"
-            autoCapitalize="words"
-            editable={!isSubmitting}
-            className="rounded-xl border border-gray-300 bg-white px-4 py-3.5 text-base text-gray-900"
-          />
-
-          {/* Email */}
-          <Text className="mb-1.5 mt-5 text-sm font-medium text-gray-700">
-            Email <Text className="text-red-500">*</Text>
-          </Text>
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            placeholder="juan@example.com"
-            placeholderTextColor="#9ca3af"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            editable={!isSubmitting}
-            className="rounded-xl border border-gray-300 bg-white px-4 py-3.5 text-base text-gray-900"
-          />
-          <Text className="mt-1 text-xs text-gray-400">
-            You will use this to log in.
-          </Text>
-
-          {/* Password */}
-          <Text className="mb-1.5 mt-5 text-sm font-medium text-gray-700">
-            Password <Text className="text-red-500">*</Text>
-          </Text>
-          <View className="flex-row items-center rounded-xl border border-gray-300 bg-white pr-3">
             <TextInput
-              value={password}
-              onChangeText={setPassword}
-              placeholder="At least 8 characters"
-              placeholderTextColor="#9ca3af"
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-              editable={!isSubmitting}
-              className="flex-1 px-4 py-3.5 text-base text-gray-900"
+              value={fullName}
+              onChangeText={setFullName}
+              placeholder="Last Name"
+              placeholderTextColor="#6b7280"
+              autoCapitalize="words"
+              className="mb-3 rounded-2xl border border-leaf-200 bg-leaf-50 px-4 py-4 text-[20px] text-gray-900"
             />
-            <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={8}>
-              <Text className="text-sm font-medium text-leaf-700">
-                {showPassword ? 'Hide' : 'Show'}
-              </Text>
+
+            <View className="mb-3 flex-row">
+              <TextInput
+                value={username}
+                onChangeText={setUsername}
+                placeholder="Ext. (Jr.)"
+                placeholderTextColor="#6b7280"
+                autoCapitalize="words"
+                className="mr-3 flex-1 rounded-2xl border border-leaf-200 bg-leaf-50 px-4 py-4 text-[20px] text-gray-900"
+              />
+              <View className="flex-1 rounded-2xl border border-leaf-200 bg-leaf-50 px-4 py-4">
+                <Text className="text-[20px] text-gray-500">Select Gender</Text>
+              </View>
+            </View>
+
+            <View className="mb-3 flex-row">
+              <View className="mr-3 flex-1 rounded-2xl border border-leaf-200 bg-leaf-50 px-4 py-4">
+                <Text className="text-[20px] text-gray-500">Month</Text>
+              </View>
+              <View className="mr-3 w-24 rounded-2xl border border-leaf-200 bg-leaf-50 px-4 py-4">
+                <Text className="text-[20px] text-gray-500">Day</Text>
+              </View>
+              <View className="w-24 rounded-2xl border border-leaf-200 bg-leaf-50 px-4 py-4">
+                <Text className="text-[20px] text-gray-500">Year</Text>
+              </View>
+            </View>
+
+            <TextInput
+              value={phoneNumber}
+              onChangeText={setPhoneNumber}
+              placeholder="Contact Number (11 digits)"
+              placeholderTextColor="#6b7280"
+              keyboardType="phone-pad"
+              className="mb-3 rounded-2xl border border-leaf-200 bg-leaf-50 px-4 py-4 text-[20px] text-gray-900"
+            />
+
+            <TextInput
+              value={address}
+              onChangeText={setAddress}
+              placeholder="Address"
+              placeholderTextColor="#6b7280"
+              autoCapitalize="words"
+              className="mb-3 rounded-2xl border border-leaf-200 bg-leaf-50 px-4 py-4 text-[20px] text-gray-900"
+            />
+
+            <TextInput
+              value={address}
+              onChangeText={setAddress}
+              placeholder="Street, purok, landmark, etc."
+              placeholderTextColor="#6b7280"
+              autoCapitalize="words"
+              className="mb-3 rounded-2xl border border-leaf-200 bg-leaf-50 px-4 py-4 text-[20px] text-gray-900"
+            />
+
+            <View className="mb-3 rounded-2xl border border-leaf-200 bg-leaf-50 px-4 py-4">
+              <Text className="text-[20px] text-gray-500">Select Region</Text>
+            </View>
+
+            <View className="mb-3 rounded-2xl border border-leaf-200 bg-leaf-50 px-4 py-4">
+              <Text className="text-[20px] text-gray-500">Select Province</Text>
+            </View>
+
+            <View className="mb-3 rounded-2xl border border-leaf-200 bg-leaf-50 px-4 py-4">
+              <Text className="text-[20px] text-gray-500">Select City / Municipality</Text>
+            </View>
+
+            <View className="mb-4 rounded-2xl border border-leaf-200 bg-leaf-50 px-4 py-4">
+              <Text className="text-[20px] text-gray-500">Select Barangay</Text>
+            </View>
+
+            <Pressable
+              onPress={handleRegister}
+              className="items-center rounded-2xl bg-leaf-700 px-4 py-4"
+            >
+              <Text className="text-4xl font-bold text-white">Next Step →</Text>
             </Pressable>
-          </View>
 
-          {/* Confirm Password */}
-          <Text className="mb-1.5 mt-5 text-sm font-medium text-gray-700">
-            Confirm Password <Text className="text-red-500">*</Text>
-          </Text>
-          <TextInput
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            placeholder="Type your password again"
-            placeholderTextColor="#9ca3af"
-            secureTextEntry={!showPassword}
-            autoCapitalize="none"
-            editable={!isSubmitting}
-            className="rounded-xl border border-gray-300 bg-white px-4 py-3.5 text-base text-gray-900"
-          />
-
-          {/* Phone Number */}
-          <Text className="mb-1.5 mt-5 text-sm font-medium text-gray-700">
-            Phone Number
-          </Text>
-          <TextInput
-            value={phoneNumber}
-            onChangeText={setPhoneNumber}
-            placeholder="09171234567"
-            placeholderTextColor="#9ca3af"
-            keyboardType="phone-pad"
-            editable={!isSubmitting}
-            className="rounded-xl border border-gray-300 bg-white px-4 py-3.5 text-base text-gray-900"
-          />
-
-          {/* Address */}
-          <Text className="mb-1.5 mt-5 text-sm font-medium text-gray-700">
-            Address
-          </Text>
-          <TextInput
-            value={address}
-            onChangeText={setAddress}
-            placeholder="Barangay Balangasan, Pagadian City"
-            placeholderTextColor="#9ca3af"
-            autoCapitalize="words"
-            multiline
-            editable={!isSubmitting}
-            className="rounded-xl border border-gray-300 bg-white px-4 py-3.5 text-base text-gray-900"
-            style={{ textAlignVertical: 'top', minHeight: 70 }}
-          />
-
-          {/* Submit */}
-          <Pressable
-            onPress={handleRegister}
-            disabled={isSubmitting}
-            className={`mt-9 flex-row items-center justify-center rounded-xl py-4 ${
-              isSubmitting ? 'bg-leaf-400' : 'bg-leaf-600 active:bg-leaf-700'
-            }`}
-          >
-            {isSubmitting && (
-              <ActivityIndicator size="small" color="#ffffff" className="mr-2" />
-            )}
-            <Text className="text-base font-semibold text-white">
-              {isSubmitting ? 'Creating account...' : 'Create Account'}
-            </Text>
-          </Pressable>
-
-          <View className="mt-6 flex-row justify-center">
-            <Text className="text-sm text-gray-500">
+            <Text className="mt-4 text-center text-[18px] text-gray-700">
               Already have an account?{' '}
+              <Text className="font-bold text-leaf-700" onPress={() => router.push('/login')}>
+                Log-in
+              </Text>
             </Text>
-            <Link href="/login" asChild>
-              <Pressable>
-                <Text className="text-sm font-semibold text-leaf-700">
-                  Log in
-                </Text>
-              </Pressable>
-            </Link>
+
+            <Text className="mt-4 text-center text-[14px] text-gray-500">
+              Step 1 of 2 • Secure Platform
+            </Text>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
