@@ -13,7 +13,7 @@ import morgan from 'morgan';
 import path from 'path';
 
 import { env } from './config/env';
-import healthRoutes from './routes/health.routes';
+import authRoutes from './routes/auth.routes';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler';
 
 const app: Application = express();
@@ -64,7 +64,7 @@ app.get('/', (req: Request, res: Response) => {
   });
 });
 
-app.use('/api/health', healthRoutes);
+app.use('/api/auth', authRoutes);
 
 // Future routers are added here in later phases:
 // app.use('/api/auth', authRoutes);                 <- Phase 5
