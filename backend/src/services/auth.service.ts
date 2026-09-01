@@ -68,15 +68,12 @@ export async function registerFarmer(input: RegisterInput): Promise<AuthResult> 
       const newUserId = userResult.insertId;
 
       await connection.query<ResultSetHeader>(
-        `INSERT INTO farmers
-           (user_id, barangay, corn_type, farm_size_hectares, years_farming)
+                 `INSERT INTO farmers
+           (user_id, address, corn_type, farm_size_hectares, years_farming)
          VALUES (?, ?, ?, ?, ?)`,
         [
           newUserId,
-          input.barangay || null,
-          input.cornType ?? null,
-          input.farmSizeHectares ?? null,
-          input.yearsFarming ?? null,
+          input.address || null,
         ]
       );
 

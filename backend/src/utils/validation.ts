@@ -40,7 +40,7 @@ export const registerSchema = z.object({
 
   // Farming details. All optional so a farmer can register quickly
   // and complete their profile later.
-  barangay: z.string().trim().max(100).optional().or(z.literal('')),
+  address: z.string().trim().max(255).optional().or(z.literal('')),
   cornType: z.enum(['white', 'yellow', 'both']).optional(),
   farmSizeHectares: z.number().positive().max(9999).optional(),
   yearsFarming: z.number().int().nonnegative().max(120).optional(),
