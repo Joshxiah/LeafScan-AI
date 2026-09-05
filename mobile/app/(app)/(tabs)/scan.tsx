@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
 import { useLanguage } from '../../../src/context/LanguageContext';
-import { brand } from '../../../src/constants/theme';
+import { brand, shadows } from '../../../src/constants/theme';
 
 export default function ScanScreen() {
   const router = useRouter();
@@ -79,7 +79,8 @@ export default function ScanScreen() {
         {/* ---------- Camera ---------- */}
         <Pressable
           onPress={() => router.push('/camera')}
-          className="mt-6 flex-row items-center rounded-2xl border border-[#DFEDE3] bg-white p-5 active:bg-[#F5FAF6]"
+          className="mt-6 flex-row items-center rounded-2xl border border-[#EEF5EF] bg-white p-5 active:bg-[#F5FAF6]"
+          style={shadows.card}
         >
           <View className="h-14 w-14 items-center justify-center rounded-2xl bg-[#2F6D46]">
             <Ionicons name="camera-outline" size={26} color="#ffffff" />
@@ -101,7 +102,8 @@ export default function ScanScreen() {
         <Pressable
           onPress={handleChooseFromGallery}
           disabled={isOpeningGallery}
-          className="mt-3 flex-row items-center rounded-2xl border border-[#DFEDE3] bg-white p-5 active:bg-[#F5FAF6] disabled:opacity-70"
+          className="mt-3 flex-row items-center rounded-2xl border border-[#EEF5EF] bg-white p-5 active:bg-[#F5FAF6] disabled:opacity-70"
+          style={shadows.card}
         >
           <View className="h-14 w-14 items-center justify-center rounded-2xl bg-[#E7F4EA]">
             <Ionicons name="images-outline" size={24} color={brand.accent} />

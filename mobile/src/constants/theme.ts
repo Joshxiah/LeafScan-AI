@@ -77,6 +77,33 @@ export const brand = {
 } as const;
 
 /**
+ * Soft elevation for cards and buttons, so the app reads as a
+ * layered surface rather than flat rectangles with borders. Spread
+ * across two strengths: `card` for content cards, `raised` for the
+ * one primary action on a screen that should visually lift above
+ * everything else.
+ *
+ * React Native needs both the iOS shadow* props and Android's
+ * `elevation` - platforms ignore whichever they do not use.
+ */
+export const shadows = {
+  card: {
+    shadowColor: '#16241B',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  raised: {
+    shadowColor: '#16241B',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 18,
+    elevation: 4,
+  },
+} as const;
+
+/**
  * The four disease classes.
  *
  * These class_label values MUST match:

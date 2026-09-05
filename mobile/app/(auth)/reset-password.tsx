@@ -26,7 +26,7 @@ import { AuthTextField } from '../../src/components/AuthTextField';
 import { requestPasswordReset, resetPassword } from '../../src/services/auth.service';
 import { ApiError } from '../../src/services/api';
 import { useLanguage } from '../../src/context/LanguageContext';
-import { brand } from '../../src/constants/theme';
+import { brand, shadows } from '../../src/constants/theme';
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
@@ -94,7 +94,7 @@ export default function ResetPasswordScreen() {
       <SafeAreaView className="flex-1 bg-white" edges={['top', 'bottom']}>
         <StatusBar style="dark" />
         <View className="flex-1 items-center justify-center px-8">
-          <View className="h-16 w-16 items-center justify-center rounded-2xl bg-[#2F6D46]">
+          <View className="h-16 w-16 items-center justify-center rounded-2xl bg-[#2F6D46]" style={shadows.card}>
             <Ionicons name="checkmark" size={32} color="#ffffff" />
           </View>
           <Text className="mt-4 text-2xl font-extrabold text-[#16241B]">
@@ -106,6 +106,7 @@ export default function ResetPasswordScreen() {
           <Pressable
             onPress={() => router.replace('/login')}
             className="mt-7 h-14 w-full flex-row items-center justify-center rounded-full bg-[#2F6D46] active:bg-[#1F4E31]"
+            style={shadows.raised}
           >
             <Text className="text-base font-bold text-white">
               {t.resetPassword.backToSignIn}
@@ -141,7 +142,7 @@ export default function ResetPasswordScreen() {
 
           {/* ---------- Brand mark ---------- */}
           <View className="mb-7 mt-2 items-center">
-            <View className="h-16 w-16 items-center justify-center rounded-2xl bg-[#2F6D46]">
+            <View className="h-16 w-16 items-center justify-center rounded-2xl bg-[#2F6D46]" style={shadows.card}>
               <Ionicons name="key" size={26} color="#ffffff" />
             </View>
 
@@ -204,6 +205,7 @@ export default function ResetPasswordScreen() {
             onPress={handleResetPassword}
             disabled={isSubmitting}
             className="mt-6 h-14 flex-row items-center justify-center rounded-full bg-[#2F6D46] active:bg-[#1F4E31] disabled:opacity-70"
+            style={shadows.raised}
           >
             {isSubmitting && (
               <ActivityIndicator size="small" color="#ffffff" className="mr-2" />

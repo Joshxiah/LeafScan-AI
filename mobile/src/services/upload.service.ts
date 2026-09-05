@@ -50,7 +50,9 @@ function extractFileName(uri: string): string {
 }
 
 /**
- * Uploads one corn leaf image to the backend.
+ * Uploads one image to the backend - a corn leaf photo, a profile
+ * picture, whatever the caller is sending. POST /api/uploads does
+ * not care which; it just stores the file and hands back its path.
  *
  * Native and web disagree on how a file goes into FormData:
  *
@@ -61,7 +63,7 @@ function extractFileName(uri: string): string {
  *     hand back a blob: or data: URL, so we fetch it into a real
  *     Blob and append that instead.
  */
-export async function uploadLeafImage(imageUri: string): Promise<UploadResult> {
+export async function uploadImage(imageUri: string): Promise<UploadResult> {
   const formData = new FormData();
   const fileName = extractFileName(imageUri);
 
@@ -83,3 +85,6 @@ export async function uploadLeafImage(imageUri: string): Promise<UploadResult> {
   // received" even though a file was clearly sent.
   return uploadFile<UploadResult>('/uploads', formData);
 }
+
+/** Kept as a named alias so existing "scan a leaf" call sites read naturally. */
+export const uploadLeafImage = uploadImage;

@@ -21,7 +21,7 @@ import { SearchInput } from '../../../src/components/SearchInput';
 import { listDiseases } from '../../../src/services/disease.service';
 import { useLanguage } from '../../../src/context/LanguageContext';
 import { Disease } from '../../../src/types';
-import { brand } from '../../../src/constants/theme';
+import { brand, shadows } from '../../../src/constants/theme';
 
 /** First sentence only, so the card stays one line. */
 function firstSentence(text: string | null): string | null {
@@ -106,7 +106,8 @@ export default function LibraryScreen() {
                   params: { data: JSON.stringify(disease) },
                 })
               }
-              className="flex-row items-center rounded-2xl border border-[#DFEDE3] bg-white p-3 active:bg-[#F5FAF6]"
+              className="flex-row items-center rounded-2xl border border-[#EEF5EF] bg-white p-3 active:bg-[#F5FAF6]"
+              style={shadows.card}
             >
               <View className="h-16 w-16 items-center justify-center rounded-xl bg-[#E7F4EA]">
                 <Ionicons name="leaf" size={26} color={brand.accent} />
@@ -130,6 +131,8 @@ export default function LibraryScreen() {
                   </Text>
                 )}
               </View>
+
+              <Ionicons name="chevron-forward" size={16} color={brand.faint} />
             </Pressable>
           ))}
         </ScrollView>

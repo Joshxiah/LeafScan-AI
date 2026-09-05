@@ -30,7 +30,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/context/AuthContext';
 import { useLanguage } from '../../src/context/LanguageContext';
 import { AuthTextField } from '../../src/components/AuthTextField';
-import { brand } from '../../src/constants/theme';
+import { brand, shadows } from '../../src/constants/theme';
 
 const USERNAME_RULE = /^[a-z0-9._]+$/;
 const PHONE_RULE = /^(09\d{9}|\+639\d{9})$/;
@@ -238,6 +238,7 @@ export default function RegisterScreen() {
             onPress={handleCreateAccount}
             disabled={isSubmitting}
             className="mt-6 h-14 flex-row items-center justify-center rounded-full bg-[#2F6D46] active:bg-[#1F4E31] disabled:opacity-70"
+            style={shadows.raised}
           >
             {isSubmitting && (
               <ActivityIndicator size="small" color="#ffffff" className="mr-2" />

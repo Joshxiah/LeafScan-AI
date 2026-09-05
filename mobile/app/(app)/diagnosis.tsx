@@ -4,11 +4,13 @@
  * Route: /diagnosis?classLabel=...&confidence=...&scannedAt=...
  *
  * Reached by tapping a scan on Home or in History. The verdict
- * (which disease, what confidence) is mock data - see
- * src/data/mockScans.ts - because the AI model is not wired up
- * yet (Phase 13). Everything below the confidence card, though, is
- * real: the description and "Recommended Actions" are read live
- * from GET /api/diseases, the same source the Disease Library uses.
+ * (which disease, what confidence) came from a mock classifier at
+ * scan time - see pickMockDiagnosis() in src/data/scanStats.ts -
+ * because the AI model is not wired up yet (Phase 13), but the
+ * scan itself is real: it is read back from src/services/scanLog.ts.
+ * Everything below the confidence card is also real: the
+ * description and "Recommended Actions" are read live from
+ * GET /api/diseases, the same source the Disease Library uses.
  */
 
 import { useEffect, useMemo, useState } from 'react';
@@ -20,8 +22,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { listDiseases } from '../../src/services/disease.service';
 import { Disease } from '../../src/types';
 import { useLanguage } from '../../src/context/LanguageContext';
-import { brand } from '../../src/constants/theme';
-import { CLASS_DISPLAY_NAME, ScanClassLabel } from '../../src/data/mockScans';
+import { brand, shadows } from '../../src/constants/theme';
+import { CLASS_DISPLAY_NAME, ScanClassLabel } from '../../src/data/scanStats';
 
 export default function DiagnosisScreen() {
   const router = useRouter();
@@ -81,7 +83,10 @@ export default function DiagnosisScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* ---------- Verdict banner ---------- */}
-        <View className="flex-row items-center">
+        <View
+          className="flex-row items-center self-start rounded-full px-3 py-1.5"
+          style={{ backgroundColor: isHealthy ? '#E7F4EA' : '#FBEDED' }}
+        >
           <Ionicons
             name={isHealthy ? 'checkmark-circle' : 'warning'}
             size={14}
@@ -140,7 +145,8 @@ export default function DiagnosisScreen() {
                 params: { data: JSON.stringify(disease) },
               })
             }
-            className="mt-6 h-14 flex-row items-center justify-center rounded-full border border-[#DFEDE3] bg-white active:bg-[#F5FAF6]"
+            className="mt-6 h-14 flex-row items-center justify-center rounded-full border border-[#EEF5EF] bg-white active:bg-[#F5FAF6]"
+            style={shadows.card}
           >
             <Text className="text-[15px] font-bold text-[#16241B]">
               {t.diagnosis.viewTreatmentPlan}
@@ -156,7 +162,7 @@ function ActionCard({ text }: { text: string }) {
   return (
     <View
       className="rounded-xl bg-white px-4 py-3.5"
-      style={{ borderLeftWidth: 3, borderLeftColor: brand.accent }}
+      style={[{ borderLeftWidth: 3, borderLeftColor: brand.accent }, shadows.card]}
     >
       <Text className="text-[13px] leading-5 text-[#16241B]">{text}</Text>
     </View>

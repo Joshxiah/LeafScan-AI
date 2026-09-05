@@ -58,6 +58,7 @@ function createDemoUser(
     username: cleanUsername,
     email: null,
     phoneNumber: extra.phoneNumber?.trim() || null,
+    avatarPath: null,
     role: 'farmer',
     isActive: true,
     createdAt: new Date().toISOString(),

@@ -26,7 +26,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/context/AuthContext';
 import { useLanguage } from '../../src/context/LanguageContext';
 import { AuthTextField } from '../../src/components/AuthTextField';
-import { brand } from '../../src/constants/theme';
+import { brand, shadows } from '../../src/constants/theme';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -88,7 +88,7 @@ export default function LoginScreen() {
 
           {/* ---------- Brand mark ---------- */}
           <View className="mb-7 mt-2 items-center">
-            <View className="h-16 w-16 items-center justify-center rounded-2xl bg-[#2F6D46]">
+            <View className="h-16 w-16 items-center justify-center rounded-2xl bg-[#2F6D46]" style={shadows.card}>
               <Ionicons name="leaf" size={30} color="#ffffff" />
             </View>
 
@@ -148,6 +148,7 @@ export default function LoginScreen() {
             onPress={handleSignIn}
             disabled={isSubmitting}
             className="mt-6 h-14 flex-row items-center justify-center rounded-full bg-[#2F6D46] active:bg-[#1F4E31] disabled:opacity-70"
+            style={shadows.raised}
           >
             {isSubmitting && (
               <ActivityIndicator size="small" color="#ffffff" className="mr-2" />

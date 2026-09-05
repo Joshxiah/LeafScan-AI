@@ -6,9 +6,10 @@
  * Shows the chosen image and lets the farmer retake it or send it.
  * In Phase 13 the upload here is replaced by a call to
  * POST /api/detections, which uploads AND runs the AI model in one
- * request. Until then, "Done" hands off to a mock classifier - see
- * pickMockDiagnosis() in src/data/mockScans.ts - so the app still
- * has a Diagnosis screen to show.
+ * request. Until then, "View Diagnosis" hands off to a mock
+ * classifier - see pickMockDiagnosis() in src/data/scanStats.ts -
+ * and the result is logged to src/services/scanLog.ts, so it is
+ * still there the next time Home or History load.
  */
 
 import { useState } from 'react';
@@ -26,7 +27,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { uploadLeafImage, UploadResult } from '../../src/services/upload.service';
 import { ApiError } from '../../src/services/api';
 import { goToDiagnosis } from '../../src/navigation/diagnosis';
-import { pickMockDiagnosis } from '../../src/data/mockScans';
+import { pickMockDiagnosis } from '../../src/data/scanStats';
+import { addScan } from '../../src/services/scanLog';
 import { useLanguage } from '../../src/context/LanguageContext';
 
 export default function PreviewScreen() {
@@ -83,13 +85,10 @@ export default function PreviewScreen() {
     }
   }
 
-  function handleDone() {
+  async function handleDone() {
     const { classLabel, confidence } = pickMockDiagnosis();
-    goToDiagnosis(
-      router,
-      { id: 'live', classLabel, confidence, scannedAt: new Date() },
-      { replace: true }
-    );
+    const scan = await addScan({ classLabel, confidence, scannedAt: new Date() });
+    goToDiagnosis(router, scan, { replace: true });
   }
 
   return (

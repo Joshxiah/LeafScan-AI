@@ -29,7 +29,7 @@ import { AuthTextField } from '../../src/components/AuthTextField';
 import { requestPasswordReset } from '../../src/services/auth.service';
 import { ApiError } from '../../src/services/api';
 import { useLanguage } from '../../src/context/LanguageContext';
-import { brand } from '../../src/constants/theme';
+import { brand, shadows } from '../../src/constants/theme';
 
 const PHONE_RULE = /^(09\d{9}|\+639\d{9})$/;
 
@@ -97,7 +97,7 @@ export default function ForgotPasswordScreen() {
 
           {/* ---------- Brand mark ---------- */}
           <View className="mb-7 mt-2 items-center">
-            <View className="h-16 w-16 items-center justify-center rounded-2xl bg-[#2F6D46]">
+            <View className="h-16 w-16 items-center justify-center rounded-2xl bg-[#2F6D46]" style={shadows.card}>
               <Ionicons name="lock-closed" size={28} color="#ffffff" />
             </View>
 
@@ -132,6 +132,7 @@ export default function ForgotPasswordScreen() {
             onPress={handleSendCode}
             disabled={isSubmitting}
             className="mt-6 h-14 flex-row items-center justify-center rounded-full bg-[#2F6D46] active:bg-[#1F4E31] disabled:opacity-70"
+            style={shadows.raised}
           >
             {isSubmitting && (
               <ActivityIndicator size="small" color="#ffffff" className="mr-2" />

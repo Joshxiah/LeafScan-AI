@@ -23,6 +23,7 @@ export interface UserRow extends RowDataPacket {
   username: string;
   email: string | null;
   phone_number: string | null;
+  avatar_path: string | null;
   password_hash: string;
   role: UserRole;
   is_active: number; // MySQL TINYINT(1) arrives as 0 or 1
@@ -58,6 +59,8 @@ export interface PublicUser {
   username: string;
   email: string | null;
   phoneNumber: string | null;
+  /** Relative path (e.g. "uploads/avatar-123.jpg"), not a full URL. */
+  avatarPath: string | null;
   role: UserRole;
   isActive: boolean;
   createdAt: Date;
@@ -91,6 +94,7 @@ export function toPublicUser(row: UserRow): PublicUser {
     username: row.username,
     email: row.email,
     phoneNumber: row.phone_number,
+    avatarPath: row.avatar_path,
     role: row.role,
     isActive: row.is_active === 1,
     createdAt: row.created_at,

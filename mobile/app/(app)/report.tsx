@@ -3,19 +3,19 @@
  *
  * Route: /report
  *
- * Summarises the farmer's recent scans (src/data/mockScans.ts -
+ * Summarises the farmer's real scan log (src/services/scanLog.ts -
  * same source as Home and History, so the numbers here can never
  * disagree with what those screens show) and lets the farmer add
  * the two things only they know: how much of the field is affected,
- * and any remarks.
+ * and any remarks. With nothing scanned yet, there is nothing
+ * honest to summarise, so this screen says so instead of reporting
+ * zeroes to the CAO.
  *
- * There is no POST /api/reports yet, so Submit moves straight to
- * the confirmation screen. Wiring a real submission is a later
- * phase - see backend/src/controllers/upload.controller.ts for how
- * the rest of this app marks that kind of "not built yet" boundary.
+ * Submit really does call POST /api/reports - the CAO sees this on
+ * their Reports page, filed under the signed-in farmer's account.
  */
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -23,18 +23,23 @@ import {
   Pressable,
   ScrollView,
   KeyboardAvoidingView,
+  ActivityIndicator,
   Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '../../src/context/AuthContext';
 import { useLanguage } from '../../src/context/LanguageContext';
-import { brand } from '../../src/constants/theme';
+import { brand, shadows } from '../../src/constants/theme';
 import { StatCard } from '../../src/components/StatCard';
-import { RECENT_SCANS, summariseScans } from '../../src/data/mockScans';
+import EmptyState from '../../src/components/EmptyState';
+import { getScanLog, ScanEntry } from '../../src/services/scanLog';
+import { summariseScans } from '../../src/data/scanStats';
+import { submitReport } from '../../src/services/report.service';
+import { ApiError } from '../../src/services/api';
 
 export default function ReportScreen() {
   const router = useRouter();
@@ -43,43 +48,109 @@ export default function ReportScreen() {
 
   const [estimatedArea, setEstimatedArea] = useState('');
   const [remarks, setRemarks] = useState('');
+  const [scans, setScans] = useState<ScanEntry[] | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const summary = summariseScans(RECENT_SCANS);
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+      getScanLog().then((log) => {
+        if (isMounted) setScans(log);
+      });
+      return () => {
+        isMounted = false;
+      };
+    }, [])
+  );
 
   const profile = user?.farmerProfile;
   const locationLine = profile?.address
     ? `${profile.address}, ${profile.municipality ?? 'Pagadian City'}`
     : (profile?.municipality ?? 'Pagadian City');
 
-  function handleSubmit() {
-    router.replace('/report-success');
+  const header = (
+    <View className="bg-[#2F6D46] px-5 pb-5 pt-14">
+      <Pressable
+        onPress={() => router.back()}
+        hitSlop={10}
+        className="flex-row items-center self-start active:opacity-80"
+      >
+        <Ionicons name="arrow-back" size={20} color="#ffffff" />
+        <Text className="ml-1 text-[15px] font-semibold text-white">{t.common.back}</Text>
+      </Pressable>
+
+      <View className="mt-4 flex-row items-center">
+        <Ionicons name="location" size={16} color="#ffffff" />
+        <Text className="ml-1.5 text-[17px] font-extrabold text-white">
+          {locationLine}
+        </Text>
+      </View>
+      <Text className="ml-[22px] mt-0.5 text-[12px] text-white/70">
+        {t.report.province}
+      </Text>
+    </View>
+  );
+
+  if (!scans) {
+    return (
+      <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={['bottom']}>
+        <StatusBar style="light" />
+        {header}
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator color={brand.accent} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (scans.length === 0) {
+    return (
+      <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={['bottom']}>
+        <StatusBar style="light" />
+        {header}
+        <EmptyState
+          icon="paper-plane-outline"
+          title={t.home.emptyTitle}
+          message={t.home.emptyMessage}
+          actionLabel={t.home.emptyAction}
+          onAction={() => router.push('/scan')}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  const summary = summariseScans(scans);
+
+  async function handleSubmit() {
+    setErrorMessage(null);
+    setIsSubmitting(true);
+
+    try {
+      await submitReport({
+        barangay: profile?.address ?? undefined,
+        municipality: profile?.municipality ?? undefined,
+        totalScans: summary.total,
+        affectedScans: summary.affected,
+        healthyScans: summary.healthy,
+        diseaseBreakdown: summary.breakdown,
+        estimatedAreaHectares: estimatedArea ? Number(estimatedArea) : undefined,
+        remarks: remarks.trim() || undefined,
+      });
+      router.replace('/report-success');
+    } catch (error) {
+      setErrorMessage(
+        error instanceof ApiError ? error.message : t.report.errorGeneric
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
     <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={['bottom']}>
       <StatusBar style="light" />
-
-      {/* ---------- Green header ---------- */}
-      <View className="bg-[#2F6D46] px-5 pb-5 pt-14">
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={10}
-          className="flex-row items-center self-start active:opacity-80"
-        >
-          <Ionicons name="arrow-back" size={20} color="#ffffff" />
-          <Text className="ml-1 text-[15px] font-semibold text-white">{t.common.back}</Text>
-        </Pressable>
-
-        <View className="mt-4 flex-row items-center">
-          <Ionicons name="location" size={16} color="#ffffff" />
-          <Text className="ml-1.5 text-[17px] font-extrabold text-white">
-            {locationLine}
-          </Text>
-        </View>
-        <Text className="ml-[22px] mt-0.5 text-[12px] text-white/70">
-          {t.report.province}
-        </Text>
-      </View>
+      {header}
 
       <KeyboardAvoidingView
         className="flex-1"
@@ -108,35 +179,40 @@ export default function ReportScreen() {
           </View>
 
           {/* ---------- Breakdown ---------- */}
-          <Text className="mb-2.5 mt-6 text-[11px] font-bold tracking-wide text-[#9BAAA1]">
-            {t.report.breakdownTitle}
-          </Text>
-          <View className="gap-2.5">
-            {summary.breakdown.map((item) => (
-              <View
-                key={item.classLabel}
-                className="flex-row items-center justify-between rounded-2xl border border-[#DFEDE3] bg-white px-4 py-3.5"
-              >
-                <View>
-                  <Text className="text-[14px] font-bold text-[#16241B]">
-                    {item.displayName}
-                  </Text>
-                  <Text className="mt-0.5 text-[12px] text-[#9BAAA1]">
-                    {t.report.plantsScanned(item.count)}
-                  </Text>
-                </View>
-                <Text className="text-[13px] font-extrabold text-[#D64545]">
-                  {t.report.affected(item.count)}
-                </Text>
+          {summary.breakdown.length > 0 && (
+            <>
+              <Text className="mb-2.5 mt-6 text-[11px] font-bold tracking-wide text-[#9BAAA1]">
+                {t.report.breakdownTitle}
+              </Text>
+              <View className="gap-2.5">
+                {summary.breakdown.map((item) => (
+                  <View
+                    key={item.classLabel}
+                    className="flex-row items-center justify-between rounded-2xl border border-[#EEF5EF] bg-white px-4 py-3.5"
+                    style={shadows.card}
+                  >
+                    <View>
+                      <Text className="text-[14px] font-bold text-[#16241B]">
+                        {item.displayName}
+                      </Text>
+                      <Text className="mt-0.5 text-[12px] text-[#9BAAA1]">
+                        {t.report.plantsScanned(item.count)}
+                      </Text>
+                    </View>
+                    <Text className="text-[13px] font-extrabold text-[#D64545]">
+                      {t.report.affected(item.count)}
+                    </Text>
+                  </View>
+                ))}
               </View>
-            ))}
-          </View>
+            </>
+          )}
 
           {/* ---------- Report details ---------- */}
           <Text className="mb-2.5 mt-6 text-[11px] font-bold tracking-wide text-[#9BAAA1]">
             {t.report.detailsTitle}
           </Text>
-          <View className="rounded-2xl border border-[#DFEDE3] bg-white px-4">
+          <View className="rounded-2xl border border-[#EEF5EF] bg-white px-4" style={shadows.card}>
             <View className="flex-row items-center justify-between border-b border-[#EEF5EF] py-3.5">
               <Text className="text-[13px] text-[#9BAAA1]">{t.report.estimatedArea}</Text>
               <View className="flex-row items-center">
@@ -174,18 +250,28 @@ export default function ReportScreen() {
             multiline
             numberOfLines={4}
             textAlignVertical="top"
-            className="rounded-2xl border border-[#DFEDE3] bg-white px-4 py-3.5 text-[13px] text-[#16241B]"
-            style={{ minHeight: 96 }}
+            className="rounded-2xl border border-[#EEF5EF] bg-white px-4 py-3.5 text-[13px] text-[#16241B]"
+            style={[{ minHeight: 96 }, shadows.card]}
           />
+
+          {errorMessage && (
+            <Text className="ml-1 mt-4 text-[13px] text-[#D64545]">{errorMessage}</Text>
+          )}
 
           {/* ---------- Submit ---------- */}
           <Pressable
             onPress={handleSubmit}
-            className="mt-6 h-14 flex-row items-center justify-center rounded-full bg-[#2F6D46] active:bg-[#1F4E31]"
+            disabled={isSubmitting}
+            className="mt-4 h-14 flex-row items-center justify-center rounded-full bg-[#2F6D46] active:bg-[#1F4E31] disabled:opacity-70"
+            style={shadows.raised}
           >
-            <Ionicons name="paper-plane-outline" size={17} color="#ffffff" />
+            {isSubmitting ? (
+              <ActivityIndicator size="small" color="#ffffff" className="mr-2" />
+            ) : (
+              <Ionicons name="paper-plane-outline" size={17} color="#ffffff" />
+            )}
             <Text className="ml-2 text-[15px] font-bold text-white">
-              {t.report.submit}
+              {isSubmitting ? t.report.submitting : t.report.submit}
             </Text>
           </Pressable>
         </ScrollView>

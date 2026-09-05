@@ -2,11 +2,12 @@
  * Authentication routes for LeafScan AI.
  *
  * Mounted at /api/auth in app.ts, so the paths below become:
- *   POST /api/auth/register
- *   POST /api/auth/login
- *   POST /api/auth/forgot-password
- *   POST /api/auth/reset-password
- *   GET  /api/auth/me
+ *   POST  /api/auth/register
+ *   POST  /api/auth/login
+ *   POST  /api/auth/forgot-password
+ *   POST  /api/auth/reset-password
+ *   GET   /api/auth/me
+ *   PATCH /api/auth/me
  */
 
 import { Router } from 'express';
@@ -29,13 +30,13 @@ router.post('/login', authController.login);
 
 /**
  * POST /api/auth/forgot-password
- * PUBLIC - a locked-out user has no token. Sends a reset code by email.
+ * PUBLIC - a locked-out user has no token. Texts a reset code by SMS.
  */
 router.post('/forgot-password', authController.forgotPassword);
 
 /**
  * POST /api/auth/reset-password
- * PUBLIC - the emailed code is the credential here.
+ * PUBLIC - the texted code is the credential here.
  */
 router.post('/reset-password', authController.resetPassword);
 
@@ -45,5 +46,11 @@ router.post('/reset-password', authController.resetPassword);
  * with 401 if no valid token is present.
  */
 router.get('/me', authenticate, authController.getCurrentUser);
+
+/**
+ * PATCH /api/auth/me
+ * PROTECTED - a user editing their own profile from Settings.
+ */
+router.patch('/me', authenticate, authController.updateProfile);
 
 export default router;

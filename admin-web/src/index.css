@@ -28,6 +28,20 @@
   --color-risk-low: #84cc16;
   --color-risk-moderate: #f59e0b;
   --color-risk-high: #dc2626;
+
+  /**
+   * Status palette for risk-level colour, chosen for real
+   * distinguishability rather than by eye: validated with the
+   * dataviz skill's contrast/colour-blindness checker
+   * (worst-case ΔE clears the CVD floor; every step pairs with a
+   * text label per the "relief rule", never colour alone).
+   * none -> low -> moderate -> high maps onto good -> warning ->
+   * serious -> critical.
+   */
+  --color-status-good: #0ca30c;
+  --color-status-warning: #fab219;
+  --color-status-serious: #ec835a;
+  --color-status-critical: #d03b3b;
 }
 
 /* Sensible page defaults */

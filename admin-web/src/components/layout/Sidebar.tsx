@@ -17,14 +17,14 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', path: '/dashboard', icon: '▦' },
+  { label: 'Reports', path: '/reports', icon: '📊' },
   { label: 'Farmers', path: '/farmers', icon: '👥', phase: 20 },
   { label: 'Detections', path: '/detections', icon: '🔬', phase: 16 },
   { label: 'Diseases', path: '/diseases', icon: '🌿', phase: 21 },
   { label: 'Recommendations', path: '/recommendations', icon: '💊', phase: 22 },
-  { label: 'Reports', path: '/reports', icon: '📊', phase: 23 },
 ];
 
-export function Sidebar() {
+export function Sidebar({ pendingReports }: { pendingReports?: number }) {
   return (
     <aside className="flex w-64 shrink-0 flex-col bg-leaf-800">
       {/* ---------- Brand ---------- */}
@@ -66,7 +66,12 @@ export function Sidebar() {
               }
             >
               <span className="w-5 text-center text-sm">{item.icon}</span>
-              <span className="text-sm font-medium">{item.label}</span>
+              <span className="flex-1 text-sm font-medium">{item.label}</span>
+              {item.path === '/reports' && !!pendingReports && (
+                <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-leaf-900">
+                  {pendingReports}
+                </span>
+              )}
             </NavLink>
           )
         )}

@@ -16,13 +16,23 @@ export interface DashboardStatistics {
   diseasedScans: number;
   highRiskScans: number;
   scansToday: number;
+  pendingReports: number;
+  totalReports: number;
   diseaseBreakdown: DiseaseCount[];
+  scanTrend: ScanTrendPoint[];
   recentDetections: RecentDetection[];
 }
 
 export interface DiseaseCount {
   classLabel: string;
   displayName: string;
+  count: number;
+  riskLevel: 'none' | 'low' | 'moderate' | 'high';
+}
+
+/** One day's scan count, for the "scans over time" trend chart. */
+export interface ScanTrendPoint {
+  date: string;
   count: number;
 }
 
@@ -34,6 +44,28 @@ export interface RecentDetection {
   confidenceScore: number;
   riskLevel: string;
   detectedAt: string;
+}
+
+/** How many days of history the trend chart covers. */
+const TREND_DAYS = 14;
+
+/**
+ * Fills in zero-count days, so the trend chart always has a full,
+ * continuous run of days even when nothing was scanned on some of
+ * them - a query alone would just omit those days entirely.
+ */
+function buildTrend(rows: { day: string; count: number }[]): ScanTrendPoint[] {
+  const countByDay = new Map(rows.map((r) => [r.day, r.count]));
+  const points: ScanTrendPoint[] = [];
+
+  for (let i = TREND_DAYS - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    points.push({ date: key, count: countByDay.get(key) ?? 0 });
+  }
+
+  return points;
 }
 
 /**
@@ -49,7 +81,9 @@ export async function getStatistics(): Promise<DashboardStatistics> {
     healthyRows,
     riskRows,
     todayRows,
+    reportRows,
     breakdownRows,
+    trendRows,
     recentRows,
   ] = await Promise.all([
     // Total registered farmers
@@ -82,14 +116,31 @@ export async function getStatistics(): Promise<DashboardStatistics> {
        WHERE DATE(detected_at) = CURDATE()`
     ),
 
+    // Reports awaiting CAO attention, and the all-time total
+    pool.query<RowDataPacket[]>(
+      `SELECT
+         COUNT(*)                                        AS total,
+         SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending
+       FROM reports`
+    ),
+
     // How many scans per disease class.
     // LEFT JOIN so a disease with zero detections still appears.
     pool.query<RowDataPacket[]>(
-      `SELECT dis.class_label, dis.display_name, COUNT(d.id) AS count
+      `SELECT dis.class_label, dis.display_name, dis.default_risk_level, COUNT(d.id) AS count
        FROM diseases dis
        LEFT JOIN detections d ON d.disease_id = dis.id
-       GROUP BY dis.id, dis.class_label, dis.display_name
+       GROUP BY dis.id, dis.class_label, dis.display_name, dis.default_risk_level
        ORDER BY dis.class_label`
+    ),
+
+    // Scans per day, for the last two weeks
+    pool.query<RowDataPacket[]>(
+      `SELECT DATE(detected_at) AS day, COUNT(*) AS count
+       FROM detections
+       WHERE detected_at >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
+       GROUP BY DATE(detected_at)`,
+      [TREND_DAYS - 1]
     ),
 
     // The ten most recent scans
@@ -125,11 +176,25 @@ export async function getStatistics(): Promise<DashboardStatistics> {
     highRiskScans: Number(riskRows[0][0].total),
     scansToday: Number(todayRows[0][0].total),
 
+    totalReports: Number(reportRows[0][0].total ?? 0),
+    pendingReports: Number(reportRows[0][0].pending ?? 0),
+
     diseaseBreakdown: breakdownRows[0].map((row) => ({
       classLabel: row.class_label,
       displayName: row.display_name,
       count: Number(row.count),
+      riskLevel: row.default_risk_level,
     })),
+
+    scanTrend: buildTrend(
+      trendRows[0].map((row) => ({
+        // mysql2 returns DATE columns as JS Date objects (in the
+        // pool's configured UTC timezone) - format to "YYYY-MM-DD"
+        // so it matches the keys buildTrend generates.
+        day: new Date(row.day).toISOString().slice(0, 10),
+        count: Number(row.count),
+      }))
+    ),
 
     recentDetections: recentRows[0].map((row) => ({
       id: row.id,

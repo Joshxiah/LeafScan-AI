@@ -3,39 +3,39 @@
  *
  * Route: /home
  *
- * Scan Activity, the Healthy/Diseased split, Disease Distribution
- * and Recent Scans all read from src/data/mockScans.ts. That file
- * is the ONE place these numbers come from, so a stat card and the
- * chart beside it can never disagree - see its header comment for
- * why this is mock data rather than a live endpoint.
+ * Everything here is derived from the farmer's real, on-device
+ * scan log (src/services/scanLog.ts) - refreshed every time this
+ * screen gains focus, so it is always current right after a scan.
+ * A farmer who has not scanned yet sees an honest "get started"
+ * state instead of a dashboard full of numbers that never happened.
  */
 
-import { useMemo, useState } from 'react';
-import { View, Text, Pressable, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import { View, Text, Pressable, ScrollView, ActivityIndicator } from 'react-native';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '../../../src/context/AuthContext';
 import { useLanguage } from '../../../src/context/LanguageContext';
-import { brand } from '../../../src/constants/theme';
+import { brand, shadows } from '../../../src/constants/theme';
 import { StatCard } from '../../../src/components/StatCard';
 import { WeeklyBarChart } from '../../../src/components/WeeklyBarChart';
 import { DonutChart } from '../../../src/components/DonutChart';
 import { ScanListItem } from '../../../src/components/ScanListItem';
 import { FilterPills } from '../../../src/components/FilterPills';
 import { goToDiagnosis } from '../../../src/navigation/diagnosis';
+import { getScanLog, ScanEntry } from '../../../src/services/scanLog';
 import {
-  ACTIVITY_BY_RANGE,
-  ACTIVITY_CHANGE_PERCENT,
   ActivityRange,
   CLASS_DISPLAY_NAME,
-  RECENT_SCANS,
   bucketOf,
+  buildActivity,
+  changeVsPreviousPeriod,
   isHealthy,
   timeLabelFor,
   summariseActivity,
-} from '../../../src/data/mockScans';
+} from '../../../src/data/scanStats';
 
 const RANGES: ActivityRange[] = ['Weekly', 'Monthly'];
 const RECENT_COUNT = 4;
@@ -45,6 +45,21 @@ export default function HomeScreen() {
   const { user } = useAuth();
   const { t } = useLanguage();
   const [range, setRange] = useState<ActivityRange>('Weekly');
+  const [scans, setScans] = useState<ScanEntry[] | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+      getScanLog().then((log) => {
+        if (isMounted) setScans(log);
+      });
+      return () => {
+        isMounted = false;
+      };
+    }, [])
+  );
+
+  const firstName = user?.fullName?.split(' ')[0] ?? 'Farmer';
 
   const rangeLabels: Record<ActivityRange, string> = {
     Weekly: t.home.weekly,
@@ -57,19 +72,112 @@ export default function HomeScreen() {
     'Last Week': t.common.bucketLastWeek,
   } as const;
 
-  const firstName = user?.fullName?.split(' ')[0] ?? 'Farmer';
-
-  const activity = ACTIVITY_BY_RANGE[range];
+  const activity = useMemo(
+    () => (scans ? buildActivity(scans, range) : []),
+    [scans, range]
+  );
   const summary = useMemo(() => summariseActivity(activity), [activity]);
+  const changePercent = useMemo(
+    () => (scans ? changeVsPreviousPeriod(scans, range) : null),
+    [scans, range]
+  );
 
   const recentScans = useMemo(
     () =>
-      [...RECENT_SCANS]
-        .sort((a, b) => b.scannedAt.getTime() - a.scannedAt.getTime())
-        .slice(0, RECENT_COUNT),
-    []
+      scans
+        ? [...scans].sort((a, b) => b.scannedAt.getTime() - a.scannedAt.getTime()).slice(0, RECENT_COUNT)
+        : [],
+    [scans]
   );
 
+  // ---------- Still loading the log ----------
+  if (!scans) {
+    return (
+      <SafeAreaView className="flex-1 items-center justify-center bg-[#F5FAF6]">
+        <ActivityIndicator color={brand.accent} />
+      </SafeAreaView>
+    );
+  }
+
+  // ---------- Nothing scanned yet ----------
+  if (scans.length === 0) {
+    return (
+      <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={['top']}>
+        <ScrollView
+          contentContainerClassName="grow px-6 pb-10 pt-5"
+          showsVerticalScrollIndicator={false}
+        >
+          <View className="flex-row items-start justify-between">
+            <View>
+              <Text className="text-[13px] text-[#9BAAA1]">{t.home.goodDay}</Text>
+              <Text className="mt-0.5 text-2xl font-extrabold text-[#16241B]">
+                {firstName}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => router.push('/settings')}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Open settings"
+              className="h-10 w-10 items-center justify-center rounded-full bg-white active:bg-[#EEF5EF]"
+              style={shadows.card}
+            >
+              <Ionicons name="person-outline" size={18} color={brand.accent} />
+            </Pressable>
+          </View>
+
+          <View className="flex-1 items-center justify-center py-10">
+            <View
+              className="h-24 w-24 items-center justify-center rounded-3xl bg-[#E7F4EA]"
+              style={shadows.card}
+            >
+              <Ionicons name="scan-outline" size={44} color={brand.accent} />
+            </View>
+
+            <Text className="mt-6 text-xl font-extrabold text-[#16241B]">
+              {t.home.emptyTitle}
+            </Text>
+            <Text className="mt-2 max-w-[280px] text-center text-[13px] leading-5 text-[#6C8073]">
+              {t.home.emptyMessage}
+            </Text>
+
+            <Pressable
+              onPress={() => router.push('/scan')}
+              className="mt-7 h-14 flex-row items-center justify-center rounded-full bg-[#2F6D46] px-8 active:bg-[#1F4E31]"
+              style={shadows.raised}
+            >
+              <Ionicons name="camera-outline" size={18} color="#ffffff" />
+              <Text className="ml-2 text-[15px] font-bold text-white">
+                {t.home.emptyAction}
+              </Text>
+            </Pressable>
+          </View>
+
+          {/* ---------- Diseases we can identify, so the empty state still teaches something ---------- */}
+          <Pressable
+            onPress={() => router.push('/library')}
+            className="flex-row items-center rounded-2xl border border-[#EEF5EF] bg-white p-4 active:bg-[#F5FAF6]"
+            style={shadows.card}
+          >
+            <View className="h-11 w-11 items-center justify-center rounded-xl bg-[#E7F4EA]">
+              <Ionicons name="book-outline" size={20} color={brand.accent} />
+            </View>
+            <View className="ml-3.5 flex-1">
+              <Text className="text-[14px] font-bold text-[#16241B]">
+                {t.tabs.library}
+              </Text>
+              <Text className="mt-0.5 text-[12px] text-[#9BAAA1]">
+                {t.home.libraryTeaser}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={brand.faint} />
+          </Pressable>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  // ---------- Dashboard ----------
   return (
     <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={['top']}>
       <ScrollView
@@ -91,6 +199,7 @@ export default function HomeScreen() {
             accessibilityRole="button"
             accessibilityLabel="Open settings"
             className="h-10 w-10 items-center justify-center rounded-full bg-white active:bg-[#EEF5EF]"
+            style={shadows.card}
           >
             <Ionicons name="person-outline" size={18} color={brand.accent} />
           </Pressable>
@@ -107,17 +216,27 @@ export default function HomeScreen() {
         </View>
 
         {/* ---------- Scan Activity ---------- */}
-        <View className="mt-4 rounded-2xl border border-[#DFEDE3] bg-white p-5">
+        <View className="mt-4 rounded-2xl border border-[#EEF5EF] bg-white p-5" style={shadows.card}>
           <View className="flex-row items-center justify-between">
             <Text className="text-[11px] font-bold tracking-wide text-[#9BAAA1]">
               {t.home.scanActivity}
             </Text>
-            <View className="flex-row items-center">
-              <Ionicons name="trending-up" size={13} color={brand.accent} />
-              <Text className="ml-1 text-[12px] font-bold text-[#2F6D46]">
-                +{ACTIVITY_CHANGE_PERCENT[range]}%
-              </Text>
-            </View>
+            {changePercent !== null && (
+              <View className="flex-row items-center">
+                <Ionicons
+                  name={changePercent >= 0 ? 'trending-up' : 'trending-down'}
+                  size={13}
+                  color={changePercent >= 0 ? brand.accent : '#D64545'}
+                />
+                <Text
+                  className="ml-1 text-[12px] font-bold"
+                  style={{ color: changePercent >= 0 ? brand.accent : '#D64545' }}
+                >
+                  {changePercent >= 0 ? '+' : ''}
+                  {changePercent}%
+                </Text>
+              </View>
+            )}
           </View>
 
           <View className="mt-1.5 flex-row items-baseline">
@@ -150,24 +269,30 @@ export default function HomeScreen() {
         </View>
 
         {/* ---------- Disease Distribution ---------- */}
-        <View className="mt-4 rounded-2xl border border-[#DFEDE3] bg-white p-5">
+        <View className="mt-4 rounded-2xl border border-[#EEF5EF] bg-white p-5" style={shadows.card}>
           <Text className="text-[11px] font-bold tracking-wide text-[#9BAAA1]">
             {t.home.diseaseDistribution}
           </Text>
 
-          <View className="mt-3 flex-row items-center">
-            <DonutChart
-              segments={[
-                { value: summary.healthy, color: brand.accent },
-                { value: summary.diseased, color: '#D64545' },
-              ]}
-            />
+          {summary.total === 0 ? (
+            <Text className="mt-3 text-[13px] leading-5 text-[#6C8073]">
+              {t.home.noActivityInRange}
+            </Text>
+          ) : (
+            <View className="mt-3 flex-row items-center">
+              <DonutChart
+                segments={[
+                  { value: summary.healthy, color: brand.accent },
+                  { value: summary.diseased, color: '#D64545' },
+                ]}
+              />
 
-            <View className="ml-6 flex-1 gap-2.5">
-              <LegendRow color={brand.accent} label={t.home.healthy} percent={summary.healthyPercent} />
-              <LegendRow color="#D64545" label={t.home.diseased} percent={summary.diseasedPercent} />
+              <View className="ml-6 flex-1 gap-2.5">
+                <LegendRow color={brand.accent} label={t.home.healthy} percent={summary.healthyPercent} />
+                <LegendRow color="#D64545" label={t.home.diseased} percent={summary.diseasedPercent} />
+              </View>
             </View>
-          </View>
+          )}
         </View>
 
         {/* ---------- Recent Scans ---------- */}
@@ -189,6 +314,7 @@ export default function HomeScreen() {
                 subtitle={`${t.common.corn} | ${timeLabelFor(scan) ?? bucketLabels[bucketOf(scan)]}`}
                 confidence={scan.confidence}
                 healthy={isHealthy(scan)}
+                healthyLabel={t.home.healthy}
                 onPress={() => goToDiagnosis(router, scan)}
               />
             ))}

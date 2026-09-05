@@ -17,7 +17,7 @@ import { ApiError } from '../utils/ApiError';
 import { hashPassword, verifyPassword } from '../utils/password';
 import { generateToken } from '../utils/jwt';
 import { sendSms } from '../utils/sms';
-import { RegisterInput, LoginInput, normalizePhone } from '../utils/validation';
+import { RegisterInput, LoginInput, UpdateProfileInput, normalizePhone } from '../utils/validation';
 import {
   UserRow,
   FarmerRow,
@@ -183,6 +183,81 @@ export async function getUserById(userId: number): Promise<PublicUserWithProfile
     ...publicUser,
     farmerProfile: farmerRow ? toPublicFarmerProfile(farmerRow) : null,
   };
+}
+
+/**
+ * Edits the signed-in user's own profile (Settings screen). Only
+ * touches what was actually sent: a field left out of the request
+ * is left alone, but a field sent as '' clears it.
+ *
+ * address/cornType only make sense for a farmer account - they are
+ * quietly ignored for an admin rather than raising an error, since
+ * the client always sends whichever fields its form shows.
+ */
+export async function updateProfile(
+  userId: number,
+  role: 'farmer' | 'admin',
+  input: UpdateProfileInput
+): Promise<PublicUserWithProfile> {
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    if (input.phoneNumber !== undefined) {
+      const phoneNumber = normalizePhone(input.phoneNumber);
+
+      const [existing] = await connection.query<UserRow[]>(
+        'SELECT id FROM users WHERE phone_number = ? AND id != ? LIMIT 1',
+        [phoneNumber, userId]
+      );
+
+      if (existing.length > 0) {
+        throw ApiError.conflict('That mobile number is already registered');
+      }
+
+      await connection.query('UPDATE users SET phone_number = ? WHERE id = ?', [
+        phoneNumber,
+        userId,
+      ]);
+    }
+
+    if (input.avatarPath !== undefined) {
+      await connection.query('UPDATE users SET avatar_path = ? WHERE id = ?', [
+        input.avatarPath || null,
+        userId,
+      ]);
+    }
+
+    if (role === 'farmer' && (input.address !== undefined || input.cornType !== undefined)) {
+      const sets: string[] = [];
+      const params: (string | null)[] = [];
+
+      if (input.address !== undefined) {
+        sets.push('address = ?');
+        params.push(input.address || null);
+      }
+
+      if (input.cornType !== undefined) {
+        sets.push('corn_type = ?');
+        params.push(input.cornType);
+      }
+
+      await connection.query(
+        `UPDATE farmers SET ${sets.join(', ')} WHERE user_id = ?`,
+        [...params, userId]
+      );
+    }
+
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+
+  return getUserById(userId);
 }
 
 // ============================================================

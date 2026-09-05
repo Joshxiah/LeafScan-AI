@@ -8,11 +8,11 @@
  */
 
 import type { Router } from 'expo-router';
-import { MockScan } from '../data/mockScans';
+import { ScanEntry } from '../services/scanLog';
 
 export function goToDiagnosis(
   router: Router,
-  scan: MockScan,
+  scan: ScanEntry,
   options: { replace?: boolean } = {}
 ): void {
   const target = {

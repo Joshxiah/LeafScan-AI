@@ -14,16 +14,9 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Disease, RiskLevel } from '../../src/types';
+import { Disease } from '../../src/types';
 import { useLanguage } from '../../src/context/LanguageContext';
 import { brand } from '../../src/constants/theme';
-
-const RISK_STYLE: Record<RiskLevel, { bg: string; fg: string }> = {
-  none: { bg: '#E7F4EA', fg: '#2F6D46' },
-  low: { bg: '#EEF6E0', fg: '#5B7A16' },
-  moderate: { bg: '#FDF0DC', fg: '#B4761A' },
-  high: { bg: '#FBEDED', fg: '#D64545' },
-};
 
 /** Turns one blob of prose into individual bullet points. */
 function toBullets(text: string | null): string[] {
@@ -48,13 +41,6 @@ export default function DiseaseDetailScreen() {
     }
   }, [data]);
 
-  const riskLabel: Record<RiskLevel, string> = {
-    none: t.diseaseDetail.riskNone,
-    low: t.diseaseDetail.riskLow,
-    moderate: t.diseaseDetail.riskModerate,
-    high: t.diseaseDetail.riskHigh,
-  };
-
   if (!disease) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-white px-8">
@@ -70,7 +56,6 @@ export default function DiseaseDetailScreen() {
     );
   }
 
-  const risk = RISK_STYLE[disease.defaultRiskLevel];
   const symptoms = toBullets(disease.symptoms);
 
   return (
@@ -101,17 +86,6 @@ export default function DiseaseDetailScreen() {
             <Text className="ml-2 flex-1 text-xl font-extrabold text-[#16241B]">
               {disease.displayName}
             </Text>
-            <View
-              className="rounded-full px-2.5 py-1"
-              style={{ backgroundColor: risk.bg }}
-            >
-              <Text
-                className="text-[11px] font-bold"
-                style={{ color: risk.fg }}
-              >
-                {riskLabel[disease.defaultRiskLevel]}
-              </Text>
-            </View>
           </View>
 
           {disease.scientificName ? (

@@ -1,5 +1,5 @@
 /**
- * A small bordered card showing one labelled number.
+ * A small elevated card showing one labelled number.
  *
  * Used for the Home dashboard's Healthy / Diseased pair and the
  * CAO report's Total / Affected / Healthy trio - same shape,
@@ -8,6 +8,8 @@
 
 import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+
+import { shadows } from '../constants/theme';
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -25,7 +27,10 @@ export function StatCard({
   valueColor?: string;
 }) {
   return (
-    <View className="flex-1 rounded-2xl border border-[#DFEDE3] bg-white px-4 py-3.5">
+    <View
+      className="flex-1 rounded-2xl border border-[#EEF5EF] bg-white px-4 py-4"
+      style={shadows.card}
+    >
       <View className="flex-row items-center">
         <Ionicons name={icon} size={13} color={iconColor} />
         <Text
@@ -35,7 +40,7 @@ export function StatCard({
           {label.toUpperCase()}
         </Text>
       </View>
-      <Text className="mt-1.5 text-2xl font-extrabold" style={{ color: valueColor }}>
+      <Text className="mt-2 text-[26px] font-extrabold" style={{ color: valueColor }}>
         {value}
       </Text>
     </View>

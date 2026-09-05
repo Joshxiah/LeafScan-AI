@@ -50,6 +50,7 @@ export interface DiseaseCount {
   classLabel: string;
   displayName: string;
   count: number;
+  riskLevel: RiskLevel;
 }
 
 /** Matches RecentDetection in the backend dashboard service. */
@@ -63,6 +64,12 @@ export interface RecentDetection {
   detectedAt: string;
 }
 
+/** One day's scan count, for the "scans over time" trend chart. */
+export interface ScanTrendPoint {
+  date: string;
+  count: number;
+}
+
 /** Matches DashboardStatistics in the backend dashboard service. */
 export interface DashboardStatistics {
   totalFarmers: number;
@@ -71,6 +78,52 @@ export interface DashboardStatistics {
   diseasedScans: number;
   highRiskScans: number;
   scansToday: number;
+  pendingReports: number;
+  totalReports: number;
   diseaseBreakdown: DiseaseCount[];
+  scanTrend: ScanTrendPoint[];
   recentDetections: RecentDetection[];
+}
+
+// ============================================================
+// Outbreak reports
+// ============================================================
+
+export type ReportStatus = 'pending' | 'reviewed' | 'resolved';
+
+export interface DiseaseBreakdownItem {
+  classLabel: string;
+  displayName: string;
+  count: number;
+}
+
+/** Matches ReportSummary in backend/src/services/report.service.ts. */
+export interface ReportSummary {
+  id: number;
+  farmerId: number;
+  farmerName: string;
+  farmerPhone: string | null;
+  barangay: string | null;
+  municipality: string | null;
+  totalScans: number;
+  affectedScans: number;
+  healthyScans: number;
+  estimatedAreaHectares: number | null;
+  status: ReportStatus;
+  createdAt: string;
+}
+
+/** Matches ReportDetail in backend/src/services/report.service.ts. */
+export interface ReportDetail extends ReportSummary {
+  diseaseBreakdown: DiseaseBreakdownItem[];
+  remarks: string | null;
+  reviewedByName: string | null;
+  reviewedAt: string | null;
+}
+
+export interface ListReportsResult {
+  reports: ReportSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
 }

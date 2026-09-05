@@ -82,6 +82,21 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+/**
+ * Editing an existing profile (Settings screen). Every field is
+ * optional - a request only sends what actually changed - and an
+ * empty string clears a text field rather than being ignored.
+ * cornType/address only apply to farmer accounts; the service
+ * quietly ignores them for an admin.
+ */
+export const updateProfileSchema = z.object({
+  phoneNumber: phoneRule.optional(),
+  address: z.string().trim().max(255).optional().or(z.literal('')),
+  cornType: z.enum(['white', 'yellow', 'both']).optional(),
+  /** Relative path from a prior POST /api/uploads, or '' to remove the photo. */
+  avatarPath: z.string().trim().max(255).optional().or(z.literal('')),
+});
+
 /** Step 1 of a reset: "text a code to this phone number". */
 export const forgotPasswordSchema = z.object({
   phoneNumber: phoneRule,
@@ -97,10 +112,48 @@ export const resetPasswordSchema = z.object({
     .max(72, 'Password must be at most 72 characters'),
 });
 
+/**
+ * A farmer's outbreak report. The counts and breakdown are a
+ * snapshot the phone computed from the farmer's own scan history -
+ * this endpoint trusts and stores them rather than recomputing them
+ * server-side, since there is no server-side scan history yet
+ * (Phase 13 - see backend/src/services/scanLog equivalent on mobile).
+ */
+export const createReportSchema = z.object({
+  barangay: z.string().trim().max(150).optional().or(z.literal('')),
+  municipality: z.string().trim().max(100).optional().or(z.literal('')),
+
+  totalScans: z.number().int().nonnegative().max(100000),
+  affectedScans: z.number().int().nonnegative().max(100000),
+  healthyScans: z.number().int().nonnegative().max(100000),
+
+  diseaseBreakdown: z
+    .array(
+      z.object({
+        classLabel: z.string().trim().min(1).max(50),
+        displayName: z.string().trim().min(1).max(150),
+        count: z.number().int().nonnegative().max(100000),
+      })
+    )
+    .max(20)
+    .optional(),
+
+  estimatedAreaHectares: z.number().nonnegative().max(99999).optional(),
+  remarks: z.string().trim().max(2000).optional().or(z.literal('')),
+});
+
+/** An admin moving a report through its lifecycle. */
+export const reportStatusSchema = z.object({
+  status: z.enum(['reviewed', 'resolved']),
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type CreateReportInput = z.infer<typeof createReportSchema>;
+export type ReportStatusInput = z.infer<typeof reportStatusSchema>;
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 
 export function validate<T>(schema: z.ZodType<T>, data: unknown): T {
   const result = schema.safeParse(data);

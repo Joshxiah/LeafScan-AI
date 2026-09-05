@@ -6,9 +6,8 @@
  *   - AuthProvider   : global sign-in state
  *   - Routes         : which component renders for which path
  *
- * Only two real pages exist in Phase 17 - Login and Dashboard.
- * The rest of the sidebar links are placeholders until their
- * phases.
+ * Dashboard and Reports are real pages. The rest of the sidebar
+ * links are placeholders until their phases.
  */
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
@@ -17,6 +16,7 @@ import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { ReportsPage } from './pages/ReportsPage';
 
 function App() {
   return (
@@ -30,6 +30,15 @@ function App() {
             element={
               <ProtectedRoute>
                 <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/reports"
+            element={
+              <ProtectedRoute>
+                <ReportsPage />
               </ProtectedRoute>
             }
           />

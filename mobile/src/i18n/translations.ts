@@ -132,9 +132,14 @@ export interface Translations {
     healthy: string;
     diseased: string;
     diseaseDistribution: string;
+    noActivityInRange: string;
     recentScans: string;
     viewHistory: string;
     tip: string;
+    emptyTitle: string;
+    emptyMessage: string;
+    emptyAction: string;
+    libraryTeaser: string;
   };
 
   history: {
@@ -217,10 +222,6 @@ export interface Translations {
     treatment: string;
     noTreatmentYet: string;
     howToApply: string;
-    riskNone: string;
-    riskLow: string;
-    riskModerate: string;
-    riskHigh: string;
   };
 
   diagnosis: {
@@ -250,6 +251,8 @@ export interface Translations {
     remarksTitle: string;
     remarksPlaceholder: string;
     submit: string;
+    submitting: string;
+    errorGeneric: string;
   };
 
   reportSuccess: {
@@ -262,10 +265,10 @@ export interface Translations {
     title: string;
     submitReport: string;
     profileInfo: string;
+    editProfile: string;
     phone: string;
     barangay: string;
     mainCrop: string;
-    mainCropValue: string;
     notSet: string;
     language: string;
     languageHint: string;
@@ -274,6 +277,27 @@ export interface Translations {
     logOutMessage: string;
     yesLogOut: string;
     footer: string;
+
+    // Edit-profile modal
+    editProfileTitle: string;
+    phonePlaceholder: string;
+    barangayPlaceholder: string;
+    cornTypeLabel: string;
+    cornTypeWhite: string;
+    cornTypeYellow: string;
+    cornTypeBoth: string;
+    saveChanges: string;
+    savingChanges: string;
+    profileErrorPhone: string;
+    profileErrorGeneric: string;
+
+    // Profile photo
+    changePhoto: string;
+    takePhoto: string;
+    chooseFromGallery: string;
+    removePhoto: string;
+    photoPermissionMessage: string;
+    photoErrorGeneric: string;
   };
 }
 
@@ -388,9 +412,15 @@ export const en: Translations = {
     healthy: 'Healthy',
     diseased: 'Diseased',
     diseaseDistribution: 'DISEASE DISTRIBUTION',
+    noActivityInRange: 'No scans in this period yet.',
     recentScans: 'Recent Scans',
     viewHistory: 'View history →',
     tip: 'Keep scanning regularly to catch issues early.',
+    emptyTitle: "You haven't scanned yet",
+    emptyMessage:
+      'Scan a corn leaf to see your first diagnosis. Your scan activity and history will build up here.',
+    emptyAction: 'Scan Your First Leaf',
+    libraryTeaser: 'See what LeafScan AI can identify',
   },
 
   history: {
@@ -476,10 +506,6 @@ export const en: Translations = {
     noTreatmentYet:
       'The City Agriculture Office has not published treatment recommendations for this disease yet. Check back soon.',
     howToApply: 'How to apply: ',
-    riskNone: 'No risk',
-    riskLow: 'Low risk',
-    riskModerate: 'Moderate risk',
-    riskHigh: 'High risk',
   },
 
   diagnosis: {
@@ -511,6 +537,8 @@ export const en: Translations = {
     remarksTitle: 'REMARKS',
     remarksPlaceholder: 'Add remarks (e.g. observed symptoms, field conditions...)',
     submit: 'Submit Report to CAO',
+    submitting: 'Sending...',
+    errorGeneric: 'We could not send your report. Please try again.',
   },
 
   reportSuccess: {
@@ -523,10 +551,10 @@ export const en: Translations = {
     title: 'Settings',
     submitReport: 'Submit Report',
     profileInfo: 'PROFILE INFORMATION',
+    editProfile: 'Edit',
     phone: 'Phone',
     barangay: 'Barangay',
     mainCrop: 'Main Crop',
-    mainCropValue: 'Corn (Mais)',
     notSet: 'Not set',
     language: 'LANGUAGE',
     languageHint: 'Select your preferred language',
@@ -535,6 +563,26 @@ export const en: Translations = {
     logOutMessage: 'Are you sure you want to log out of your account?',
     yesLogOut: 'Yes, Log out',
     footer: 'LeafScan AI · City Agriculture Office of Pagadian City',
+
+    editProfileTitle: 'Edit Profile',
+    phonePlaceholder: 'Mobile number',
+    barangayPlaceholder: 'Barangay',
+    cornTypeLabel: 'Corn Type',
+    cornTypeWhite: 'White Corn',
+    cornTypeYellow: 'Yellow Corn',
+    cornTypeBoth: 'White & Yellow',
+    saveChanges: 'Save Changes',
+    savingChanges: 'Saving...',
+    profileErrorPhone: 'Enter a valid mobile number, for example 09171234567.',
+    profileErrorGeneric: 'We could not update your profile. Please try again.',
+
+    changePhoto: 'Change Photo',
+    takePhoto: 'Take Photo',
+    chooseFromGallery: 'Choose from Gallery',
+    removePhoto: 'Remove Photo',
+    photoPermissionMessage:
+      'LeafScan AI needs access to your photos to set a profile picture. You can enable this in your phone settings.',
+    photoErrorGeneric: 'We could not update your photo. Please try again.',
   },
 };
 
@@ -650,9 +698,15 @@ export const ceb: Translations = {
     healthy: 'Himsog',
     diseased: 'Nasakit',
     diseaseDistribution: 'PAG-APOD-APOD SA SAKIT',
+    noActivityInRange: 'Wala pay scan ani nga panahon.',
     recentScans: 'Bag-ong mga Scan',
     viewHistory: 'Tan-awa ang kasaysayan →',
     tip: 'Padayon sa regular nga pag-scan aron masayran dayon ang problema.',
+    emptyTitle: 'Wala ka pa makascan',
+    emptyMessage:
+      'I-scan ang usa ka dahon sa mais aron makita ang imong unang diagnosis. Dinhi motubo ang imong kalihokan ug kasaysayan sa scan.',
+    emptyAction: 'I-scan ang Unang Dahon',
+    libraryTeaser: 'Tan-awa kung unsa ang mahibaloan sa LeafScan AI',
   },
 
   history: {
@@ -738,10 +792,6 @@ export const ceb: Translations = {
     noTreatmentYet:
       'Wala pa mag-publish ang City Agriculture Office og rekomendasyon sa tambal para ani nga sakit. Balik ug susiha sa ulahi.',
     howToApply: 'Paagi sa paggamit: ',
-    riskNone: 'Walay risgo',
-    riskLow: 'Ubos nga risgo',
-    riskModerate: 'Katunga nga risgo',
-    riskHigh: 'Taas nga risgo',
   },
 
   diagnosis: {
@@ -773,6 +823,8 @@ export const ceb: Translations = {
     remarksTitle: 'MGA KOMENTO',
     remarksPlaceholder: 'Pagdugang og komento (pananglitan, naobserbahang simtomas, kahimtang sa uma...)',
     submit: 'Ipadala ang Report sa CAO',
+    submitting: 'Ginapadala...',
+    errorGeneric: 'Dili namo mapadala ang imong report. Palihug sulayi pag-usab.',
   },
 
   reportSuccess: {
@@ -785,10 +837,10 @@ export const ceb: Translations = {
     title: 'Mga Setting',
     submitReport: 'Ipadala ang Report',
     profileInfo: 'IMPORMASYON SA PROFILE',
+    editProfile: 'I-edit',
     phone: 'Telepono',
     barangay: 'Barangay',
     mainCrop: 'Punoan nga Tanom',
-    mainCropValue: 'Mais',
     notSet: 'Wala pa gibutang',
     language: 'PINULONGAN',
     languageHint: 'Pilia ang imong gustong pinulongan',
@@ -797,6 +849,26 @@ export const ceb: Translations = {
     logOutMessage: 'Sigurado ka ba nga gusto ka mag-log out sa imong account?',
     yesLogOut: 'Oo, Mag-log out',
     footer: 'LeafScan AI · City Agriculture Office of Pagadian City',
+
+    editProfileTitle: 'I-edit ang Profile',
+    phonePlaceholder: 'Numero sa selpon',
+    barangayPlaceholder: 'Barangay',
+    cornTypeLabel: 'Klase sa Mais',
+    cornTypeWhite: 'Puti nga Mais',
+    cornTypeYellow: 'Dalag nga Mais',
+    cornTypeBoth: 'Puti ug Dalag',
+    saveChanges: 'I-save ang mga Pagbag-o',
+    savingChanges: 'Ginatipig...',
+    profileErrorPhone: 'Pagbutang og saktong numero sa selpon, pananglitan 09171234567.',
+    profileErrorGeneric: 'Dili namo mahimo i-update ang imong profile. Palihug sulayi pag-usab.',
+
+    changePhoto: 'Ilisan ang Litrato',
+    takePhoto: 'Pagkuha og Litrato',
+    chooseFromGallery: 'Pagpili gikan sa Gallery',
+    removePhoto: 'Kuhaon ang Litrato',
+    photoPermissionMessage:
+      'Kinahanglan sa LeafScan AI ang access sa imong mga litrato aron makabutang og profile picture. Pwede nimo i-enable kini sa settings sa imong telepono.',
+    photoErrorGeneric: 'Dili namo mahimo i-update ang imong litrato. Palihug sulayi pag-usab.',
   },
 };
 

@@ -10,17 +10,22 @@
 import { View, Text, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+import { shadows } from '../constants/theme';
+
 export function ScanListItem({
   title,
   subtitle,
   confidence,
   healthy,
+  healthyLabel,
   onPress,
 }: {
   title: string;
   subtitle: string;
   confidence: number;
   healthy: boolean;
+  /** Translated "Healthy" text, shown instead of a percentage. */
+  healthyLabel: string;
   onPress?: () => void;
 }) {
   const tint = healthy
@@ -32,6 +37,7 @@ export function ScanListItem({
       onPress={onPress}
       disabled={!onPress}
       className="flex-row items-center rounded-2xl border border-[#EEF5EF] bg-white px-3.5 py-3 active:bg-[#F5FAF6]"
+      style={shadows.card}
     >
       <View className="relative">
         <View
@@ -56,7 +62,7 @@ export function ScanListItem({
       </View>
 
       <Text className="ml-2 text-[14px] font-extrabold text-[#16241B]">
-        {healthy ? 'Healthy' : `${confidence}%`}
+        {healthy ? healthyLabel : `${confidence}%`}
       </Text>
     </Pressable>
   );

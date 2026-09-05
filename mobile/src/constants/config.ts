@@ -61,6 +61,15 @@ export const config = {
   /** Base address of the Node.js backend. */
   apiBaseUrl: `http://${BACKEND_HOST}:${BACKEND_PORT}/api`,
 
+  /**
+   * The bare backend address, no path suffix. A stored file path
+   * (detections.image_path, users.avatar_path) is already relative
+   * to this - "uploads/xxx.jpg" - so build its URL as
+   * `${backendOrigin}/${relativePath}`, never uploadsBaseUrl, or
+   * "uploads" ends up doubled.
+   */
+  backendOrigin: `http://${BACKEND_HOST}:${BACKEND_PORT}`,
+
   /** Where uploaded leaf images are served from. */
   uploadsBaseUrl: `http://${BACKEND_HOST}:${BACKEND_PORT}/uploads`,
 

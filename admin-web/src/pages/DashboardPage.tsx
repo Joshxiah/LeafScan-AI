@@ -6,13 +6,18 @@
  * Every figure shown here is read from the database via
  * GET /api/dashboard/statistics. Nothing is hardcoded. While
  * the detections table is empty, the counts are legitimately
- * zero.
+ * zero - run backend/scripts/seed_sample_data.js for a realistic
+ * demo dataset (sample farmers, three weeks of scan history, and
+ * a few outbreak reports) if you want to see this page populated.
  */
 
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { AdminLayout } from '../components/layout/AdminLayout';
 import { StatCard } from '../components/StatCard';
+import { ScanTrendChart } from '../components/charts/ScanTrendChart';
+import { DiseaseBreakdownChart } from '../components/charts/DiseaseBreakdownChart';
 import { api, ApiError } from '../services/api';
 import type { DashboardStatistics, RiskLevel } from '../types';
 
@@ -77,7 +82,7 @@ export function DashboardPage() {
       {statistics && (
         <>
           {/* ---------- Stat tiles ---------- */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
             <StatCard
               label="Total Farmers"
               value={statistics.totalFarmers}
@@ -107,7 +112,26 @@ export function DashboardPage() {
               icon="🚨"
               accent="danger"
             />
+            <Link to="/reports" className="block">
+              <StatCard
+                label="Reports Pending"
+                value={statistics.pendingReports}
+                icon="📨"
+                accent={statistics.pendingReports > 0 ? 'warning' : 'default'}
+                hint={`${statistics.totalReports} filed total`}
+              />
+            </Link>
           </div>
+
+          {/* ---------- Scan activity trend ---------- */}
+          <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
+            <h2 className="text-sm font-semibold text-gray-900">Scan Activity</h2>
+            <p className="mt-0.5 text-xs text-gray-400">Scans recorded per day, last 14 days</p>
+
+            <div className="mt-4">
+              <ScanTrendChart data={statistics.scanTrend} />
+            </div>
+          </section>
 
           <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
             {/* ---------- Disease breakdown ---------- */}
@@ -116,37 +140,11 @@ export function DashboardPage() {
                 Scans by Disease Class
               </h2>
               <p className="mt-0.5 text-xs text-gray-400">
-                All four classes the model can report
+                Coloured by risk level, not just category
               </p>
 
-              <div className="mt-4 space-y-3">
-                {statistics.diseaseBreakdown.map((disease) => {
-                  const pct =
-                    statistics.totalScans > 0
-                      ? Math.round(
-                          (disease.count / statistics.totalScans) * 100
-                        )
-                      : 0;
-
-                  return (
-                    <div key={disease.classLabel}>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-700">
-                          {disease.displayName}
-                        </span>
-                        <span className="font-medium text-gray-900">
-                          {disease.count}
-                        </span>
-                      </div>
-                      <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
-                        <div
-                          className="h-full rounded-full bg-leaf-500"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="mt-4">
+                <DiseaseBreakdownChart data={statistics.diseaseBreakdown} />
               </div>
             </section>
 

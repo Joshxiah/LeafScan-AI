@@ -56,6 +56,8 @@ export interface User {
   /** Optional - farmers register with a username, not an email. */
   email: string | null;
   phoneNumber: string | null;
+  /** Relative path (e.g. "uploads/avatar-123.jpg") - build the full URL with config.uploadsBaseUrl. */
+  avatarPath: string | null;
   role: UserRole;
   isActive: boolean;
   createdAt: string;

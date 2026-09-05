@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useLanguage } from '../../src/context/LanguageContext';
-import { brand } from '../../src/constants/theme';
+import { brand, shadows } from '../../src/constants/theme';
 
 export default function ReportSuccessScreen() {
   const router = useRouter();
@@ -22,7 +22,10 @@ export default function ReportSuccessScreen() {
   return (
     <SafeAreaView className="flex-1 bg-white" edges={['top', 'bottom']}>
       <View className="flex-1 items-center justify-center px-8">
-        <View className="h-20 w-20 items-center justify-center rounded-full bg-[#22A559]">
+        <View
+          className="h-20 w-20 items-center justify-center rounded-full bg-[#22A559]"
+          style={shadows.raised}
+        >
           <Ionicons name="checkmark" size={40} color="#ffffff" />
         </View>
 
@@ -35,7 +38,8 @@ export default function ReportSuccessScreen() {
 
         <Pressable
           onPress={() => router.replace('/home')}
-          className="mt-8 h-14 w-full flex-row items-center justify-center rounded-full border border-[#DFEDE3] bg-white active:bg-[#F5FAF6]"
+          className="mt-8 h-14 w-full flex-row items-center justify-center rounded-full border border-[#EEF5EF] bg-white active:bg-[#F5FAF6]"
+          style={shadows.card}
         >
           <Ionicons name="home-outline" size={18} color={brand.ink} />
           <Text className="ml-2 text-[15px] font-bold text-[#16241B]">

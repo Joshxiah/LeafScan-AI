@@ -8,7 +8,7 @@
 
 import { View, Text } from 'react-native';
 import { brand } from '../constants/theme';
-import { DayActivity } from '../data/mockScans';
+import { DayActivity } from '../data/scanStats';
 
 const CHART_HEIGHT = 96;
 const MIN_BAR_HEIGHT = 6;
