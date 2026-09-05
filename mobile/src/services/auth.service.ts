@@ -6,7 +6,14 @@
  */
 
 import { api } from './api';
-import { AuthResult, User, LoginPayload, RegisterPayload } from '../types';
+import {
+  AuthResult,
+  User,
+  LoginPayload,
+  RegisterPayload,
+  ForgotPasswordPayload,
+  ResetPasswordPayload,
+} from '../types';
 
 /**
  * POST /api/auth/register
@@ -22,6 +29,32 @@ export async function register(payload: RegisterPayload): Promise<AuthResult> {
  */
 export async function login(payload: LoginPayload): Promise<AuthResult> {
   return api.post<AuthResult>('/auth/login', payload, false);
+}
+
+/**
+ * POST /api/auth/forgot-password
+ * Public - a locked-out farmer has no token.
+ *
+ * Always resolves the same way whether or not the email is
+ * registered, so screens must not infer anything from success.
+ */
+export async function requestPasswordReset(
+  payload: ForgotPasswordPayload
+): Promise<void> {
+  await api.post<void>('/auth/forgot-password', payload, false);
+}
+
+/**
+ * POST /api/auth/reset-password
+ * Public - the emailed 6-digit code is the credential.
+ *
+ * Throws ApiError (status 400) when the code is wrong, expired, or
+ * has been tried too many times.
+ */
+export async function resetPassword(
+  payload: ResetPasswordPayload
+): Promise<void> {
+  await api.post<void>('/auth/reset-password', payload, false);
 }
 
 /**

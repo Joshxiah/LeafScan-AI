@@ -10,6 +10,31 @@
 /** The two kinds of account. */
 export type UserRole = 'farmer' | 'admin';
 
+/** How severe a disease is, matching the backend `diseases` table. */
+export type RiskLevel = 'none' | 'low' | 'moderate' | 'high';
+
+/** One expert-verified treatment, published by the CAO. */
+export interface DiseaseTreatment {
+  id: number;
+  title: string;
+  recommendationText: string;
+  applicationMethod: string | null;
+  preventiveMeasures: string | null;
+}
+
+/** A disease class shown in the in-app Disease Library. */
+export interface Disease {
+  id: number;
+  classLabel: string;
+  displayName: string;
+  scientificName: string | null;
+  description: string | null;
+  symptoms: string | null;
+  defaultRiskLevel: RiskLevel;
+  isHealthy: boolean;
+  treatments: DiseaseTreatment[];
+}
+
 /** Corn varieties grown in Pagadian City. */
 export type CornType = 'white' | 'yellow' | 'both';
 
@@ -27,7 +52,9 @@ export interface FarmerProfile {
 export interface User {
   id: number;
   fullName: string;
-  email: string;
+  username: string;
+  /** Optional - farmers register with a username, not an email. */
+  email: string | null;
   phoneNumber: string | null;
   role: UserRole;
   isActive: boolean;
@@ -56,12 +83,11 @@ export interface ApiResponse<T> {
 /** What the Create Account screen sends. */
 export interface RegisterPayload {
   fullName: string;
-  email?: string;
   username?: string;
   password: string;
+  /** Doubles as the "Forgot password" destination - a code is texted here. */
   phoneNumber?: string;
   address?: string;
-  barangay?: string;
   cornType?: CornType;
   farmSizeHectares?: number;
   yearsFarming?: number;
@@ -69,7 +95,20 @@ export interface RegisterPayload {
 
 /** What the Login screen sends. */
 export interface LoginPayload {
-  email?: string;
   username?: string;
+  /** Kept only so older callers still type-check; unused by the backend. */
+  email?: string;
+  password: string;
+}
+
+/** What the Forgot Password screen sends (step 1: request a code). */
+export interface ForgotPasswordPayload {
+  phoneNumber: string;
+}
+
+/** What the Reset Password screen sends (step 2: code + new password). */
+export interface ResetPasswordPayload {
+  phoneNumber: string;
+  code: string;
   password: string;
 }

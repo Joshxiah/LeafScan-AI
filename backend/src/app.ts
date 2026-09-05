@@ -14,6 +14,10 @@ import path from 'path';
 
 import { env } from './config/env';
 import authRoutes from './routes/auth.routes';
+import uploadRoutes from './routes/upload.routes';
+import dashboardRoutes from './routes/dashboard.routes';
+import diseaseRoutes from './routes/disease.routes';
+import healthRoutes from './routes/health.routes';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler';
 
 const app: Application = express();
@@ -64,15 +68,16 @@ app.get('/', (req: Request, res: Response) => {
   });
 });
 
+app.use('/api/health', healthRoutes);
+app.use('/api/uploads', uploadRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/diseases', diseaseRoutes);
 
 // Future routers are added here in later phases:
-// app.use('/api/auth', authRoutes);                 <- Phase 5
 // app.use('/api/farmers', farmerRoutes);            <- Phase 20
 // app.use('/api/detections', detectionRoutes);      <- Phase 13
-// app.use('/api/diseases', diseaseRoutes);          <- Phase 21
 // app.use('/api/recommendations', recommendationRoutes); <- Phase 22
-// app.use('/api/dashboard', dashboardRoutes);       <- Phase 19
 
 // ============================================================
 // ERROR HANDLING - must be registered LAST

@@ -47,6 +47,36 @@ export const colors = {
 };
 
 /**
+ * Brand palette for the onboarding and authentication screens.
+ *
+ * Sampled from the approved LeafScan AI login-flow design. These
+ * are deliberately a slightly cooler, more refined green than the
+ * `leaf` scale above, which the in-app screens use.
+ */
+export const brand = {
+  /** Primary green - buttons, links, active icons */
+  accent: '#2F6D46',
+  accentDark: '#1F4E31',
+  /** Near-black used for headings and typed input text */
+  ink: '#16241B',
+  /** Secondary text and subtitles */
+  muted: '#6C8073',
+  /** Filled input background on the sign-in screen */
+  mist: '#E7F4EA',
+  /** Page background on the create-account screen */
+  paper: '#F5FAF6',
+  /** Hairline border on outlined inputs */
+  line: '#DFEDE3',
+  /** Fine print */
+  faint: '#9BAAA1',
+  /** Inline validation errors */
+  danger: '#D64545',
+  /** Placeholder text inside inputs */
+  placeholder: '#8FA396',
+  white: '#ffffff',
+} as const;
+
+/**
  * The four disease classes.
  *
  * These class_label values MUST match:

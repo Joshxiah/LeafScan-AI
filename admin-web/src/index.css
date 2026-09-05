@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+/**
+ * LeafScan AI theme.
+ *
+ * In Tailwind v4 the theme lives in CSS, not in a JavaScript
+ * config file. Every custom property declared here becomes a
+ * utility class automatically:
+ *
+ *   --color-leaf-600  ->  bg-leaf-600, text-leaf-600, border-leaf-600
+ *
+ * These values match mobile/tailwind.config.js so the phone app
+ * and the admin site share one visual identity.
+ */
+@theme {
+  --color-leaf-50: #f0f9f0;
+  --color-leaf-100: #dcf0dc;
+  --color-leaf-200: #bbe1bb;
+  --color-leaf-300: #8ccb8c;
+  --color-leaf-400: #5aad5a;
+  --color-leaf-500: #379137;
+  --color-leaf-600: #2a752c;
+  --color-leaf-700: #235d25;
+  --color-leaf-800: #1f4a21;
+  --color-leaf-900: #1a3e1d;
+
+  --color-risk-none: #22c55e;
+  --color-risk-low: #84cc16;
+  --color-risk-moderate: #f59e0b;
+  --color-risk-high: #dc2626;
+}
+
+/* Sensible page defaults */
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}

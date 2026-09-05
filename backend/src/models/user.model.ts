@@ -20,7 +20,8 @@ export type UserRole = 'farmer' | 'admin';
 export interface UserRow extends RowDataPacket {
   id: number;
   full_name: string;
-  email: string;
+  username: string;
+  email: string | null;
   phone_number: string | null;
   password_hash: string;
   role: UserRole;
@@ -35,7 +36,7 @@ export interface UserRow extends RowDataPacket {
 export interface FarmerRow extends RowDataPacket {
   id: number;
   user_id: number;
-  barangay: string | null;
+  address: string | null;
   municipality: string | null;
   corn_type: 'white' | 'yellow' | 'both' | null;
   farm_size_hectares: number | null;
@@ -54,7 +55,8 @@ export interface FarmerRow extends RowDataPacket {
 export interface PublicUser {
   id: number;
   fullName: string;
-  email: string;
+  username: string;
+  email: string | null;
   phoneNumber: string | null;
   role: UserRole;
   isActive: boolean;
@@ -63,7 +65,7 @@ export interface PublicUser {
 
 /** Farming details attached to a farmer's profile. */
 export interface PublicFarmerProfile {
-  barangay: string | null;
+  address: string | null;
   municipality: string | null;
   cornType: 'white' | 'yellow' | 'both' | null;
   farmSizeHectares: number | null;
@@ -86,6 +88,7 @@ export function toPublicUser(row: UserRow): PublicUser {
   return {
     id: row.id,
     fullName: row.full_name,
+    username: row.username,
     email: row.email,
     phoneNumber: row.phone_number,
     role: row.role,
@@ -99,7 +102,7 @@ export function toPublicUser(row: UserRow): PublicUser {
  */
 export function toPublicFarmerProfile(row: FarmerRow): PublicFarmerProfile {
   return {
-    barangay: row.barangay,
+    address: row.address,
     municipality: row.municipality,
     cornType: row.corn_type,
     farmSizeHectares: row.farm_size_hectares,

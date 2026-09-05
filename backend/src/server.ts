@@ -10,9 +10,13 @@
 import app from './app';
 import { env } from './config/env';
 import { testDatabaseConnection, closeDatabasePool } from './config/database';
+import { ensureUploadDirectoryExists } from './middleware/upload.middleware';
 
 async function startServer(): Promise<void> {
   try {
+    // ---------- 0. Make sure uploads/ exists ----------
+    ensureUploadDirectoryExists();
+
     // ---------- 1. Check the database first ----------
     console.log('Connecting to MySQL database...');
     await testDatabaseConnection();

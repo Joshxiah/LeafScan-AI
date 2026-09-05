@@ -28,6 +28,7 @@ USE leafscan_ai;
 
 DROP TABLE IF EXISTS detections;
 DROP TABLE IF EXISTS treatment_recommendations;
+DROP TABLE IF EXISTS password_reset_codes;
 DROP TABLE IF EXISTS farmers;
 DROP TABLE IF EXISTS diseases;
 DROP TABLE IF EXISTS users;
@@ -80,6 +81,34 @@ CREATE TABLE farmers (
     UNIQUE KEY uq_farmers_user_id (user_id),
 
     CONSTRAINT fk_farmers_user
+        FOREIGN KEY (user_id) REFERENCES users (id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- ============================================================
+-- SECTION 4b: TABLE - password_reset_codes
+-- Short-lived 6-digit codes for the "Forgot password" flow.
+-- The code itself is never stored, only its SHA-256 hash.
+-- Rows are disposable; expired and used ones may be purged.
+-- ============================================================
+
+CREATE TABLE password_reset_codes (
+    id           INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    user_id      INT UNSIGNED NOT NULL,
+    code_hash    CHAR(64)     NOT NULL,
+    expires_at   DATETIME     NOT NULL,
+    consumed_at  DATETIME     DEFAULT NULL,
+    attempts     TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    created_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    KEY idx_prc_user_id (user_id),
+    KEY idx_prc_expires_at (expires_at),
+
+    CONSTRAINT fk_prc_user
         FOREIGN KEY (user_id) REFERENCES users (id)
         ON DELETE CASCADE
         ON UPDATE CASCADE

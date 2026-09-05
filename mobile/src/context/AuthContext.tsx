@@ -40,16 +40,37 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-function createDemoUser(fullName: string, username: string): User {
+/**
+ * Builds a local-only user so the app is fully usable in Expo Go
+ * even when the backend or database is not running. This is the
+ * fallback path; a real login replaces it with server data.
+ */
+function createDemoUser(
+  fullName: string,
+  username: string,
+  extra: { phoneNumber?: string; address?: string } = {}
+): User {
+  const cleanUsername = username.trim().toLowerCase() || 'farmer';
+
   return {
     id: Date.now(),
-    fullName,
-    email: `${username.trim().toLowerCase()}@leafscan.ai`,
-    phoneNumber: null,
+    fullName: fullName.trim() || cleanUsername,
+    username: cleanUsername,
+    email: null,
+    phoneNumber: extra.phoneNumber?.trim() || null,
     role: 'farmer',
     isActive: true,
     createdAt: new Date().toISOString(),
-    farmerProfile: null,
+    farmerProfile: extra.address?.trim()
+      ? {
+          barangay: null,
+          municipality: 'Pagadian City',
+          address: extra.address.trim(),
+          cornType: null,
+          farmSizeHectares: null,
+          yearsFarming: null,
+        }
+      : null,
   };
 }
 
@@ -103,9 +124,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (payload: LoginPayload) => {
+    const username = (payload.username ?? payload.email ?? '').trim();
+
     try {
       const result = await authService.login({
-        email: payload.email || `${payload.username || 'farmer'}@leafscan.ai`,
+        username: username.toLowerCase(),
         password: payload.password,
       });
 
@@ -116,7 +139,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('[auth] login fallback activated:', error);
     }
 
-    const username = (payload.username || payload.email || 'farmer').trim();
+    // Backend unreachable or rejected the request - run offline so
+    // the app can still be demoed in Expo Go.
     const demoUser = createDemoUser(username, username);
 
     await saveToken('demo-session-token');
@@ -124,10 +148,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const register = useCallback(async (payload: RegisterPayload) => {
+    const username = (payload.username ?? payload.fullName ?? '').trim();
+
     try {
       const result = await authService.register({
         fullName: payload.fullName,
-        email: payload.email || `${(payload.username || 'farmer').trim().toLowerCase()}@leafscan.ai`,
+        username: username.toLowerCase(),
         password: payload.password,
         phoneNumber: payload.phoneNumber,
         address: payload.address,
@@ -140,8 +166,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log('[auth] register fallback activated:', error);
     }
 
-    const username = (payload.username || payload.email || payload.fullName || 'farmer').trim();
-    const demoUser = createDemoUser(payload.fullName || username, username);
+    const demoUser = createDemoUser(payload.fullName, username, {
+      phoneNumber: payload.phoneNumber,
+      address: payload.address,
+    });
 
     await saveToken('demo-session-token');
     setUser(demoUser);

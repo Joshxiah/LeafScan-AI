@@ -9,7 +9,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ApiError } from '../utils/ApiError';
 import { env } from '../config/env';
-
+import { MulterError } from 'multer';
 /**
  * Runs when no route matched the requested URL.
  * Must be registered AFTER all real routes.
@@ -38,13 +38,30 @@ export function errorHandler(
   if (err instanceof ApiError) {
     statusCode = err.statusCode;
     message = err.message;
-  } else if (err instanceof SyntaxError && 'body' in err) {
-    // Thrown by express.json() when the request body is malformed JSON
+  } else if (err instanceof MulterError) {
     statusCode = 400;
-    message = 'Invalid JSON in request body';
+
+    switch (err.code) {
+      case 'LIMIT_FILE_SIZE':
+        statusCode = 413;
+        message = `The image is too large. Please use a photo under ${env.upload.maxSizeMb} MB.`;
+        break;
+
+      case 'LIMIT_FILE_COUNT':
+        message = 'Please upload only one image at a time.';
+        break;
+
+      case 'LIMIT_UNEXPECTED_FILE':
+        message = 'Unexpected file field. The image must be sent as "image".';
+        break;
+
+      default:
+        message = 'The image could not be processed. Please try another photo.';
+    }
   } else if (isDatabaseConnectionError(err)) {
     statusCode = 503;
-    message = 'Database is unavailable. Please try again shortly.';
+    message =
+      'The service is temporarily unavailable. Please make sure the database is running and try again.';
   }
 
   // Always log the full error on the server, where only you can see it.

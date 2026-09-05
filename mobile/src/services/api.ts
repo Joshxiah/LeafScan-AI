@@ -129,6 +129,97 @@ async function request<T>(
   return payload.data;
 }
 
+/**
+ * Uploads a file using multipart/form-data.
+ *
+ * Kept separate from request() because a file upload differs in
+ * two important ways:
+ *   - the body is FormData, not JSON
+ *   - the Content-Type header must NOT be set manually
+ */
+export async function uploadFile<T>(
+  endpoint: string,
+  formData: FormData
+): Promise<T> {
+  const url = `${config.apiBaseUrl}${endpoint}`;
+
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+  };
+
+  // NOTE: Content-Type is deliberately absent.
+  //
+  // multipart/form-data requires a randomly generated "boundary"
+  // marker in the header. Setting the header by hand omits that
+  // boundary, and the server then cannot find the file at all.
+  // Leaving it out lets fetch generate the correct header.
+
+  const token = await getToken();
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  // Uploads need longer than normal requests - a 3 MB photo over
+  // weak rural Wi-Fi can legitimately take a while.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    clearTimeout(timeoutId);
+
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new ApiError(
+        408,
+        'The upload took too long. Please check your connection and try again.'
+      );
+    }
+
+    console.error('[api] Upload failed:', url, error);
+
+    throw new ApiError(
+      0,
+      'Cannot reach the server. Make sure you are connected to the same network as the server.'
+    );
+  }
+
+  clearTimeout(timeoutId);
+
+  const rawText = await response.text();
+
+  let payload: ApiResponse<T> | null = null;
+
+  if (rawText) {
+    try {
+      payload = JSON.parse(rawText) as ApiResponse<T>;
+    } catch {
+      throw new ApiError(response.status, 'The server sent an unexpected response.');
+    }
+  }
+
+  if (!response.ok) {
+    throw new ApiError(
+      response.status,
+      payload?.message ?? `Upload failed (${response.status})`
+    );
+  }
+
+  if (!payload || payload.data === undefined) {
+    return undefined as T;
+  }
+
+  return payload.data;
+}
+
 export const api = {
   get: <T>(endpoint: string, requiresAuth = true) =>
     request<T>(endpoint, { method: 'GET', requiresAuth }),

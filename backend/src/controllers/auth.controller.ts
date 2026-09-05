@@ -8,7 +8,13 @@
 
 import { Request, Response } from 'express';
 import * as authService from '../services/auth.service';
-import { validate, registerSchema, loginSchema } from '../utils/validation';
+import {
+  validate,
+  registerSchema,
+  loginSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+} from '../utils/validation';
 import { ApiError } from '../utils/ApiError';
 
 /**
@@ -40,6 +46,38 @@ export async function login(req: Request, res: Response): Promise<void> {
     success: true,
     message: 'Login successful',
     data: result,
+  });
+}
+
+/**
+ * POST /api/auth/forgot-password
+ * Step 1 of a reset. Texts a 6-digit code to the number if it
+ * belongs to an active account. Always returns 200 with the same
+ * message, so it cannot be used to probe which numbers are registered.
+ */
+export async function forgotPassword(req: Request, res: Response): Promise<void> {
+  const input = validate(forgotPasswordSchema, req.body);
+
+  await authService.requestPasswordReset(input.phoneNumber);
+
+  res.status(200).json({
+    success: true,
+    message: authService.RESET_REQUEST_MESSAGE,
+  });
+}
+
+/**
+ * POST /api/auth/reset-password
+ * Step 2 of a reset. Checks the code and sets the new password.
+ */
+export async function resetPassword(req: Request, res: Response): Promise<void> {
+  const input = validate(resetPasswordSchema, req.body);
+
+  await authService.resetPassword(input.phoneNumber, input.code, input.password);
+
+  res.status(200).json({
+    success: true,
+    message: 'Your password has been updated. You can now sign in.',
   });
 }
 

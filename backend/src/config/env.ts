@@ -59,6 +59,22 @@ export const env = {
     expiresIn: optionalEnv('JWT_EXPIRES_IN', '7d'),
   },
 
+  // ---------- Outgoing SMS (password reset) ----------
+  // Optional. When SEMAPHORE_API_KEY is blank the code is printed
+  // to the server console instead of being texted, so the reset
+  // flow still works before an SMS account is set up.
+  // Sign up at https://semaphore.co to get an API key.
+  sms: {
+    apiKey: optionalEnv('SEMAPHORE_API_KEY', ''),
+    // Must be a sender name already approved on the Semaphore
+    // account. Left blank, Semaphore uses its shared default sender.
+    senderName: optionalEnv('SEMAPHORE_SENDER_NAME', ''),
+  },
+
+  // Shown in the reset SMS and used for the reset-code lifetime.
+  appName: optionalEnv('APP_NAME', 'LeafScan AI'),
+  passwordResetTtlMinutes: Number(optionalEnv('PASSWORD_RESET_TTL_MINUTES', '15')),
+
   // ---------- File uploads (used in Phase 8) ----------
   upload: {
     dir: optionalEnv('UPLOAD_DIR', 'uploads'),

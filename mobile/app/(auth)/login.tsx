@@ -1,115 +1,173 @@
+/**
+ * Sign In screen.
+ *
+ * Route: /login  (the first screen after the splash)
+ *
+ * Design follows the approved LeafScan AI login-flow: a centred
+ * brand mark, two pill inputs on a light-green fill, and a single
+ * full-width action.
+ */
+
 import { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   Pressable,
   ScrollView,
   KeyboardAvoidingView,
+  ActivityIndicator,
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '../../src/context/AuthContext';
+import { useLanguage } from '../../src/context/LanguageContext';
+import { AuthTextField } from '../../src/components/AuthTextField';
+import { brand } from '../../src/constants/theme';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { login } = useAuth();
+  const { t } = useLanguage();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  async function handleLogin() {
+  async function handleSignIn() {
     setErrorMessage(null);
 
     if (!username.trim()) {
-      setErrorMessage('Please enter your username.');
+      setErrorMessage(t.login.errorEmptyUsername);
       return;
     }
 
     if (!password) {
-      setErrorMessage('Please enter your password.');
+      setErrorMessage(t.login.errorEmptyPassword);
       return;
     }
 
+    setIsSubmitting(true);
     try {
       await login({ username: username.trim(), password });
       router.replace('/home');
     } catch (error) {
-      setErrorMessage('Unable to log in right now. Please try again.');
+      setErrorMessage(t.login.errorGeneric);
       console.log('[login] failed', error);
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
   return (
     <SafeAreaView className="flex-1 bg-white" edges={['top', 'bottom']}>
+      <StatusBar style="dark" />
+
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
-          contentContainerClassName="px-6 py-6"
+          contentContainerClassName="grow px-6 pb-8 pt-4"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Text className="text-6xl font-bold text-leaf-800">Log in</Text>
-          <Text className="mt-4 text-2xl text-gray-500">
-            Sign in to continue checking your corn leaf scans.
-          </Text>
+          {router.canGoBack() && (
+            <Pressable
+              onPress={() => router.back()}
+              hitSlop={10}
+              className="-ml-2 h-10 w-10 items-center justify-center"
+            >
+              <Ionicons name="arrow-back" size={24} color={brand.ink} />
+            </Pressable>
+          )}
 
-          {errorMessage ? (
-            <View className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-              <Text className="text-sm text-red-700">{errorMessage}</Text>
+          {/* ---------- Brand mark ---------- */}
+          <View className="mb-7 mt-2 items-center">
+            <View className="h-16 w-16 items-center justify-center rounded-2xl bg-[#2F6D46]">
+              <Ionicons name="leaf" size={30} color="#ffffff" />
             </View>
-          ) : null}
 
-          <View className="mt-8">
-            <Text className="mb-2 text-base text-gray-700">Username</Text>
-            <TextInput
-              value={username}
-              onChangeText={setUsername}
-              placeholder="farmer123"
-              placeholderTextColor="#9ca3af"
-              autoCapitalize="none"
-              autoCorrect={false}
-              className="rounded-2xl border border-gray-300 bg-gray-100 px-4 py-4 text-lg text-gray-900"
-            />
-
-            <Text className="mb-2 mt-5 text-base text-gray-700">Password</Text>
-            <View className="flex-row items-center rounded-2xl border border-gray-300 bg-gray-100 pr-3">
-              <TextInput
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Enter your password"
-                placeholderTextColor="#9ca3af"
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                className="flex-1 px-4 py-4 text-lg text-gray-900"
-              />
-              <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={8}>
-                <Text className="text-sm font-medium text-leaf-700">
-                  {showPassword ? 'Hide' : 'Show'}
-                </Text>
-              </Pressable>
-            </View>
+            <Text className="mt-3.5 text-2xl font-extrabold text-[#16241B]">
+              {t.login.welcomeBack}
+            </Text>
+            <Text className="mt-1.5 text-center text-[13px] text-[#6C8073]">
+              {t.login.subtitle}
+            </Text>
           </View>
 
+          {/* ---------- Fields ---------- */}
+          <View className="gap-4">
+            <AuthTextField
+              icon="person-outline"
+              placeholder={t.login.usernamePlaceholder}
+              value={username}
+              onChangeText={setUsername}
+              autoCapitalize="none"
+              autoCorrect={false}
+              textContentType="username"
+              returnKeyType="next"
+            />
+
+            <AuthTextField
+              icon="lock-closed-outline"
+              placeholder={t.login.passwordPlaceholder}
+              value={password}
+              onChangeText={setPassword}
+              isPassword
+              autoCapitalize="none"
+              textContentType="password"
+              returnKeyType="go"
+              onSubmitEditing={handleSignIn}
+            />
+          </View>
+
+          {/* ---------- Forgot password ---------- */}
           <Pressable
-            onPress={handleLogin}
-            className="mt-8 items-center rounded-2xl bg-leaf-700 py-4"
+            onPress={() => router.push('/forgot-password')}
+            hitSlop={8}
+            className="mt-3 self-end"
           >
-            <Text className="text-3xl font-bold text-white">Continue</Text>
+            <Text className="text-[13px] font-bold text-[#2F6D46]">
+              {t.login.forgotPassword}
+            </Text>
           </Pressable>
 
+          {errorMessage && (
+            <Text className="ml-1 mt-2 text-[13px] text-[#D64545]">
+              {errorMessage}
+            </Text>
+          )}
+
+          {/* ---------- Action ---------- */}
           <Pressable
-            onPress={() => router.back()}
-            className="mt-6 items-center rounded-2xl border-2 border-leaf-700 bg-white py-4"
+            onPress={handleSignIn}
+            disabled={isSubmitting}
+            className="mt-6 h-14 flex-row items-center justify-center rounded-full bg-[#2F6D46] active:bg-[#1F4E31] disabled:opacity-70"
           >
-            <Text className="text-3xl font-bold text-leaf-700">Back</Text>
+            {isSubmitting && (
+              <ActivityIndicator size="small" color="#ffffff" className="mr-2" />
+            )}
+            <Text className="text-base font-bold text-white">
+              {isSubmitting ? t.login.signingIn : t.login.signIn}
+            </Text>
           </Pressable>
+
+          {/* ---------- Footer ---------- */}
+          <View className="mt-7 flex-row items-center justify-center">
+            <Text className="text-[13px] text-[#6C8073]">
+              {t.login.noAccount}
+            </Text>
+            <Pressable onPress={() => router.push('/register')} hitSlop={8}>
+              <Text className="text-[13px] font-bold text-[#2F6D46]">
+                {t.login.createAccount}
+              </Text>
+            </Pressable>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
