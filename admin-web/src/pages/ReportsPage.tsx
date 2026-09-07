@@ -3,30 +3,78 @@
  *
  * Route: /reports
  *
- * Every outbreak report a farmer has filed from the mobile app,
- * newest first. A report starts "pending"; an admin can mark it
- * "reviewed" once they have looked at it, and "resolved" once
- * whatever it flagged has been dealt with.
+ * Every outbreak report a farmer has filed, newest first, with
+ * Messenger-style unread state: a report a farmer just filed shows
+ * in bold with a dot until the CAO opens it. Opening a report shows
+ * a centered modal where the CAO can inspect each reported disease
+ * and the farmer's own photos, then move the report along its
+ * field-assessment lifecycle - the farmer is notified at each step.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import { AdminLayout } from '../components/layout/AdminLayout';
 import { ApiError } from '../services/api';
+import { mediaUrl } from '../services/media';
 import * as reportService from '../services/report.service';
-import type { ReportDetail, ReportStatus, ReportSummary } from '../types';
+import { useNotifications } from '../context/NotificationsContext';
+import {
+  STATUS_LABEL,
+  type AdminSettableStatus,
+  type ReportDetail,
+  type ReportImage,
+  type ReportStatus,
+  type ReportSummary,
+  type RiskLevel,
+} from '../types';
 
-const STATUS_FILTERS: { label: string; value: ReportStatus | 'all' }[] = [
-  { label: 'All', value: 'all' },
-  { label: 'Pending', value: 'pending' },
-  { label: 'Reviewed', value: 'reviewed' },
+const STATUS_OPTIONS: { label: string; value: ReportStatus | 'all' }[] = [
+  { label: 'All statuses', value: 'all' },
+  { label: 'Submitted', value: 'pending' },
+  { label: 'Under Review', value: 'under_review' },
+  { label: 'Verified', value: 'verified' },
+  { label: 'Agriculturist Visit Required', value: 'agriculturist_required' },
+  { label: 'Agriculturist Assigned', value: 'agriculturist_assigned' },
+  { label: 'Field Assessment Completed', value: 'field_assessment_completed' },
   { label: 'Resolved', value: 'resolved' },
 ];
 
 const STATUS_BADGE: Record<ReportStatus, string> = {
   pending: 'bg-amber-50 text-amber-700',
-  reviewed: 'bg-blue-50 text-blue-700',
+  under_review: 'bg-blue-50 text-blue-700',
+  verified: 'bg-indigo-50 text-indigo-700',
+  agriculturist_required: 'bg-orange-50 text-orange-700',
+  agriculturist_assigned: 'bg-purple-50 text-purple-700',
+  field_assessment_completed: 'bg-teal-50 text-teal-700',
   resolved: 'bg-green-50 text-green-700',
+};
+
+const RISK_BADGE: Record<RiskLevel, string> = {
+  none: 'bg-green-50 text-green-700',
+  low: 'bg-lime-50 text-lime-700',
+  moderate: 'bg-amber-50 text-amber-700',
+  high: 'bg-red-50 text-red-700',
+};
+
+/** The contextual "next step" buttons offered for each current status. */
+const NEXT_ACTIONS: Record<ReportStatus, AdminSettableStatus[]> = {
+  pending: ['under_review'],
+  under_review: ['verified', 'agriculturist_required'],
+  verified: ['agriculturist_required', 'resolved'],
+  agriculturist_required: ['agriculturist_assigned'],
+  agriculturist_assigned: ['field_assessment_completed'],
+  field_assessment_completed: ['resolved'],
+  resolved: [],
+};
+
+const ACTION_LABEL: Record<AdminSettableStatus, string> = {
+  under_review: 'Start Review',
+  verified: 'Mark Verified',
+  agriculturist_required: 'Send Agriculturist',
+  agriculturist_assigned: 'Mark Agriculturist Assigned',
+  field_assessment_completed: 'Mark Assessment Completed',
+  resolved: 'Mark Resolved',
 };
 
 const PAGE_SIZE = 20;
@@ -40,57 +88,140 @@ function formatDate(iso: string): string {
 }
 
 export function ReportsPage() {
-  const [filter, setFilter] = useState<ReportStatus | 'all'>('all');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { eventSeq, noteReportOpened, reload: reloadCounts } = useNotifications();
+
+  const [status, setStatus] = useState<ReportStatus | 'all'>('all');
+  const [barangay, setBarangay] = useState<string>('all');
+  const [barangays, setBarangays] = useState<string[]>([]);
   const [page, setPage] = useState(1);
 
   const [reports, setReports] = useState<ReportSummary[] | null>(null);
   const [total, setTotal] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [selectedId, setSelectedId] = useState<number | null>(null);
+
+  // Deep link from a notification: /reports?open=<id>
+  useEffect(() => {
+    const open = searchParams.get('open');
+    if (open) {
+      const id = Number(open);
+      if (Number.isInteger(id) && id > 0) setSelectedId(id);
+      searchParams.delete('open');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    reportService
+      .listBarangays()
+      .then(setBarangays)
+      .catch(() => setBarangays([]));
+  }, []);
 
   const load = useCallback(async () => {
     setErrorMessage(null);
     try {
       const result = await reportService.listReports({
-        status: filter === 'all' ? undefined : filter,
+        status: status === 'all' ? undefined : status,
+        barangay: barangay === 'all' ? undefined : barangay,
         page,
         pageSize: PAGE_SIZE,
       });
       setReports(result.reports);
       setTotal(result.total);
+      setUnreadCount(result.unreadCount);
     } catch (error) {
       setErrorMessage(error instanceof ApiError ? error.message : 'Could not load reports.');
     }
-  }, [filter, page]);
+  }, [status, barangay, page]);
 
+  // Reload on filter change AND whenever a real-time event lands.
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, eventSeq]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const hasFilter = status !== 'all' || barangay !== 'all';
+
+  function resetFilters() {
+    setStatus('all');
+    setBarangay('all');
+    setPage(1);
+  }
+
+  function openReport(id: number, wasUnread: boolean) {
+    setSelectedId(id);
+    if (wasUnread) {
+      noteReportOpened();
+      // Optimistically flip the row so the list matches immediately.
+      setReports((list) =>
+        list ? list.map((r) => (r.id === id ? { ...r, isRead: true } : r)) : list
+      );
+      setUnreadCount((c) => Math.max(0, c - 1));
+    }
+  }
 
   return (
     <AdminLayout title="Reports">
-      {/* ---------- Filter tabs ---------- */}
-      <div className="flex items-center gap-2">
-        {STATUS_FILTERS.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() => {
-              setFilter(option.value);
+      {/* ---------- Heading + unread count ---------- */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-gray-500">
+          {unreadCount > 0 ? (
+            <>
+              <span className="mr-1 inline-block h-2 w-2 rounded-full bg-red-500 align-middle" />
+              <span className="font-semibold text-gray-900">{unreadCount}</span> unread
+            </>
+          ) : (
+            'All reports read'
+          )}
+        </p>
+
+        {/* ---------- Filters ---------- */}
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={barangay}
+            onChange={(e) => {
+              setBarangay(e.target.value);
               setPage(1);
             }}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-              filter === option.value
-                ? 'bg-leaf-600 text-white'
-                : 'bg-white text-gray-600 hover:bg-gray-100'
-            }`}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:border-leaf-500 focus:outline-none"
           >
-            {option.label}
-          </button>
-        ))}
+            <option value="all">All Barangays</option>
+            {barangays.map((b) => (
+              <option key={b} value={b}>
+                {b}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={status}
+            onChange={(e) => {
+              setStatus(e.target.value as ReportStatus | 'all');
+              setPage(1);
+            }}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:border-leaf-500 focus:outline-none"
+          >
+            {STATUS_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+
+          {hasFilter && (
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100"
+            >
+              Reset
+            </button>
+          )}
+        </div>
       </div>
 
       {errorMessage && (
@@ -107,7 +238,9 @@ export function ReportsPage() {
           </div>
         ) : reports.length === 0 ? (
           <div className="px-4 py-16 text-center">
-            <p className="text-sm text-gray-500">No reports here yet.</p>
+            <p className="text-sm text-gray-500">
+              {hasFilter ? 'No reports match these filters.' : 'No reports here yet.'}
+            </p>
             <p className="mt-1 text-xs text-gray-400">
               Reports farmers file from the mobile app will appear here.
             </p>
@@ -121,37 +254,61 @@ export function ReportsPage() {
                   <th className="px-4 py-3 font-medium">Barangay</th>
                   <th className="px-4 py-3 font-medium">Scans</th>
                   <th className="px-4 py-3 font-medium">Affected</th>
-                  <th className="px-4 py-3 font-medium">Est. Area</th>
+                  <th className="px-4 py-3 font-medium">Photos</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Filed</th>
                 </tr>
               </thead>
               <tbody>
-                {reports.map((report) => (
-                  <tr
-                    key={report.id}
-                    onClick={() => setSelectedId(report.id)}
-                    className="cursor-pointer border-b border-gray-100 last:border-0 hover:bg-gray-50"
-                  >
-                    <td className="px-4 py-3 font-medium text-gray-900">{report.farmerName}</td>
-                    <td className="px-4 py-3 text-gray-600">{report.barangay ?? '—'}</td>
-                    <td className="px-4 py-3 text-gray-600">{report.totalScans}</td>
-                    <td className="px-4 py-3 text-gray-600">{report.affectedScans}</td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {report.estimatedAreaHectares != null
-                        ? `${report.estimatedAreaHectares} ha`
-                        : '—'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`rounded px-2 py-0.5 text-xs font-medium capitalize ${STATUS_BADGE[report.status]}`}
+                {reports.map((report) => {
+                  const unread = !report.isRead;
+                  return (
+                    <tr
+                      key={report.id}
+                      onClick={() => openReport(report.id, unread)}
+                      className={`cursor-pointer border-b border-gray-100 last:border-0 hover:bg-gray-50 ${
+                        unread ? 'bg-leaf-50/40' : ''
+                      }`}
+                    >
+                      <td
+                        className={`px-4 py-3 text-gray-900 ${
+                          unread ? 'font-bold' : 'font-medium'
+                        }`}
                       >
-                        {report.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-500">{formatDate(report.createdAt)}</td>
-                  </tr>
-                ))}
+                        <span className="flex items-center gap-2">
+                          <span
+                            className={`h-2 w-2 shrink-0 rounded-full ${
+                              unread ? 'bg-red-500' : 'bg-transparent'
+                            }`}
+                          />
+                          {report.farmerName}
+                        </span>
+                      </td>
+                      <td className={`px-4 py-3 ${unread ? 'font-semibold text-gray-800' : 'text-gray-600'}`}>
+                        {report.barangay ?? '—'}
+                      </td>
+                      <td className={`px-4 py-3 ${unread ? 'font-semibold text-gray-800' : 'text-gray-600'}`}>
+                        {report.totalScans}
+                      </td>
+                      <td className={`px-4 py-3 ${unread ? 'font-semibold text-gray-800' : 'text-gray-600'}`}>
+                        {report.affectedScans}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {report.imageCount > 0 ? `📷 ${report.imageCount}` : '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[report.status]}`}
+                        >
+                          {STATUS_LABEL[report.status]}
+                        </span>
+                      </td>
+                      <td className={`px-4 py-3 ${unread ? 'font-semibold text-gray-700' : 'text-gray-500'}`}>
+                        {formatDate(report.createdAt)}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -186,17 +343,20 @@ export function ReportsPage() {
       )}
 
       {selectedId !== null && (
-        <ReportDetailPanel
+        <ReportDetailModal
           reportId={selectedId}
           onClose={() => setSelectedId(null)}
-          onChanged={load}
+          onChanged={() => {
+            void load();
+            void reloadCounts();
+          }}
         />
       )}
     </AdminLayout>
   );
 }
 
-function ReportDetailPanel({
+function ReportDetailModal({
   reportId,
   onClose,
   onChanged,
@@ -208,65 +368,114 @@ function ReportDetailPanel({
   const [report, setReport] = useState<ReportDetail | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [message, setMessage] = useState('');
+  const [customStatus, setCustomStatus] = useState<AdminSettableStatus | ''>('');
+  const [lightbox, setLightbox] = useState<ReportImage | null>(null);
+  const [openDisease, setOpenDisease] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
+    setReport(null);
     reportService
       .getReport(reportId)
       .then((detail) => {
-        if (isMounted) setReport(detail);
+        if (!isMounted) return;
+        setReport(detail);
+        // Auto-expand the first reported disease so photos are one glance away.
+        setOpenDisease(detail.diseaseBreakdown[0]?.classLabel ?? null);
+        onChanged();
       })
       .catch((error) => {
         if (isMounted) {
-          setErrorMessage(error instanceof ApiError ? error.message : 'Could not load this report.');
+          setErrorMessage(
+            error instanceof ApiError ? error.message : 'Could not load this report.'
+          );
         }
       });
     return () => {
       isMounted = false;
     };
+    // onChanged is stable enough for this one-shot load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reportId]);
 
-  async function handleStatusChange(status: 'reviewed' | 'resolved') {
+  // Close on Escape.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return;
+      if (lightbox) setLightbox(null);
+      else onClose();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lightbox, onClose]);
+
+  async function applyStatus(next: AdminSettableStatus) {
     setIsUpdating(true);
+    setErrorMessage(null);
     try {
-      await reportService.updateReportStatus(reportId, status);
+      await reportService.updateReportStatus(reportId, next, message.trim() || undefined);
       const refreshed = await reportService.getReport(reportId);
       setReport(refreshed);
+      setMessage('');
+      setCustomStatus('');
       onChanged();
     } catch (error) {
-      setErrorMessage(error instanceof ApiError ? error.message : 'Could not update this report.');
+      setErrorMessage(
+        error instanceof ApiError ? error.message : 'Could not update this report.'
+      );
     } finally {
       setIsUpdating(false);
     }
   }
 
+  /** Photos grouped by the disease they were classified as. */
+  const imagesByClass = useMemo(() => {
+    const map = new Map<string, ReportImage[]>();
+    for (const img of report?.images ?? []) {
+      const key = img.classLabel && img.classLabel !== 'healthy' ? img.classLabel : 'healthy';
+      const list = map.get(key) ?? [];
+      list.push(img);
+      map.set(key, list);
+    }
+    return map;
+  }, [report]);
+
+  const healthyImages = imagesByClass.get('healthy') ?? [];
+
   return (
-    <div className="fixed inset-0 z-30 flex justify-end bg-black/30" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
       <div
-        className="flex h-full w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl"
+        className="flex max-h-[86vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+        {/* ---------- Header ---------- */}
+        <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-6 py-4">
           <h2 className="text-base font-semibold text-gray-900">Report Details</h2>
           <button
             type="button"
             onClick={onClose}
             className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            aria-label="Close"
           >
             ✕
           </button>
         </div>
 
         {!report ? (
-          <div className="flex flex-1 items-center justify-center">
+          <div className="flex h-64 items-center justify-center">
             {errorMessage ? (
-              <p className="px-5 text-sm text-red-600">{errorMessage}</p>
+              <p className="px-6 text-sm text-red-600">{errorMessage}</p>
             ) : (
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-leaf-200 border-t-leaf-600" />
             )}
           </div>
         ) : (
-          <div className="flex-1 space-y-5 px-5 py-5">
+          <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+            {/* ---------- Farmer ---------- */}
             <div>
               <p className="text-lg font-semibold text-gray-900">{report.farmerName}</p>
               <p className="text-sm text-gray-500">
@@ -282,25 +491,70 @@ function ReportDetailPanel({
               <MiniStat label="Healthy" value={report.healthyScans} accent="text-green-600" />
             </div>
 
+            {/* ---------- Disease breakdown (interactive) ---------- */}
             {report.diseaseBreakdown.length > 0 && (
               <div>
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                  Disease breakdown
+                  Reported diseases — tap to verify
                 </h3>
                 <div className="mt-2 space-y-2">
-                  {report.diseaseBreakdown.map((item) => (
-                    <div
-                      key={item.classLabel}
-                      className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-sm"
-                    >
-                      <span className="text-gray-700">{item.displayName}</span>
-                      <span className="font-medium text-gray-900">{item.count}</span>
-                    </div>
-                  ))}
+                  {report.diseaseBreakdown.map((item) => {
+                    const photos = imagesByClass.get(item.classLabel) ?? [];
+                    const isOpen = openDisease === item.classLabel;
+                    return (
+                      <div
+                        key={item.classLabel}
+                        className="overflow-hidden rounded-lg border border-gray-100"
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOpenDisease(isOpen ? null : item.classLabel)
+                          }
+                          className={`flex w-full items-center justify-between px-3 py-2.5 text-sm ${
+                            isOpen ? 'bg-leaf-50' : 'bg-gray-50 hover:bg-gray-100'
+                          }`}
+                        >
+                          <span className="flex items-center gap-2 font-medium text-gray-800">
+                            <span className="text-gray-400">{isOpen ? '▾' : '▸'}</span>
+                            {item.displayName}
+                          </span>
+                          <span className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500">
+                              {photos.length > 0
+                                ? `${photos.length} photo${photos.length === 1 ? '' : 's'}`
+                                : 'no photo'}
+                            </span>
+                            <span className="rounded bg-white px-1.5 py-0.5 text-xs font-semibold text-gray-700">
+                              {item.count}
+                            </span>
+                          </span>
+                        </button>
+
+                        {isOpen && (
+                          <DiseasePanel
+                            photos={photos}
+                            onOpenImage={setLightbox}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
 
+            {/* ---------- Healthy photos, if any were attached ---------- */}
+            {healthyImages.length > 0 && (
+              <div>
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Healthy-leaf photos ({healthyImages.length})
+                </h3>
+                <PhotoGrid photos={healthyImages} onOpenImage={setLightbox} />
+              </div>
+            )}
+
+            {/* ---------- Estimated area ---------- */}
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                 Estimated affected area
@@ -312,6 +566,7 @@ function ReportDetailPanel({
               </p>
             </div>
 
+            {/* ---------- Remarks ---------- */}
             {report.remarks && (
               <div>
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
@@ -323,50 +578,257 @@ function ReportDetailPanel({
               </div>
             )}
 
-            <div>
+            {/* ---------- Status + workflow ---------- */}
+            <div className="border-t border-gray-100 pt-4">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Status</h3>
-              <div className="mt-1.5 flex items-center gap-2">
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
                 <span
-                  className={`rounded px-2 py-0.5 text-xs font-medium capitalize ${STATUS_BADGE[report.status]}`}
+                  className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[report.status]}`}
                 >
-                  {report.status}
+                  {STATUS_LABEL[report.status]}
                 </span>
                 {report.reviewedByName && (
                   <span className="text-xs text-gray-400">
-                    by {report.reviewedByName}
+                    updated by {report.reviewedByName}
                     {report.reviewedAt ? ` · ${formatDate(report.reviewedAt)}` : ''}
                   </span>
                 )}
               </div>
+
+              {report.caoMessage && (
+                <p className="mt-2 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800">
+                  Last message to farmer: “{report.caoMessage}”
+                </p>
+              )}
+
+              {report.status !== 'resolved' && (
+                <div className="mt-3 space-y-2">
+                  <textarea
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="Optional message to the farmer (sent with the status update)…"
+                    rows={2}
+                    className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
+                  />
+
+                  <div className="flex flex-wrap gap-2">
+                    {NEXT_ACTIONS[report.status].map((next) => (
+                      <button
+                        key={next}
+                        type="button"
+                        disabled={isUpdating}
+                        onClick={() => applyStatus(next)}
+                        className={`rounded-lg px-3 py-2 text-sm font-medium text-white disabled:opacity-60 ${
+                          next === 'agriculturist_required'
+                            ? 'bg-orange-600 hover:bg-orange-700'
+                            : next === 'resolved'
+                              ? 'bg-leaf-600 hover:bg-leaf-700'
+                              : 'bg-blue-600 hover:bg-blue-700'
+                        }`}
+                      >
+                        {ACTION_LABEL[next]}
+                      </button>
+                    ))}
+
+                    {/* Correction / jump to any status */}
+                    <div className="flex items-center gap-1">
+                      <select
+                        value={customStatus}
+                        onChange={(e) =>
+                          setCustomStatus(e.target.value as AdminSettableStatus | '')
+                        }
+                        className="rounded-lg border border-gray-200 px-2 py-2 text-sm text-gray-600 focus:border-leaf-500 focus:outline-none"
+                      >
+                        <option value="">Set to…</option>
+                        {(Object.keys(ACTION_LABEL) as AdminSettableStatus[])
+                          .filter((s) => s !== report.status)
+                          .map((s) => (
+                            <option key={s} value={s}>
+                              {STATUS_LABEL[s]}
+                            </option>
+                          ))}
+                      </select>
+                      <button
+                        type="button"
+                        disabled={isUpdating || !customStatus}
+                        onClick={() => customStatus && applyStatus(customStatus)}
+                        className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-40"
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {errorMessage && <p className="mt-2 text-sm text-red-600">{errorMessage}</p>}
             </div>
-
-            {errorMessage && <p className="text-sm text-red-600">{errorMessage}</p>}
-
-            {report.status !== 'resolved' && (
-              <div className="flex gap-2 border-t border-gray-100 pt-4">
-                {report.status === 'pending' && (
-                  <button
-                    type="button"
-                    disabled={isUpdating}
-                    onClick={() => handleStatusChange('reviewed')}
-                    className="flex-1 rounded-lg bg-blue-600 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
-                  >
-                    Mark Reviewed
-                  </button>
-                )}
-                <button
-                  type="button"
-                  disabled={isUpdating}
-                  onClick={() => handleStatusChange('resolved')}
-                  className="flex-1 rounded-lg bg-leaf-600 py-2.5 text-sm font-medium text-white hover:bg-leaf-700 disabled:opacity-60"
-                >
-                  Mark Resolved
-                </button>
-              </div>
-            )}
           </div>
         )}
       </div>
+
+      {/* ---------- Lightbox ---------- */}
+      {lightbox && (
+        <ImageLightbox image={lightbox} onClose={() => setLightbox(null)} />
+      )}
+    </div>
+  );
+}
+
+function DiseasePanel({
+  photos,
+  onOpenImage,
+}: {
+  photos: ReportImage[];
+  onOpenImage: (image: ReportImage) => void;
+}) {
+  const sample = photos[0];
+  return (
+    <div className="space-y-3 border-t border-gray-100 bg-white px-3 py-3">
+      <div className="flex flex-wrap gap-4 text-xs">
+        <Fact
+          label="Highest confidence"
+          value={
+            photos.length
+              ? `${Math.max(...photos.map((p) => p.confidenceScore ?? 0)).toFixed(1)}%`
+              : sample?.confidenceScore != null
+                ? `${sample.confidenceScore.toFixed(1)}%`
+                : '—'
+          }
+        />
+        <Fact
+          label="Risk level"
+          value={
+            sample?.riskLevel ? (
+              <span
+                className={`rounded px-1.5 py-0.5 text-[11px] font-medium capitalize ${RISK_BADGE[sample.riskLevel]}`}
+              >
+                {sample.riskLevel}
+              </span>
+            ) : (
+              '—'
+            )
+          }
+        />
+        <Fact label="Photos" value={String(photos.length)} />
+      </div>
+
+      {photos.length === 0 ? (
+        <p className="text-xs text-gray-400">
+          The farmer did not attach a photo for this disease.
+        </p>
+      ) : (
+        <PhotoGrid photos={photos} onOpenImage={onOpenImage} />
+      )}
+    </div>
+  );
+}
+
+function PhotoGrid({
+  photos,
+  onOpenImage,
+}: {
+  photos: ReportImage[];
+  onOpenImage: (image: ReportImage) => void;
+}) {
+  return (
+    <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-4">
+      {photos.map((photo) => {
+        const url = mediaUrl(photo.imagePath);
+        return (
+          <button
+            key={photo.id}
+            type="button"
+            onClick={() => onOpenImage(photo)}
+            className="group relative aspect-square overflow-hidden rounded-lg border border-gray-200 bg-gray-100"
+          >
+            {url ? (
+              <img
+                src={url}
+                alt={photo.displayName ?? 'Farmer scan'}
+                className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                loading="lazy"
+              />
+            ) : (
+              <span className="flex h-full w-full items-center justify-center text-xs text-gray-400">
+                no image
+              </span>
+            )}
+            {photo.confidenceScore != null && (
+              <span className="absolute bottom-1 right-1 rounded bg-black/60 px-1 text-[10px] font-medium text-white">
+                {photo.confidenceScore.toFixed(0)}%
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ImageLightbox({ image, onClose }: { image: ReportImage; onClose: () => void }) {
+  const [zoom, setZoom] = useState(1);
+  const url = mediaUrl(image.imagePath);
+
+  return (
+    <div
+      className="fixed inset-0 z-40 flex flex-col items-center justify-center bg-black/80 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative max-h-[80vh] max-w-[90vw] overflow-auto rounded-lg bg-black"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {url ? (
+          <img
+            src={url}
+            alt={image.displayName ?? 'Farmer scan'}
+            style={{ transform: `scale(${zoom})`, transformOrigin: 'top left' }}
+            className="block transition-transform"
+          />
+        ) : (
+          <p className="p-10 text-sm text-gray-300">Image unavailable.</p>
+        )}
+      </div>
+
+      <div
+        className="mt-3 flex items-center gap-3 rounded-full bg-white/10 px-4 py-2 text-white"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={() => setZoom((z) => Math.max(1, +(z - 0.5).toFixed(1)))}
+          className="text-lg leading-none disabled:opacity-40"
+          disabled={zoom <= 1}
+        >
+          −
+        </button>
+        <span className="text-xs tabular-nums">{Math.round(zoom * 100)}%</span>
+        <button
+          type="button"
+          onClick={() => setZoom((z) => Math.min(4, +(z + 0.5).toFixed(1)))}
+          className="text-lg leading-none disabled:opacity-40"
+          disabled={zoom >= 4}
+        >
+          +
+        </button>
+        <span className="ml-2 border-l border-white/20 pl-3 text-xs">
+          {image.displayName ?? 'Healthy leaf'}
+          {image.confidenceScore != null ? ` · ${image.confidenceScore.toFixed(1)}%` : ''}
+        </span>
+        <button type="button" onClick={onClose} className="ml-2 text-sm">
+          Close ✕
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Fact({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-[11px] uppercase tracking-wide text-gray-400">{label}</p>
+      <p className="mt-0.5 text-sm font-medium text-gray-800">{value}</p>
     </div>
   );
 }

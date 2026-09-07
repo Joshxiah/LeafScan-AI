@@ -24,7 +24,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Recommendations', path: '/recommendations', icon: '💊', phase: 22 },
 ];
 
-export function Sidebar({ pendingReports }: { pendingReports?: number }) {
+export function Sidebar({ unreadReports }: { unreadReports?: number }) {
   return (
     <aside className="flex w-64 shrink-0 flex-col bg-leaf-800">
       {/* ---------- Brand ---------- */}
@@ -67,9 +67,9 @@ export function Sidebar({ pendingReports }: { pendingReports?: number }) {
             >
               <span className="w-5 text-center text-sm">{item.icon}</span>
               <span className="flex-1 text-sm font-medium">{item.label}</span>
-              {item.path === '/reports' && !!pendingReports && (
-                <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-leaf-900">
-                  {pendingReports}
+              {item.path === '/reports' && !!unreadReports && (
+                <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  {unreadReports}
                 </span>
               )}
             </NavLink>

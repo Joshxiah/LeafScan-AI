@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../../context/AuthContext';
+import { NotificationBell } from '../NotificationBell';
 
 export function Topbar({ title }: { title: string }) {
   const { user, logout } = useAuth();
@@ -29,7 +30,10 @@ export function Topbar({ title }: { title: string }) {
     <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-6">
       <h1 className="text-lg font-semibold text-gray-900">{title}</h1>
 
-      <div className="relative">
+      <div className="flex items-center gap-2">
+        <NotificationBell />
+
+        <div className="relative">
         <button
           type="button"
           onClick={() => setIsMenuOpen((open) => !open)}
@@ -78,6 +82,7 @@ export function Topbar({ title }: { title: string }) {
             </div>
           </>
         )}
+        </div>
       </div>
     </header>
   );

@@ -89,12 +89,44 @@ export interface DashboardStatistics {
 // Outbreak reports
 // ============================================================
 
-export type ReportStatus = 'pending' | 'reviewed' | 'resolved';
+/** Matches ReportStatus in backend/src/services/report.service.ts. */
+export type ReportStatus =
+  | 'pending'
+  | 'under_review'
+  | 'verified'
+  | 'agriculturist_required'
+  | 'agriculturist_assigned'
+  | 'field_assessment_completed'
+  | 'resolved';
+
+/** Statuses the CAO can set (everything except the farmer's initial submit). */
+export type AdminSettableStatus = Exclude<ReportStatus, 'pending'>;
+
+/** Display label per status - keep in sync with STATUS_LABEL on the backend. */
+export const STATUS_LABEL: Record<ReportStatus, string> = {
+  pending: 'Submitted',
+  under_review: 'Under Review',
+  verified: 'Verified',
+  agriculturist_required: 'Agriculturist Visit Required',
+  agriculturist_assigned: 'Agriculturist Assigned',
+  field_assessment_completed: 'Field Assessment Completed',
+  resolved: 'Resolved',
+};
 
 export interface DiseaseBreakdownItem {
   classLabel: string;
   displayName: string;
   count: number;
+}
+
+/** One of the farmer's own scan photos included with a report. */
+export interface ReportImage {
+  id: number;
+  classLabel: string | null;
+  displayName: string | null;
+  imagePath: string;
+  confidenceScore: number | null;
+  riskLevel: RiskLevel | null;
 }
 
 /** Matches ReportSummary in backend/src/services/report.service.ts. */
@@ -110,13 +142,17 @@ export interface ReportSummary {
   healthyScans: number;
   estimatedAreaHectares: number | null;
   status: ReportStatus;
+  isRead: boolean;
+  imageCount: number;
   createdAt: string;
 }
 
 /** Matches ReportDetail in backend/src/services/report.service.ts. */
 export interface ReportDetail extends ReportSummary {
   diseaseBreakdown: DiseaseBreakdownItem[];
+  images: ReportImage[];
   remarks: string | null;
+  caoMessage: string | null;
   reviewedByName: string | null;
   reviewedAt: string | null;
 }
@@ -124,6 +160,29 @@ export interface ReportDetail extends ReportSummary {
 export interface ListReportsResult {
   reports: ReportSummary[];
   total: number;
+  unreadCount: number;
+  page: number;
+  pageSize: number;
+}
+
+// ============================================================
+// Notifications
+// ============================================================
+
+export interface NotificationItem {
+  id: number;
+  type: string;
+  title: string;
+  body: string | null;
+  reportId: number | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
+export interface ListNotificationsResult {
+  notifications: NotificationItem[];
+  total: number;
+  unreadCount: number;
   page: number;
   pageSize: number;
 }
@@ -141,11 +200,12 @@ export interface FarmerSummary {
   username: string;
   email: string | null;
   phoneNumber: string | null;
-  address: string | null;
+  avatarPath: string | null;
+  barangay: string | null;
   municipality: string | null;
-  cornType: 'white' | 'yellow' | 'both' | null;
   farmSizeHectares: number | null;
   yearsFarming: number | null;
+  reportCount: number;
   isActive: boolean;
   createdAt: string;
 }
@@ -155,4 +215,16 @@ export interface ListFarmersResult {
   total: number;
   page: number;
   pageSize: number;
+}
+
+/** POST /api/farmers response - credentials shown to the CAO once. */
+export interface CreatedFarmer {
+  farmer: FarmerSummary;
+  credentials: { username: string; password: string };
+}
+
+/** PATCH /api/farmers/:id response. */
+export interface UpdatedFarmer {
+  farmer: FarmerSummary;
+  newPassword?: string;
 }

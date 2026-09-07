@@ -3,9 +3,10 @@
  *
  * Route: /farmers
  *
- * Every farmer account registered through the mobile app, newest
- * first. Read-only for now - there is no edit/deactivate action
- * yet, only visibility into who is using the app.
+ * The CAO owns farmer accounts here: create one (and hand the
+ * farmer the generated credentials), search the list, edit details,
+ * reset a password, or activate / deactivate an account. Farmers do
+ * not self-register.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -13,19 +14,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { AdminLayout } from '../components/layout/AdminLayout';
 import { ApiError } from '../services/api';
 import * as farmerService from '../services/farmer.service';
-import type { FarmerAccountStatus, FarmerSummary } from '../types';
+import type { CreatedFarmer, FarmerAccountStatus, FarmerSummary } from '../types';
 
 const STATUS_FILTERS: { label: string; value: FarmerAccountStatus | 'all' }[] = [
   { label: 'All', value: 'all' },
   { label: 'Active', value: 'active' },
   { label: 'Inactive', value: 'inactive' },
 ];
-
-const CORN_TYPE_LABEL: Record<'white' | 'yellow' | 'both', string> = {
-  white: 'White Corn',
-  yellow: 'Yellow Corn',
-  both: 'White & Yellow',
-};
 
 const PAGE_SIZE = 20;
 
@@ -55,6 +50,7 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
 
 export function FarmersPage() {
   const [filter, setFilter] = useState<FarmerAccountStatus | 'all'>('all');
+  const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
   const [farmers, setFarmers] = useState<FarmerSummary[] | null>(null);
@@ -62,12 +58,15 @@ export function FarmersPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [selected, setSelected] = useState<FarmerSummary | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [createdResult, setCreatedResult] = useState<CreatedFarmer | null>(null);
 
   const load = useCallback(async () => {
     setErrorMessage(null);
     try {
       const result = await farmerService.listFarmers({
         status: filter === 'all' ? undefined : filter,
+        search: search.trim() || undefined,
         page,
         pageSize: PAGE_SIZE,
       });
@@ -76,35 +75,58 @@ export function FarmersPage() {
     } catch (error) {
       setErrorMessage(error instanceof ApiError ? error.message : 'Could not load farmers.');
     }
-  }, [filter, page]);
+  }, [filter, search, page]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    const timer = setTimeout(() => void load(), search ? 300 : 0);
+    return () => clearTimeout(timer);
+  }, [load, search]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <AdminLayout title="Farmers">
-      {/* ---------- Filter tabs ---------- */}
-      <div className="flex items-center gap-2">
-        {STATUS_FILTERS.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() => {
-              setFilter(option.value);
+      {/* ---------- Toolbar ---------- */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          {STATUS_FILTERS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => {
+                setFilter(option.value);
+                setPage(1);
+              }}
+              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                filter === option.value
+                  ? 'bg-leaf-600 text-white'
+                  : 'bg-white text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
               setPage(1);
             }}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-              filter === option.value
-                ? 'bg-leaf-600 text-white'
-                : 'bg-white text-gray-600 hover:bg-gray-100'
-            }`}
+            placeholder="Search name, username, phone…"
+            className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:border-leaf-500 focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={() => setIsCreating(true)}
+            className="rounded-lg bg-leaf-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-leaf-700"
           >
-            {option.label}
+            + Add Farmer
           </button>
-        ))}
+        </div>
       </div>
 
       {errorMessage && (
@@ -121,9 +143,11 @@ export function FarmersPage() {
           </div>
         ) : farmers.length === 0 ? (
           <div className="px-4 py-16 text-center">
-            <p className="text-sm text-gray-500">No farmers have registered yet.</p>
+            <p className="text-sm text-gray-500">
+              {search ? 'No farmers match your search.' : 'No farmer accounts yet.'}
+            </p>
             <p className="mt-1 text-xs text-gray-400">
-              Farmer accounts created through the mobile app will appear here.
+              Use “Add Farmer” to create an account and issue credentials.
             </p>
           </div>
         ) : (
@@ -133,8 +157,8 @@ export function FarmersPage() {
                 <tr className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-400">
                   <th className="px-4 py-3 font-medium">Farmer</th>
                   <th className="px-4 py-3 font-medium">Phone</th>
-                  <th className="px-4 py-3 font-medium">Address</th>
-                  <th className="px-4 py-3 font-medium">Corn Type</th>
+                  <th className="px-4 py-3 font-medium">Barangay</th>
+                  <th className="px-4 py-3 font-medium">Reports</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Joined</th>
                 </tr>
@@ -159,12 +183,10 @@ export function FarmersPage() {
                     </td>
                     <td className="px-4 py-3 text-gray-600">{farmer.phoneNumber ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-600">
-                      {farmer.address ?? '—'}
+                      {farmer.barangay ?? '—'}
                       {farmer.municipality ? `, ${farmer.municipality}` : ''}
                     </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {farmer.cornType ? CORN_TYPE_LABEL[farmer.cornType] : '—'}
-                    </td>
+                    <td className="px-4 py-3 text-gray-600">{farmer.reportCount}</td>
                     <td className="px-4 py-3">
                       <StatusBadge isActive={farmer.isActive} />
                     </td>
@@ -204,81 +226,368 @@ export function FarmersPage() {
         </div>
       )}
 
-      {selected && <FarmerDetailPanel farmer={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <FarmerDetailModal
+          farmer={selected}
+          onClose={() => setSelected(null)}
+          onChanged={load}
+        />
+      )}
+
+      {isCreating && (
+        <CreateFarmerModal
+          onClose={() => setIsCreating(false)}
+          onCreated={(result) => {
+            setIsCreating(false);
+            setCreatedResult(result);
+            void load();
+          }}
+        />
+      )}
+
+      {createdResult && (
+        <CredentialsModal
+          title="Farmer account created"
+          username={createdResult.credentials.username}
+          password={createdResult.credentials.password}
+          onClose={() => setCreatedResult(null)}
+        />
+      )}
     </AdminLayout>
   );
 }
 
-function FarmerDetailPanel({
+// ============================================================
+// Create
+// ============================================================
+
+function CreateFarmerModal({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: (result: CreatedFarmer) => void;
+}) {
+  const [fullName, setFullName] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [barangay, setBarangay] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit() {
+    setError(null);
+    if (fullName.trim().length < 2) {
+      setError('Enter the farmer’s full name.');
+      return;
+    }
+    if (!/^(09\d{9}|\+639\d{9})$/.test(phoneNumber.trim())) {
+      setError('Enter a valid mobile number, e.g. 09171234567.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const result = await farmerService.createFarmer({
+        fullName: fullName.trim(),
+        phoneNumber: phoneNumber.trim(),
+        barangay: barangay.trim() || undefined,
+        username: username.trim() || undefined,
+        password: password.trim() || undefined,
+      });
+      onCreated(result);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not create this account.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <ModalShell title="Add Farmer" onClose={onClose}>
+      <div className="space-y-3">
+        <Field label="Full name" value={fullName} onChange={setFullName} placeholder="Juan Dela Cruz" />
+        <Field
+          label="Mobile number"
+          value={phoneNumber}
+          onChange={setPhoneNumber}
+          placeholder="09171234567"
+        />
+        <Field label="Barangay" value={barangay} onChange={setBarangay} placeholder="Balangasan" />
+        <div className="grid grid-cols-2 gap-3">
+          <Field
+            label="Username (optional)"
+            value={username}
+            onChange={setUsername}
+            placeholder="auto-generated"
+          />
+          <Field
+            label="Password (optional)"
+            value={password}
+            onChange={setPassword}
+            placeholder="auto-generated"
+          />
+        </div>
+        <p className="text-xs text-gray-400">
+          Leave username or password blank to have the system generate them. You will see the
+          credentials once, to hand to the farmer.
+        </p>
+
+        {error && <p className="text-sm text-red-600">{error}</p>}
+      </div>
+
+      <div className="mt-5 flex gap-3">
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          disabled={isSubmitting}
+          onClick={handleSubmit}
+          className="flex-1 rounded-lg bg-leaf-600 py-2.5 text-sm font-medium text-white hover:bg-leaf-700 disabled:opacity-60"
+        >
+          {isSubmitting ? 'Creating…' : 'Create account'}
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+// ============================================================
+// Detail / edit
+// ============================================================
+
+function FarmerDetailModal({
   farmer,
   onClose,
+  onChanged,
 }: {
   farmer: FarmerSummary;
   onClose: () => void;
+  onChanged: () => void;
+}) {
+  const [current, setCurrent] = useState(farmer);
+  const [fullName, setFullName] = useState(farmer.fullName);
+  const [phoneNumber, setPhoneNumber] = useState(farmer.phoneNumber ?? '');
+  const [barangay, setBarangay] = useState(farmer.barangay ?? '');
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [resetPassword, setResetPassword] = useState<string | null>(null);
+
+  const dirty =
+    fullName.trim() !== current.fullName ||
+    phoneNumber.trim() !== (current.phoneNumber ?? '') ||
+    barangay.trim() !== (current.barangay ?? '');
+
+  async function save(extra: Parameters<typeof farmerService.updateFarmer>[1] = {}) {
+    setError(null);
+    setIsSaving(true);
+    try {
+      const result = await farmerService.updateFarmer(current.id, {
+        fullName: fullName.trim() !== current.fullName ? fullName.trim() : undefined,
+        phoneNumber:
+          phoneNumber.trim() !== (current.phoneNumber ?? '') ? phoneNumber.trim() : undefined,
+        barangay: barangay.trim() !== (current.barangay ?? '') ? barangay.trim() : undefined,
+        ...extra,
+      });
+      setCurrent(result.farmer);
+      if (result.newPassword) setResetPassword(result.newPassword);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not update this account.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <ModalShell title="Farmer Details" onClose={onClose}>
+      <div className="flex items-center gap-3">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-leaf-50 text-lg font-bold text-leaf-700">
+          {initialsOf(current.fullName)}
+        </div>
+        <div>
+          <p className="text-lg font-semibold text-gray-900">{current.fullName}</p>
+          <p className="text-sm text-gray-500">@{current.username}</p>
+        </div>
+        <span className="ml-auto">
+          <StatusBadge isActive={current.isActive} />
+        </span>
+      </div>
+
+      <div className="mt-4 space-y-3">
+        <Field label="Full name" value={fullName} onChange={setFullName} />
+        <Field label="Mobile number" value={phoneNumber} onChange={setPhoneNumber} />
+        <Field label="Barangay" value={barangay} onChange={setBarangay} />
+
+        <div className="grid grid-cols-2 gap-3 pt-1 text-sm">
+          <ReadOnly label="Reports filed" value={String(current.reportCount)} />
+          <ReadOnly label="Joined" value={formatDate(current.createdAt)} />
+        </div>
+      </div>
+
+      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+
+      <div className="mt-5 flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={isSaving || !dirty}
+          onClick={() => save()}
+          className="rounded-lg bg-leaf-600 px-3 py-2 text-sm font-medium text-white hover:bg-leaf-700 disabled:opacity-40"
+        >
+          {isSaving ? 'Saving…' : 'Save changes'}
+        </button>
+
+        <button
+          type="button"
+          disabled={isSaving}
+          onClick={() => save({ isActive: !current.isActive })}
+          className={`rounded-lg px-3 py-2 text-sm font-medium disabled:opacity-40 ${
+            current.isActive
+              ? 'border border-red-200 text-red-600 hover:bg-red-50'
+              : 'border border-green-200 text-green-700 hover:bg-green-50'
+          }`}
+        >
+          {current.isActive ? 'Deactivate' : 'Reactivate'}
+        </button>
+
+        <button
+          type="button"
+          disabled={isSaving}
+          onClick={() => save({ password: Math.random().toString(36).slice(2, 12) })}
+          className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-40"
+        >
+          Reset password
+        </button>
+      </div>
+
+      {resetPassword && (
+        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+          <p className="text-xs font-semibold text-amber-800">New password (shown once)</p>
+          <p className="mt-0.5 font-mono text-sm text-amber-900">{resetPassword}</p>
+        </div>
+      )}
+    </ModalShell>
+  );
+}
+
+// ============================================================
+// Shared bits
+// ============================================================
+
+function CredentialsModal({
+  title,
+  username,
+  password,
+  onClose,
+}: {
+  title: string;
+  username: string;
+  password: string;
+  onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-30 flex justify-end bg-black/30" onClick={onClose}>
+    <ModalShell title={title} onClose={onClose}>
+      <p className="text-sm text-gray-600">
+        Give these to the farmer. The password is not stored in readable form and cannot be shown
+        again.
+      </p>
+      <div className="mt-4 space-y-2">
+        <div className="rounded-lg bg-gray-50 px-3 py-2.5">
+          <p className="text-xs uppercase tracking-wide text-gray-400">Username</p>
+          <p className="font-mono text-sm text-gray-900">{username}</p>
+        </div>
+        <div className="rounded-lg bg-gray-50 px-3 py-2.5">
+          <p className="text-xs uppercase tracking-wide text-gray-400">Password</p>
+          <p className="font-mono text-sm text-gray-900">{password}</p>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={() => {
+          void navigator.clipboard?.writeText(`Username: ${username}\nPassword: ${password}`);
+        }}
+        className="mt-4 w-full rounded-lg border border-gray-200 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+      >
+        Copy to clipboard
+      </button>
+      <button
+        type="button"
+        onClick={onClose}
+        className="mt-2 w-full rounded-lg bg-leaf-600 py-2.5 text-sm font-medium text-white hover:bg-leaf-700"
+      >
+        Done
+      </button>
+    </ModalShell>
+  );
+}
+
+function ModalShell({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
       <div
-        className="flex h-full w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl"
+        className="flex max-h-[86vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
-          <h2 className="text-base font-semibold text-gray-900">Farmer Details</h2>
+        <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-5 py-4">
+          <h2 className="text-base font-semibold text-gray-900">{title}</h2>
           <button
             type="button"
             onClick={onClose}
             className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            aria-label="Close"
           >
             ✕
           </button>
         </div>
-
-        <div className="flex-1 space-y-5 px-5 py-5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-leaf-50 text-lg font-bold text-leaf-700">
-              {initialsOf(farmer.fullName)}
-            </div>
-            <div>
-              <p className="text-lg font-semibold text-gray-900">{farmer.fullName}</p>
-              <p className="text-sm text-gray-500">@{farmer.username}</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <DetailField label="Phone" value={farmer.phoneNumber ?? 'Not set'} />
-            <DetailField label="Email" value={farmer.email ?? 'Not set'} />
-            <DetailField label="Address" value={farmer.address ?? 'Not set'} />
-            <DetailField label="Municipality" value={farmer.municipality ?? 'Not set'} />
-            <DetailField
-              label="Corn Type"
-              value={farmer.cornType ? CORN_TYPE_LABEL[farmer.cornType] : 'Not set'}
-            />
-            <DetailField
-              label="Farm Size"
-              value={farmer.farmSizeHectares != null ? `${farmer.farmSizeHectares} ha` : 'Not set'}
-            />
-            <DetailField
-              label="Years Farming"
-              value={farmer.yearsFarming != null ? String(farmer.yearsFarming) : 'Not set'}
-            />
-            <DetailField label="Joined" value={formatDate(farmer.createdAt)} />
-          </div>
-
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-              Account status
-            </h3>
-            <div className="mt-1.5">
-              <StatusBadge isActive={farmer.isActive} />
-            </div>
-          </div>
-        </div>
+        <div className="overflow-y-auto px-5 py-5">{children}</div>
       </div>
     </div>
   );
 }
 
-function DetailField({ label, value }: { label: string; value: string }) {
+function Field({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</span>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
+      />
+    </label>
+  );
+}
+
+function ReadOnly({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</p>
