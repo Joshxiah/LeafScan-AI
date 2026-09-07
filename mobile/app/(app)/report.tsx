@@ -206,7 +206,7 @@ export default function ReportScreen() {
                   >
                     <View>
                       <Text className="text-[14px] font-bold text-[#16241B]">
-                        {item.displayName}
+                        {t.diseaseNames[item.classLabel]}
                       </Text>
                       <Text className="mt-0.5 text-[12px] text-[#9BAAA1]">
                         {t.report.plantsScanned(item.count)}

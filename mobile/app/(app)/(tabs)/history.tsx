@@ -23,7 +23,6 @@ import { useLanguage } from '../../../src/context/LanguageContext';
 import { brand } from '../../../src/constants/theme';
 import { getScanLog, ScanEntry } from '../../../src/services/scanLog';
 import {
-  CLASS_DISPLAY_NAME,
   SCAN_BUCKETS,
   ScanBucket,
   bucketOf,
@@ -75,7 +74,7 @@ export default function HistoryScreen() {
         if (filter === 'Healthy' && !isHealthy(scan)) return false;
 
         if (!cleanQuery) return true;
-        return CLASS_DISPLAY_NAME[scan.classLabel].toLowerCase().includes(cleanQuery);
+        return t.diseaseNames[scan.classLabel].toLowerCase().includes(cleanQuery);
       })
       .sort((a, b) => b.scannedAt.getTime() - a.scannedAt.getTime());
 
@@ -83,7 +82,7 @@ export default function HistoryScreen() {
       bucket,
       scans: filtered.filter((scan) => bucketOf(scan) === bucket),
     })).filter((group) => group.scans.length > 0);
-  }, [scans, query, filter]);
+  }, [scans, query, filter, t]);
 
   const hasAnyResults = grouped.length > 0;
 
@@ -125,7 +124,7 @@ export default function HistoryScreen() {
 
           {hasAnyResults ? (
             <ScrollView
-              contentContainerClassName="px-6 pb-10 pt-5"
+              contentContainerClassName="px-6 pb-28 pt-5"
               showsVerticalScrollIndicator={false}
             >
               {grouped.map(({ bucket, scans: bucketScans }) => (
@@ -137,7 +136,7 @@ export default function HistoryScreen() {
                     {bucketScans.map((scan) => (
                       <ScanListItem
                         key={scan.id}
-                        title={CLASS_DISPLAY_NAME[scan.classLabel]}
+                        title={t.diseaseNames[scan.classLabel]}
                         subtitle={`${t.common.corn} | ${timeLabelFor(scan) ?? bucketLabels[bucketOf(scan)]}`}
                         confidence={scan.confidence}
                         healthy={isHealthy(scan)}

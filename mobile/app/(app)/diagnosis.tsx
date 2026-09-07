@@ -23,11 +23,11 @@ import { listDiseases } from '../../src/services/disease.service';
 import { Disease } from '../../src/types';
 import { useLanguage } from '../../src/context/LanguageContext';
 import { brand, shadows } from '../../src/constants/theme';
-import { CLASS_DISPLAY_NAME, ScanClassLabel } from '../../src/data/scanStats';
+import { ScanClassLabel } from '../../src/data/scanStats';
 
 export default function DiagnosisScreen() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { classLabel, confidence } = useLocalSearchParams<{
     classLabel: ScanClassLabel;
     confidence: string;
@@ -39,7 +39,7 @@ export default function DiagnosisScreen() {
   useEffect(() => {
     let isMounted = true;
 
-    listDiseases()
+    listDiseases(language)
       .then((result) => {
         if (isMounted) setDiseases(result);
       })
@@ -50,7 +50,7 @@ export default function DiagnosisScreen() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [language]);
 
   const disease = useMemo(
     () => diseases?.find((d) => d.classLabel === classLabel) ?? null,
@@ -59,7 +59,10 @@ export default function DiagnosisScreen() {
 
   const isHealthy = classLabel === 'healthy';
   const confidenceValue = Number(confidence) || 0;
-  const fallbackName = classLabel ? CLASS_DISPLAY_NAME[classLabel] : 'Unknown';
+  const fallbackName =
+    classLabel && classLabel in t.diseaseNames
+      ? t.diseaseNames[classLabel as ScanClassLabel]
+      : 'Unknown';
 
   return (
     <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={['top', 'bottom']}>
@@ -104,7 +107,7 @@ export default function DiagnosisScreen() {
           {disease?.displayName ?? fallbackName}
         </Text>
         <Text className="mt-0.5 text-[13px] italic text-[#9BAAA1]">
-          Corn (Zea mays)
+          {t.common.corn} (Zea mays)
         </Text>
 
         {/* ---------- Confidence ---------- */}

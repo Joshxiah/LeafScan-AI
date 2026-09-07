@@ -30,7 +30,6 @@ import { goToDiagnosis } from '../../../src/navigation/diagnosis';
 import { getScanLog, ScanEntry } from '../../../src/services/scanLog';
 import {
   ActivityRange,
-  CLASS_DISPLAY_NAME,
   bucketOf,
   buildActivity,
   changeVsPreviousPeriod,
@@ -303,7 +302,7 @@ export default function HomeScreen() {
             {recentScans.map((scan) => (
               <ScanListItem
                 key={scan.id}
-                title={CLASS_DISPLAY_NAME[scan.classLabel]}
+                title={t.diseaseNames[scan.classLabel]}
                 subtitle={`${t.common.corn} | ${timeLabelFor(scan) ?? bucketLabels[bucketOf(scan)]}`}
                 confidence={scan.confidence}
                 healthy={isHealthy(scan)}

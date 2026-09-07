@@ -60,6 +60,19 @@ export interface Translations {
     bucketLastWeek: string;
   };
 
+  /**
+   * The four detection classes, for screens that show a scan result
+   * offline (Home, History, the report breakdown) without a call to
+   * GET /api/diseases. The library / disease-detail / diagnosis
+   * screens use the API's localised name instead.
+   */
+  diseaseNames: {
+    common_rust: string;
+    gray_leaf_spot: string;
+    healthy: string;
+    northern_leaf_blight: string;
+  };
+
   /** Localized text for the backend error codes above. */
   apiErrors: Record<ApiErrorCode, string>;
 
@@ -357,6 +370,13 @@ export const en: Translations = {
     bucketToday: 'Today',
     bucketYesterday: 'Yesterday',
     bucketLastWeek: 'Last Week',
+  },
+
+  diseaseNames: {
+    common_rust: 'Common Rust',
+    gray_leaf_spot: 'Gray Leaf Spot',
+    healthy: 'Healthy Leaf',
+    northern_leaf_blight: 'Northern Leaf Blight',
   },
 
   splash: {
@@ -684,6 +704,13 @@ export const ceb: Translations = {
     bucketToday: 'Karon',
     bucketYesterday: 'Kagahapon',
     bucketLastWeek: 'Miaging Semana',
+  },
+
+  diseaseNames: {
+    common_rust: 'Kasagarang Taya',
+    gray_leaf_spot: 'Abuhon nga Tulpok sa Dahon',
+    healthy: 'Himsog nga Dahon',
+    northern_leaf_blight: 'Amihanang Pagkalaya sa Dahon',
   },
 
   splash: {

@@ -39,7 +39,7 @@ function firstSentence(text: string | null): string | null {
 
 export default function LibraryScreen() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [diseases, setDiseases] = useState<Disease[]>([]);
   const [state, setState] = useState<LoadState>('loading');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -48,14 +48,14 @@ export default function LibraryScreen() {
   const load = useCallback(async (isRetry = false) => {
     if (isRetry) setState('loading');
     try {
-      const result = await listDiseases();
+      const result = await listDiseases(language);
       setDiseases(result.filter((d) => !d.isHealthy));
       setState('ready');
     } catch (error) {
       console.log('[library] failed to load diseases:', error);
       setState('error');
     }
-  }, []);
+  }, [language]);
 
   useEffect(() => {
     void load();
