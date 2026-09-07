@@ -44,6 +44,18 @@ export const env = {
   nodeEnv: optionalEnv('NODE_ENV', 'development'),
   isDevelopment: optionalEnv('NODE_ENV', 'development') === 'development',
 
+  // ---------- CORS ----------
+  // Exact origins allowed to call this API from a browser, e.g.
+  // "https://admin.leafscan.example,https://app.leafscan.example".
+  // In development, the admin site and the mobile app's web build
+  // are additionally allowed from any host (their dev servers are
+  // reachable at a LAN IP that changes with the Wi-Fi network) as
+  // long as the port matches - see isAllowedOrigin() in app.ts.
+  allowedOrigins: optionalEnv('ALLOWED_ORIGINS', '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+
   // ---------- Database ----------
   db: {
     host: requireEnv('DB_HOST'),

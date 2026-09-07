@@ -25,6 +25,31 @@
 
 export type Language = 'en' | 'ceb';
 
+/**
+ * Stable identifiers the backend attaches to certain errors (see
+ * backend/src/utils/ApiError.ts) - "INVALID_CREDENTIALS" rather than
+ * the English sentence that goes with it. This lets a known failure
+ * show a localized message instead of the raw English text the
+ * server sent, which is never translated. An error without a mapped
+ * code still falls back to that raw message - see getErrorMessage()
+ * in src/services/api.ts.
+ */
+export type ApiErrorCode =
+  | 'INVALID_CREDENTIALS'
+  | 'ACCOUNT_DEACTIVATED'
+  | 'USERNAME_TAKEN'
+  | 'PHONE_TAKEN'
+  | 'TOKEN_EXPIRED'
+  | 'TOKEN_INVALID'
+  | 'TOKEN_MISSING'
+  | 'UPLOAD_INVALID_TYPE'
+  | 'UPLOAD_TOO_LARGE'
+  | 'UPLOAD_TOO_MANY_FILES'
+  | 'UPLOAD_UNEXPECTED_FIELD'
+  | 'UPLOAD_FAILED'
+  | 'TOO_MANY_REQUESTS'
+  | 'SERVICE_UNAVAILABLE';
+
 export interface Translations {
   common: {
     back: string;
@@ -34,6 +59,9 @@ export interface Translations {
     bucketYesterday: string;
     bucketLastWeek: string;
   };
+
+  /** Localized text for the backend error codes above. */
+  apiErrors: Record<ApiErrorCode, string>;
 
   splash: {
     tagline: string;
@@ -584,6 +612,24 @@ export const en: Translations = {
       'LeafScan AI needs access to your photos to set a profile picture. You can enable this in your phone settings.',
     photoErrorGeneric: 'We could not update your photo. Please try again.',
   },
+
+  apiErrors: {
+    INVALID_CREDENTIALS: 'Incorrect username or password. Please try again.',
+    ACCOUNT_DEACTIVATED:
+      'This account has been deactivated. Please contact the City Agriculture Office.',
+    USERNAME_TAKEN: 'That username is already taken. Please choose another.',
+    PHONE_TAKEN: 'That mobile number is already registered to an account.',
+    TOKEN_EXPIRED: 'Your session has ended. Please log in again.',
+    TOKEN_INVALID: 'Your session is no longer valid. Please log in again.',
+    TOKEN_MISSING: 'Please log in to continue.',
+    UPLOAD_INVALID_TYPE: 'Only JPG, PNG, and WEBP photos are allowed.',
+    UPLOAD_TOO_LARGE: 'That photo is too large. Please choose a smaller one.',
+    UPLOAD_TOO_MANY_FILES: 'Please upload only one photo at a time.',
+    UPLOAD_UNEXPECTED_FIELD: 'The photo could not be read. Please try again.',
+    UPLOAD_FAILED: 'The photo could not be processed. Please try another one.',
+    TOO_MANY_REQUESTS: 'Too many attempts. Please wait a while before trying again.',
+    SERVICE_UNAVAILABLE: 'The service is temporarily unavailable. Please try again shortly.',
+  },
 };
 
 export const ceb: Translations = {
@@ -869,6 +915,24 @@ export const ceb: Translations = {
     photoPermissionMessage:
       'Kinahanglan sa LeafScan AI ang access sa imong mga litrato aron makabutang og profile picture. Pwede nimo i-enable kini sa settings sa imong telepono.',
     photoErrorGeneric: 'Dili namo mahimo i-update ang imong litrato. Palihug sulayi pag-usab.',
+  },
+
+  apiErrors: {
+    INVALID_CREDENTIALS: 'Sayop ang username o password. Palihug sulayi pag-usab.',
+    ACCOUNT_DEACTIVATED:
+      'Kini nga account gi-deactivate na. Palihug kontaka ang City Agriculture Office.',
+    USERNAME_TAKEN: 'Gigamit na kanang username. Palihug pagpili og lain.',
+    PHONE_TAKEN: 'Kanang numero sa selpon rehistrado na sa laing account.',
+    TOKEN_EXPIRED: 'Natapos na ang imong session. Palihug pag-login pag-usab.',
+    TOKEN_INVALID: 'Dili na balido ang imong session. Palihug pag-login pag-usab.',
+    TOKEN_MISSING: 'Palihug pag-login aron makapadayon.',
+    UPLOAD_INVALID_TYPE: 'JPG, PNG, ug WEBP nga litrato lang ang gitugotan.',
+    UPLOAD_TOO_LARGE: 'Sobra ka dako kanang litrato. Palihug pagpili og mas gamay.',
+    UPLOAD_TOO_MANY_FILES: 'Usa lang ka litrato ang i-upload sa matag higayon.',
+    UPLOAD_UNEXPECTED_FIELD: 'Wala mabasa ang litrato. Palihug sulayi pag-usab.',
+    UPLOAD_FAILED: 'Wala maproseso ang litrato. Palihug sulayi og lain.',
+    TOO_MANY_REQUESTS: 'Sobra na ka daghan ang sulay. Palihug hulat una ug sulayi pag-usab.',
+    SERVICE_UNAVAILABLE: 'Dili karon ma-abot ang serbisyo. Palihug sulayi sa lain nga higayon.',
   },
 };
 

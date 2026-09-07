@@ -18,7 +18,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', path: '/dashboard', icon: '▦' },
   { label: 'Reports', path: '/reports', icon: '📊' },
-  { label: 'Farmers', path: '/farmers', icon: '👥', phase: 20 },
+  { label: 'Farmers', path: '/farmers', icon: '👥' },
   { label: 'Detections', path: '/detections', icon: '🔬', phase: 16 },
   { label: 'Diseases', path: '/diseases', icon: '🌿', phase: 21 },
   { label: 'Recommendations', path: '/recommendations', icon: '💊', phase: 22 },

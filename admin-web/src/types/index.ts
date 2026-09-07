@@ -127,3 +127,32 @@ export interface ListReportsResult {
   page: number;
   pageSize: number;
 }
+
+// ============================================================
+// Farmer accounts
+// ============================================================
+
+export type FarmerAccountStatus = 'active' | 'inactive';
+
+/** Matches FarmerSummary in backend/src/services/farmer.service.ts. */
+export interface FarmerSummary {
+  id: number;
+  fullName: string;
+  username: string;
+  email: string | null;
+  phoneNumber: string | null;
+  address: string | null;
+  municipality: string | null;
+  cornType: 'white' | 'yellow' | 'both' | null;
+  farmSizeHectares: number | null;
+  yearsFarming: number | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface ListFarmersResult {
+  farmers: FarmerSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
+}

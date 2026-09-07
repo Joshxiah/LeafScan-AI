@@ -31,6 +31,7 @@ import { useAuth } from '../../src/context/AuthContext';
 import { useLanguage } from '../../src/context/LanguageContext';
 import { AuthTextField } from '../../src/components/AuthTextField';
 import { brand, shadows } from '../../src/constants/theme';
+import { getErrorMessage } from '../../src/services/api';
 
 const USERNAME_RULE = /^[a-z0-9._]+$/;
 const PHONE_RULE = /^(09\d{9}|\+639\d{9})$/;
@@ -99,7 +100,7 @@ export default function RegisterScreen() {
       });
       router.replace('/home');
     } catch (error) {
-      setErrorMessage(t.register.errorGeneric);
+      setErrorMessage(getErrorMessage(error, t.register.errorGeneric, t.apiErrors));
       console.log('[register] failed', error);
     } finally {
       setIsSubmitting(false);

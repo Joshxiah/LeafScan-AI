@@ -13,6 +13,12 @@
 import { Router } from 'express';
 import * as authController from '../controllers/auth.controller';
 import { authenticate } from '../middleware/auth.middleware';
+import {
+  loginRateLimiter,
+  registerRateLimiter,
+  forgotPasswordRateLimiter,
+  resetPasswordRateLimiter,
+} from '../middleware/rateLimit.middleware';
 
 const router = Router();
 
@@ -20,25 +26,25 @@ const router = Router();
  * POST /api/auth/register
  * PUBLIC - a farmer cannot have a token before they have an account.
  */
-router.post('/register', authController.register);
+router.post('/register', registerRateLimiter, authController.register);
 
 /**
  * POST /api/auth/login
  * PUBLIC - logging in is how a token is obtained.
  */
-router.post('/login', authController.login);
+router.post('/login', loginRateLimiter, authController.login);
 
 /**
  * POST /api/auth/forgot-password
  * PUBLIC - a locked-out user has no token. Texts a reset code by SMS.
  */
-router.post('/forgot-password', authController.forgotPassword);
+router.post('/forgot-password', forgotPasswordRateLimiter, authController.forgotPassword);
 
 /**
  * POST /api/auth/reset-password
  * PUBLIC - the texted code is the credential here.
  */
-router.post('/reset-password', authController.resetPassword);
+router.post('/reset-password', resetPasswordRateLimiter, authController.resetPassword);
 
 /**
  * GET /api/auth/me

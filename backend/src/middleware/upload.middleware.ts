@@ -81,7 +81,8 @@ function fileFilter(
   if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
     callback(
       ApiError.badRequest(
-        'Only JPG, PNG, and WEBP images are allowed. Please choose a photo.'
+        'Only JPG, PNG, and WEBP images are allowed. Please choose a photo.',
+        'UPLOAD_INVALID_TYPE'
       )
     );
     return;
@@ -90,7 +91,8 @@ function fileFilter(
   if (!ALLOWED_EXTENSIONS.includes(extension)) {
     callback(
       ApiError.badRequest(
-        'Unsupported file extension. Please use a .jpg, .png, or .webp image.'
+        'Unsupported file extension. Please use a .jpg, .png, or .webp image.',
+        'UPLOAD_INVALID_TYPE'
       )
     );
     return;

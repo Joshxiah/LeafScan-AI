@@ -65,6 +65,35 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction): v
 }
 
 /**
+ * Requires a valid login token to view an uploaded file (a corn
+ * leaf photo or a profile picture).
+ *
+ * Unlike authenticate(), this also accepts the token as a "token"
+ * query parameter, because these URLs are loaded by <Image>/<img>
+ * tags, which cannot attach an Authorization header. Without this,
+ * every uploaded file - including a farmer's profile photo - would
+ * be readable by anyone who ever obtained the URL, with no login
+ * required at all.
+ */
+export function authenticateAsset(req: Request, res: Response, next: NextFunction): void {
+  try {
+    const queryToken = typeof req.query.token === 'string' ? req.query.token : undefined;
+    const token = req.headers.authorization
+      ? extractTokenFromHeader(req.headers.authorization)
+      : queryToken;
+
+    if (!token) {
+      throw ApiError.unauthorized('No authentication token provided', 'TOKEN_MISSING');
+    }
+
+    verifyToken(token);
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
  * Requires the farmer role. Used for endpoints that only make
  * sense for a farmer, such as submitting a leaf scan.
  */

@@ -27,6 +27,7 @@ import { useAuth } from '../../src/context/AuthContext';
 import { useLanguage } from '../../src/context/LanguageContext';
 import { AuthTextField } from '../../src/components/AuthTextField';
 import { brand, shadows } from '../../src/constants/theme';
+import { getErrorMessage } from '../../src/services/api';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -56,7 +57,7 @@ export default function LoginScreen() {
       await login({ username: username.trim(), password });
       router.replace('/home');
     } catch (error) {
-      setErrorMessage(t.login.errorGeneric);
+      setErrorMessage(getErrorMessage(error, t.login.errorGeneric, t.apiErrors));
       console.log('[login] failed', error);
     } finally {
       setIsSubmitting(false);

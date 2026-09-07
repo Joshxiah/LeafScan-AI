@@ -24,7 +24,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { AuthTextField } from '../../src/components/AuthTextField';
 import { requestPasswordReset, resetPassword } from '../../src/services/auth.service';
-import { ApiError } from '../../src/services/api';
+import { getErrorMessage } from '../../src/services/api';
 import { useLanguage } from '../../src/context/LanguageContext';
 import { brand, shadows } from '../../src/constants/theme';
 
@@ -66,11 +66,7 @@ export default function ResetPasswordScreen() {
       await resetPassword({ phoneNumber, code: cleanCode, password });
       setDone(true);
     } catch (error) {
-      if (error instanceof ApiError && error.message) {
-        setErrorMessage(error.message);
-      } else {
-        setErrorMessage(t.resetPassword.errorGeneric);
-      }
+      setErrorMessage(getErrorMessage(error, t.resetPassword.errorGeneric, t.apiErrors));
       console.log('[reset-password] failed', error);
     } finally {
       setIsSubmitting(false);

@@ -18,8 +18,12 @@ import uploadRoutes from './routes/upload.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import diseaseRoutes from './routes/disease.routes';
 import reportRoutes from './routes/report.routes';
+import farmerRoutes from './routes/farmer.routes';
 import healthRoutes from './routes/health.routes';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler';
+import { authenticateAsset } from './middleware/auth.middleware';
+import { isAllowedOrigin } from './utils/corsOrigin';
+import { ApiError } from './utils/ApiError';
 
 const app: Application = express();
 
@@ -27,11 +31,21 @@ const app: Application = express();
 // MIDDLEWARE - order matters, these run top to bottom
 // ============================================================
 
-// Allow the mobile app and admin website to call this API.
-// Wide open during development; restricted in Phase 24.
 app.use(
   cors({
-    origin: '*',
+    origin: (origin, callback) => {
+      // No Origin header means the caller is not a browser enforcing
+      // CORS - the native mobile app, a server, curl, Postman - so
+      // there is nothing here for CORS to restrict.
+      if (!origin || isAllowedOrigin(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      // A real rejection, not a server fault - 403, not the
+      // generic 500 a plain Error would fall through to.
+      callback(ApiError.forbidden('Not allowed by CORS', 'CORS_NOT_ALLOWED'));
+    },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   })
@@ -49,9 +63,12 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // Serve uploaded leaf images as static files, so the mobile app
-// and admin site can display them via a normal image URL.
+// and admin site can display them via a normal image URL. Gated
+// behind authenticateAsset so a photo - including a farmer's own
+// face - is not world-readable to anyone who obtains the URL.
 app.use(
   '/uploads',
+  authenticateAsset,
   express.static(path.resolve(__dirname, '../', env.upload.dir))
 );
 
@@ -75,9 +92,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/diseases', diseaseRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/farmers', farmerRoutes);
 
 // Future routers are added here in later phases:
-// app.use('/api/farmers', farmerRoutes);            <- Phase 20
 // app.use('/api/detections', detectionRoutes);      <- Phase 13
 // app.use('/api/recommendations', recommendationRoutes); <- Phase 22
 

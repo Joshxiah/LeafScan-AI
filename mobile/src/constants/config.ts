@@ -27,7 +27,7 @@ import Constants from 'expo-constants';
 // Manual fallback - your computer's IPv4 address on Wi-Fi.
 // Only used if automatic detection fails.
 // ----------------------------------------------------------
-const DEV_MACHINE_IP = '10.85.164.25';
+const DEV_MACHINE_IP = '192.168.1.2';
 
 const BACKEND_PORT = 4000;
 

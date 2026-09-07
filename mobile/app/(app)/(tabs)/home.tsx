@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useMemo, useState } from 'react';
-import { View, Text, Pressable, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, ScrollView, ActivityIndicator, Image } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../../src/context/AuthContext';
 import { useLanguage } from '../../../src/context/LanguageContext';
 import { brand, shadows } from '../../../src/constants/theme';
+import { mediaUrl } from '../../../src/utils/media';
 import { StatCard } from '../../../src/components/StatCard';
 import { WeeklyBarChart } from '../../../src/components/WeeklyBarChart';
 import { DonutChart } from '../../../src/components/DonutChart';
@@ -42,7 +43,7 @@ const RECENT_COUNT = 4;
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { t } = useLanguage();
   const [range, setRange] = useState<ActivityRange>('Weekly');
   const [scans, setScans] = useState<ScanEntry[] | null>(null);
@@ -60,6 +61,7 @@ export default function HomeScreen() {
   );
 
   const firstName = user?.fullName?.split(' ')[0] ?? 'Farmer';
+  const avatarUri = mediaUrl(user?.avatarPath, token);
 
   const rangeLabels: Record<ActivityRange, string> = {
     Weekly: t.home.weekly,
@@ -114,16 +116,7 @@ export default function HomeScreen() {
                 {firstName}
               </Text>
             </View>
-            <Pressable
-              onPress={() => router.push('/settings')}
-              hitSlop={8}
-              accessibilityRole="button"
-              accessibilityLabel="Open settings"
-              className="h-10 w-10 items-center justify-center rounded-full bg-white active:bg-[#EEF5EF]"
-              style={shadows.card}
-            >
-              <Ionicons name="person-outline" size={18} color={brand.accent} />
-            </Pressable>
+            <ProfileButton avatarUri={avatarUri} onPress={() => router.push('/settings')} />
           </View>
 
           <View className="flex-1 items-center justify-center py-10">
@@ -193,16 +186,7 @@ export default function HomeScreen() {
             </Text>
           </View>
 
-          <Pressable
-            onPress={() => router.push('/settings')}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Open settings"
-            className="h-10 w-10 items-center justify-center rounded-full bg-white active:bg-[#EEF5EF]"
-            style={shadows.card}
-          >
-            <Ionicons name="person-outline" size={18} color={brand.accent} />
-          </Pressable>
+          <ProfileButton avatarUri={avatarUri} onPress={() => router.push('/settings')} />
         </View>
 
         {/* ---------- Range toggle ---------- */}
@@ -332,6 +316,31 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function ProfileButton({
+  avatarUri,
+  onPress,
+}: {
+  avatarUri: string | null;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel="Open settings"
+      className="h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white active:bg-[#EEF5EF]"
+      style={shadows.card}
+    >
+      {avatarUri ? (
+        <Image source={{ uri: avatarUri }} className="h-10 w-10" resizeMode="cover" />
+      ) : (
+        <Ionicons name="person-outline" size={18} color={brand.accent} />
+      )}
+    </Pressable>
   );
 }
 

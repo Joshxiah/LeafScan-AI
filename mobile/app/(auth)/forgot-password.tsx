@@ -27,7 +27,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { AuthTextField } from '../../src/components/AuthTextField';
 import { requestPasswordReset } from '../../src/services/auth.service';
-import { ApiError } from '../../src/services/api';
+import { getErrorMessage } from '../../src/services/api';
 import { useLanguage } from '../../src/context/LanguageContext';
 import { brand, shadows } from '../../src/constants/theme';
 
@@ -61,11 +61,7 @@ export default function ForgotPasswordScreen() {
         params: { phoneNumber: cleanPhone },
       });
     } catch (error) {
-      if (error instanceof ApiError && error.message) {
-        setErrorMessage(error.message);
-      } else {
-        setErrorMessage(t.forgotPassword.errorGeneric);
-      }
+      setErrorMessage(getErrorMessage(error, t.forgotPassword.errorGeneric, t.apiErrors));
       console.log('[forgot-password] failed', error);
     } finally {
       setIsSubmitting(false);

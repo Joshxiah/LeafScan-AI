@@ -6,8 +6,10 @@
  */
 
 import { Platform } from 'react-native';
+import { File as LocalFile } from 'expo-file-system';
 
-import { uploadFile } from './api';
+import { uploadFile, ApiError } from './api';
+import { config } from '../constants/config';
 
 /** What POST /api/uploads returns inside "data". */
 export interface UploadResult {
@@ -50,6 +52,27 @@ function extractFileName(uri: string): string {
 }
 
 /**
+ * Rejects an oversized photo before it is ever sent.
+ *
+ * The backend enforces MAX_UPLOAD_SIZE_MB regardless, but that
+ * rejection only arrives after the full file has uploaded - a real
+ * cost on the "weak rural Wi-Fi" this app is built for. Catching it
+ * here means a farmer who picked something too large finds out
+ * immediately instead of after a slow, wasted upload.
+ */
+function assertWithinSizeLimit(sizeBytes: number): void {
+  const maxBytes = config.maxImageSizeMb * 1024 * 1024;
+
+  if (sizeBytes > maxBytes) {
+    throw new ApiError(
+      413,
+      `That photo is too large. Please use one under ${config.maxImageSizeMb} MB.`,
+      'UPLOAD_TOO_LARGE'
+    );
+  }
+}
+
+/**
  * Uploads one image to the backend - a corn leaf photo, a profile
  * picture, whatever the caller is sending. POST /api/uploads does
  * not care which; it just stores the file and hands back its path.
@@ -69,10 +92,28 @@ export async function uploadImage(imageUri: string): Promise<UploadResult> {
 
   if (Platform.OS === 'web') {
     const blob = await (await fetch(imageUri)).blob();
+    assertWithinSizeLimit(blob.size);
+
     const type = blob.type || guessMimeType(fileName);
 
     formData.append('image', new File([blob], fileName, { type }));
   } else {
+    try {
+      const { size } = new LocalFile(imageUri);
+      if (typeof size === 'number') {
+        assertWithinSizeLimit(size);
+      }
+    } catch (error) {
+      // Some URI schemes (content://, ph://) do not always expose a
+      // readable size up front - not fatal, since the backend still
+      // enforces the limit. Only re-throw our own deliberate
+      // "too large" rejection; swallow anything else and let the
+      // upload proceed.
+      if (error instanceof ApiError) {
+        throw error;
+      }
+    }
+
     formData.append('image', {
       uri: imageUri,
       name: fileName,

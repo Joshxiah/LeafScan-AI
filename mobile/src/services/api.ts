@@ -21,11 +21,42 @@ import { ApiResponse } from '../types';
 export class ApiError extends Error {
   public readonly status: number;
 
-  constructor(status: number, message: string) {
+  /** The backend's stable error identifier (e.g. "INVALID_CREDENTIALS"), if it sent one. Used to look up a localized message instead of showing `message` (always English) as-is. */
+  public readonly code?: string;
+
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.status = status;
+    this.code = code;
     this.name = 'ApiError';
   }
+}
+
+/**
+ * Turns any caught error into text a screen can show.
+ *
+ * A caught ApiError whose `code` has a translation is shown in the
+ * farmer's chosen language (`apiErrors` in src/i18n/translations.ts).
+ * Anything else - an ApiError with an unmapped code, a network
+ * failure, a timeout - falls back to that error's own message,
+ * since it is already a complete sentence written for a screen (see
+ * the messages built in request()/uploadFile() above). Only a
+ * non-ApiError, unexpected failure falls back to the caller's
+ * generic message.
+ */
+export function getErrorMessage(
+  error: unknown,
+  fallback: string,
+  apiErrors: Partial<Record<string, string>>
+): string {
+  if (error instanceof ApiError) {
+    if (error.code && apiErrors[error.code]) {
+      return apiErrors[error.code] as string;
+    }
+    return error.message || fallback;
+  }
+
+  return fallback;
 }
 
 /** Options accepted by the request helper. */
@@ -117,7 +148,8 @@ async function request<T>(
   if (!response.ok) {
     throw new ApiError(
       response.status,
-      payload?.message ?? `Request failed (${response.status})`
+      payload?.message ?? `Request failed (${response.status})`,
+      payload?.code
     );
   }
 
@@ -209,7 +241,8 @@ export async function uploadFile<T>(
   if (!response.ok) {
     throw new ApiError(
       response.status,
-      payload?.message ?? `Upload failed (${response.status})`
+      payload?.message ?? `Upload failed (${response.status})`,
+      payload?.code
     );
   }
 

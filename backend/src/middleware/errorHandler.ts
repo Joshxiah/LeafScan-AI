@@ -34,10 +34,12 @@ export function errorHandler(
 ): void {
   let statusCode = 500;
   let message = 'Internal server error';
+  let code: string | undefined;
 
   if (err instanceof ApiError) {
     statusCode = err.statusCode;
     message = err.message;
+    code = err.code;
   } else if (err instanceof MulterError) {
     statusCode = 400;
 
@@ -45,23 +47,28 @@ export function errorHandler(
       case 'LIMIT_FILE_SIZE':
         statusCode = 413;
         message = `The image is too large. Please use a photo under ${env.upload.maxSizeMb} MB.`;
+        code = 'UPLOAD_TOO_LARGE';
         break;
 
       case 'LIMIT_FILE_COUNT':
         message = 'Please upload only one image at a time.';
+        code = 'UPLOAD_TOO_MANY_FILES';
         break;
 
       case 'LIMIT_UNEXPECTED_FILE':
         message = 'Unexpected file field. The image must be sent as "image".';
+        code = 'UPLOAD_UNEXPECTED_FIELD';
         break;
 
       default:
         message = 'The image could not be processed. Please try another photo.';
+        code = 'UPLOAD_FAILED';
     }
   } else if (isDatabaseConnectionError(err)) {
     statusCode = 503;
     message =
       'The service is temporarily unavailable. Please make sure the database is running and try again.';
+    code = 'SERVICE_UNAVAILABLE';
   }
 
   // Always log the full error on the server, where only you can see it.
@@ -71,6 +78,7 @@ export function errorHandler(
   res.status(statusCode).json({
     success: false,
     message,
+    ...(code ? { code } : {}),
     // Stack traces are helpful to you but must NEVER reach a
     // production client, so they appear in development only.
     ...(env.isDevelopment ? { stack: err.stack } : {}),

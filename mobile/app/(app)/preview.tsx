@@ -25,15 +25,18 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { uploadLeafImage, UploadResult } from '../../src/services/upload.service';
-import { ApiError } from '../../src/services/api';
+import { getErrorMessage } from '../../src/services/api';
 import { goToDiagnosis } from '../../src/navigation/diagnosis';
 import { pickMockDiagnosis } from '../../src/data/scanStats';
 import { addScan } from '../../src/services/scanLog';
 import { useLanguage } from '../../src/context/LanguageContext';
+import { useAuth } from '../../src/context/AuthContext';
+import { withAuthToken } from '../../src/utils/media';
 
 export default function PreviewScreen() {
   const router = useRouter();
   const { t } = useLanguage();
+  const { token } = useAuth();
 
   // Values passed through the URL by /scan or /camera.
   const { imageUri, source } = useLocalSearchParams<{
@@ -66,11 +69,7 @@ export default function PreviewScreen() {
       const result = await uploadLeafImage(imageUri);
       setUploadResult(result);
     } catch (error) {
-      if (error instanceof ApiError) {
-        setErrorMessage(error.message);
-      } else {
-        setErrorMessage(t.preview.errorGeneric);
-      }
+      setErrorMessage(getErrorMessage(error, t.preview.errorGeneric, t.apiErrors));
     } finally {
       setIsUploading(false);
     }
@@ -113,7 +112,9 @@ export default function PreviewScreen() {
           <Image
             // Once uploaded, show the SERVER copy. If this renders,
             // the file genuinely arrived and is readable.
-            source={{ uri: uploadResult ? uploadResult.imageUrl : imageUri }}
+            source={{
+              uri: uploadResult ? withAuthToken(uploadResult.imageUrl, token) : imageUri,
+            }}
             className="aspect-square w-full"
             resizeMode="cover"
           />

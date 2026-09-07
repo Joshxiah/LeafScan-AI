@@ -39,7 +39,7 @@ import EmptyState from '../../src/components/EmptyState';
 import { getScanLog, ScanEntry } from '../../src/services/scanLog';
 import { summariseScans } from '../../src/data/scanStats';
 import { submitReport } from '../../src/services/report.service';
-import { ApiError } from '../../src/services/api';
+import { getErrorMessage } from '../../src/services/api';
 
 export default function ReportScreen() {
   const router = useRouter();
@@ -139,9 +139,7 @@ export default function ReportScreen() {
       });
       router.replace('/report-success');
     } catch (error) {
-      setErrorMessage(
-        error instanceof ApiError ? error.message : t.report.errorGeneric
-      );
+      setErrorMessage(getErrorMessage(error, t.report.errorGeneric, t.apiErrors));
     } finally {
       setIsSubmitting(false);
     }

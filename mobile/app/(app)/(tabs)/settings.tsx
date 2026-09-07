@@ -25,7 +25,6 @@ import {
   Image,
   TextInput,
   ActivityIndicator,
-  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -36,11 +35,11 @@ import { useAuth } from '../../../src/context/AuthContext';
 import { useLanguage } from '../../../src/context/LanguageContext';
 import { Language } from '../../../src/i18n/translations';
 import { brand, shadows } from '../../../src/constants/theme';
-import { config } from '../../../src/constants/config';
+import { mediaUrl } from '../../../src/utils/media';
 import { CornType } from '../../../src/types';
 import { uploadImage } from '../../../src/services/upload.service';
 import { updateProfile } from '../../../src/services/profile.service';
-import { ApiError } from '../../../src/services/api';
+import { getErrorMessage } from '../../../src/services/api';
 
 const LANGUAGE_OPTIONS: { code: Language; label: string }[] = [
   { code: 'en', label: 'English' },
@@ -52,7 +51,7 @@ const PHONE_RULE = /^(09\d{9}|\+639\d{9})$/;
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { user, logout, refreshUser } = useAuth();
+  const { user, token, logout, refreshUser } = useAuth();
   const { language, setLanguage, t } = useLanguage();
 
   const [confirmVisible, setConfirmVisible] = useState(false);
@@ -71,7 +70,7 @@ export default function SettingsScreen() {
   const [editError, setEditError] = useState<string | null>(null);
 
   const initial = (user?.fullName?.charAt(0) ?? '?').toUpperCase();
-  const avatarUri = user?.avatarPath ? `${config.backendOrigin}/${user.avatarPath}` : null;
+  const avatarUri = mediaUrl(user?.avatarPath, token);
 
   const cornTypeLabel: Record<CornType, string> = {
     white: t.settings.cornTypeWhite,
@@ -113,7 +112,7 @@ export default function SettingsScreen() {
       await refreshUser();
       setEditVisible(false);
     } catch (error) {
-      setEditError(error instanceof ApiError ? error.message : t.settings.profileErrorGeneric);
+      setEditError(getErrorMessage(error, t.settings.profileErrorGeneric, t.apiErrors));
     } finally {
       setIsSaving(false);
     }
@@ -139,6 +138,10 @@ export default function SettingsScreen() {
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
+        // A profile photo is a selfie, so open facing the farmer
+        // rather than the world - the picker ignores this option
+        // when picking from the gallery.
+        ...(useCamera ? { cameraType: ImagePicker.CameraType.front } : {}),
       };
 
       const result = useCamera
@@ -155,7 +158,7 @@ export default function SettingsScreen() {
       await updateProfile({ avatarPath: uploaded.imagePath });
       await refreshUser();
     } catch (error) {
-      setPhotoError(error instanceof ApiError ? error.message : t.settings.photoErrorGeneric);
+      setPhotoError(getErrorMessage(error, t.settings.photoErrorGeneric, t.apiErrors));
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -169,7 +172,7 @@ export default function SettingsScreen() {
       await updateProfile({ avatarPath: '' });
       await refreshUser();
     } catch (error) {
-      setPhotoError(error instanceof ApiError ? error.message : t.settings.photoErrorGeneric);
+      setPhotoError(getErrorMessage(error, t.settings.photoErrorGeneric, t.apiErrors));
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -343,13 +346,11 @@ export default function SettingsScreen() {
               {t.settings.changePhoto}
             </Text>
 
-            {Platform.OS !== 'web' && (
-              <MenuAction
-                icon="camera-outline"
-                label={t.settings.takePhoto}
-                onPress={() => pickAndUploadPhoto(true)}
-              />
-            )}
+            <MenuAction
+              icon="camera-outline"
+              label={t.settings.takePhoto}
+              onPress={() => pickAndUploadPhoto(true)}
+            />
             <MenuAction
               icon="images-outline"
               label={t.settings.chooseFromGallery}

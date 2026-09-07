@@ -50,7 +50,7 @@ export async function registerFarmer(input: RegisterInput): Promise<AuthResult> 
     );
 
     if (existing.length > 0) {
-      throw ApiError.conflict('That username is already taken');
+      throw ApiError.conflict('That username is already taken', 'USERNAME_TAKEN');
     }
 
     // ---- Is this phone number already in use? ----
@@ -64,7 +64,7 @@ export async function registerFarmer(input: RegisterInput): Promise<AuthResult> 
     );
 
     if (phoneRows.length > 0) {
-      throw ApiError.conflict('That mobile number is already registered');
+      throw ApiError.conflict('That mobile number is already registered', 'PHONE_TAKEN');
     }
 
     // ---- Hash the password. The plaintext is never stored. ----
@@ -133,18 +133,19 @@ export async function login(input: LoginInput): Promise<AuthResult> {
   // Both failures return the SAME message, so an attacker cannot
   // discover which usernames exist.
   if (!user) {
-    throw ApiError.unauthorized('Invalid username or password');
+    throw ApiError.unauthorized('Invalid username or password', 'INVALID_CREDENTIALS');
   }
 
   const passwordMatches = await verifyPassword(input.password, user.password_hash);
 
   if (!passwordMatches) {
-    throw ApiError.unauthorized('Invalid username or password');
+    throw ApiError.unauthorized('Invalid username or password', 'INVALID_CREDENTIALS');
   }
 
   if (user.is_active !== 1) {
     throw ApiError.forbidden(
-      'This account has been deactivated. Please contact the City Agriculture Office.'
+      'This account has been deactivated. Please contact the City Agriculture Office.',
+      'ACCOUNT_DEACTIVATED'
     );
   }
 
@@ -213,7 +214,7 @@ export async function updateProfile(
       );
 
       if (existing.length > 0) {
-        throw ApiError.conflict('That mobile number is already registered');
+        throw ApiError.conflict('That mobile number is already registered', 'PHONE_TAKEN');
       }
 
       await connection.query('UPDATE users SET phone_number = ? WHERE id = ?', [

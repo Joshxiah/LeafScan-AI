@@ -51,13 +51,13 @@ export function verifyToken(token: string): TokenPayload {
     });
 
     if (typeof decoded === 'string') {
-      throw ApiError.unauthorized('Invalid token format');
+      throw ApiError.unauthorized('Invalid token format', 'TOKEN_INVALID');
     }
 
     const payload = decoded as jwt.JwtPayload & Partial<TokenPayload>;
 
     if (typeof payload.userId !== 'number' || typeof payload.role !== 'string') {
-      throw ApiError.unauthorized('Token payload is malformed');
+      throw ApiError.unauthorized('Token payload is malformed', 'TOKEN_INVALID');
     }
 
     return {
@@ -70,14 +70,17 @@ export function verifyToken(token: string): TokenPayload {
     }
 
     if (error instanceof jwt.TokenExpiredError) {
-      throw ApiError.unauthorized('Your session has expired. Please log in again.');
+      throw ApiError.unauthorized(
+        'Your session has expired. Please log in again.',
+        'TOKEN_EXPIRED'
+      );
     }
 
     if (error instanceof jwt.JsonWebTokenError) {
-      throw ApiError.unauthorized('Invalid authentication token');
+      throw ApiError.unauthorized('Invalid authentication token', 'TOKEN_INVALID');
     }
 
-    throw ApiError.unauthorized('Could not verify authentication token');
+    throw ApiError.unauthorized('Could not verify authentication token', 'TOKEN_INVALID');
   }
 }
 
@@ -91,13 +94,16 @@ export function verifyToken(token: string): TokenPayload {
  */
 export function extractTokenFromHeader(authHeader: string | undefined): string {
   if (!authHeader) {
-    throw ApiError.unauthorized('No authentication token provided');
+    throw ApiError.unauthorized('No authentication token provided', 'TOKEN_MISSING');
   }
 
   const parts = authHeader.split(' ');
 
   if (parts.length !== 2 || parts[0] !== 'Bearer') {
-    throw ApiError.unauthorized('Authorization header must be in the format: Bearer <token>');
+    throw ApiError.unauthorized(
+      'Authorization header must be in the format: Bearer <token>',
+      'TOKEN_MISSING'
+    );
   }
 
   return parts[1];

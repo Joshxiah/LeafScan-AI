@@ -79,6 +79,8 @@ export interface AuthResult {
 export interface ApiResponse<T> {
   success: boolean;
   message?: string;
+  /** A stable identifier for known failures (e.g. "INVALID_CREDENTIALS"), so the app can show a localized message instead of the raw English one. */
+  code?: string;
   data?: T;
 }
 
