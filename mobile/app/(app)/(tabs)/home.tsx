@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '../../../src/context/AuthContext';
 import { useLanguage } from '../../../src/context/LanguageContext';
+import { useNotifications } from '../../../src/context/NotificationsContext';
 import { brand, shadows } from '../../../src/constants/theme';
 import { mediaUrl } from '../../../src/utils/media';
 import { StatCard } from '../../../src/components/StatCard';
@@ -106,7 +107,7 @@ export default function HomeScreen() {
     return (
       <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={['top']}>
         <ScrollView
-          contentContainerClassName="grow px-6 pb-10 pt-5"
+          contentContainerClassName="grow px-6 pb-28 pt-5"
           showsVerticalScrollIndicator={false}
         >
           <View className="flex-row items-start justify-between">
@@ -116,7 +117,11 @@ export default function HomeScreen() {
                 {firstName}
               </Text>
             </View>
-            <ProfileButton avatarUri={avatarUri} onPress={() => router.push('/settings')} />
+            <HeaderActions
+              avatarUri={avatarUri}
+              onProfile={() => router.push('/settings')}
+              onBell={() => router.push('/notifications')}
+            />
           </View>
 
           <View className="flex-1 items-center justify-center py-10">
@@ -174,7 +179,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={['top']}>
       <ScrollView
-        contentContainerClassName="px-6 pb-10 pt-5"
+        contentContainerClassName="px-6 pb-28 pt-5"
         showsVerticalScrollIndicator={false}
       >
         {/* ---------- Greeting ---------- */}
@@ -186,7 +191,11 @@ export default function HomeScreen() {
             </Text>
           </View>
 
-          <ProfileButton avatarUri={avatarUri} onPress={() => router.push('/settings')} />
+          <HeaderActions
+            avatarUri={avatarUri}
+            onProfile={() => router.push('/settings')}
+            onBell={() => router.push('/notifications')}
+          />
         </View>
 
         {/* ---------- Range toggle ---------- */}
@@ -316,6 +325,41 @@ export default function HomeScreen() {
         </View>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function HeaderActions({
+  avatarUri,
+  onProfile,
+  onBell,
+}: {
+  avatarUri: string | null;
+  onProfile: () => void;
+  onBell: () => void;
+}) {
+  const { unreadCount } = useNotifications();
+  return (
+    <View className="flex-row items-center gap-2">
+      <Pressable
+        onPress={onBell}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel="Open notifications"
+        className="h-10 w-10 items-center justify-center rounded-full bg-white active:bg-[#EEF5EF]"
+        style={shadows.card}
+      >
+        <Ionicons name="notifications-outline" size={18} color={brand.accent} />
+        {unreadCount > 0 && (
+          <View className="absolute -right-0.5 -top-0.5 h-4 min-w-4 items-center justify-center rounded-full bg-[#D64545] px-1">
+            <Text className="text-[9px] font-extrabold text-white">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </Text>
+          </View>
+        )}
+      </Pressable>
+
+      <ProfileButton avatarUri={avatarUri} onPress={onProfile} />
+    </View>
   );
 }
 

@@ -17,6 +17,15 @@ export interface ReportBreakdownItem {
   count: number;
 }
 
+/** One of the farmer's own scan photos, so the CAO can verify the finding. */
+export interface ReportImagePayload {
+  imagePath: string;
+  classLabel?: string;
+  displayName?: string;
+  confidenceScore?: number;
+  riskLevel?: 'none' | 'low' | 'moderate' | 'high';
+}
+
 export interface SubmitReportPayload {
   barangay?: string;
   municipality?: string;
@@ -24,6 +33,7 @@ export interface SubmitReportPayload {
   affectedScans: number;
   healthyScans: number;
   diseaseBreakdown: ReportBreakdownItem[];
+  images?: ReportImagePayload[];
   estimatedAreaHectares?: number;
   remarks?: string;
 }

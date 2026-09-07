@@ -185,8 +185,24 @@ export interface Translations {
     searchPlaceholder: string;
     loadingErrorTitle: string;
     loadingErrorMessage: string;
+    retry: string;
+    emptyTitle: string;
+    emptyMessage: string;
     noMatchesTitle: string;
     noMatchesMessage: string;
+  };
+
+  notifications: {
+    title: string;
+    empty: string;
+    emptyHint: string;
+    loadError: string;
+    retry: string;
+    markAllRead: string;
+    justNow: string;
+    minutesAgo: (n: number) => string;
+    hoursAgo: (n: number) => string;
+    daysAgo: (n: number) => string;
   };
 
   scan: {
@@ -257,6 +273,10 @@ export interface Translations {
     healthyLabel: string;
     diseaseDetectedLabel: string;
     confidence: string;
+    detectionResult: string;
+    statusLabel: string;
+    noDiseaseDetected: string;
+    healthyNote: string;
     recommendedActions: string;
     noTreatmentNeeded: string;
     noTreatmentPublished: string;
@@ -354,7 +374,8 @@ export const en: Translations = {
     errorEmptyUsername: 'Please enter your username.',
     errorEmptyPassword: 'Please enter your password.',
     errorGeneric: 'We could not sign you in. Please try again.',
-    noAccount: "Don't have an account? ",
+    noAccount:
+      'Accounts are provided by the City Agriculture Office. Ask them for your login details.',
     createAccount: 'Create Account',
   },
 
@@ -464,10 +485,28 @@ export const en: Translations = {
   library: {
     title: 'Disease Library',
     searchPlaceholder: 'Search diseases',
-    loadingErrorTitle: 'Could not load the library',
-    loadingErrorMessage: 'Check your connection and reopen this tab to try again.',
+    loadingErrorTitle: "Can't reach the server",
+    loadingErrorMessage:
+      'The disease library needs a connection to the City Agriculture Office server. Check your internet and try again.',
+    retry: 'Try Again',
+    emptyTitle: 'No library content yet',
+    emptyMessage:
+      'The City Agriculture Office has not published any disease entries yet. Check back soon.',
     noMatchesTitle: 'No matches',
     noMatchesMessage: 'Try a different search term.',
+  },
+
+  notifications: {
+    title: 'Notifications',
+    empty: 'No notifications yet',
+    emptyHint: "Updates about your reports from the CAO will appear here.",
+    loadError: 'Could not load your notifications. Pull to refresh or try again.',
+    retry: 'Try Again',
+    markAllRead: 'Mark all read',
+    justNow: 'just now',
+    minutesAgo: (n) => `${n}m ago`,
+    hoursAgo: (n) => `${n}h ago`,
+    daysAgo: (n) => `${n}d ago`,
   },
 
   scan: {
@@ -541,6 +580,11 @@ export const en: Translations = {
     healthyLabel: 'HEALTHY LEAF',
     diseaseDetectedLabel: 'DISEASE DETECTED',
     confidence: 'CONFIDENCE',
+    detectionResult: 'Detection Result',
+    statusLabel: 'Status',
+    noDiseaseDetected: 'No disease detected',
+    healthyNote:
+      'This leaf appears healthy. Keep monitoring the plant and scan again if symptoms appear.',
     recommendedActions: 'Recommended Actions',
     noTreatmentNeeded:
       'No treatment needed - keep monitoring the plant and scan again if symptoms appear.',
@@ -657,7 +701,8 @@ export const ceb: Translations = {
     errorEmptyUsername: 'Palihug isulat ang imong username.',
     errorEmptyPassword: 'Palihug isulat ang imong password.',
     errorGeneric: 'Dili ka namo ma-sign in. Palihug sulayi pag-usab.',
-    noAccount: 'Wala pay account? ',
+    noAccount:
+      'Ang account gihatag sa City Agriculture Office. Pangayoa kanila ang imong login details.',
     createAccount: 'Paghimo og Account',
   },
 
@@ -768,10 +813,28 @@ export const ceb: Translations = {
   library: {
     title: 'Librarya sa Sakit',
     searchPlaceholder: 'Pangitaa ang sakit',
-    loadingErrorTitle: 'Wala ma-load ang librarya',
-    loadingErrorMessage: 'Susiha ang imong koneksyon ug ablihi pag-usab kini nga tab.',
+    loadingErrorTitle: 'Dili maabot ang server',
+    loadingErrorMessage:
+      'Kinahanglan og koneksyon sa server sa City Agriculture Office ang librarya sa sakit. Susiha ang imong internet ug sulayi pag-usab.',
+    retry: 'Sulayi Pag-usab',
+    emptyTitle: 'Wala pay sulod ang librarya',
+    emptyMessage:
+      'Wala pa mag-publish ang City Agriculture Office og mga entry sa sakit. Balik ug susiha sa ulahi.',
     noMatchesTitle: 'Walay natakdo',
     noMatchesMessage: 'Sulayi ang lain nga pulong sa pagpangita.',
+  },
+
+  notifications: {
+    title: 'Mga Notipikasyon',
+    empty: 'Wala pay notipikasyon',
+    emptyHint: 'Ang mga update sa imong report gikan sa CAO makita dinhi.',
+    loadError: 'Wala ma-load ang imong mga notipikasyon. I-refresh o sulayi pag-usab.',
+    retry: 'Sulayi Pag-usab',
+    markAllRead: 'Markahi tanan nga nabasa',
+    justNow: 'karon lang',
+    minutesAgo: (n) => `${n}m ang milabay`,
+    hoursAgo: (n) => `${n}h ang milabay`,
+    daysAgo: (n) => `${n}d ang milabay`,
   },
 
   scan: {
@@ -845,6 +908,11 @@ export const ceb: Translations = {
     healthyLabel: 'HIMSOG NGA DAHON',
     diseaseDetectedLabel: 'NAAY NAKITA NGA SAKIT',
     confidence: 'KASIGUROHAN',
+    detectionResult: 'Resulta sa Pag-ila',
+    statusLabel: 'Kahimtang',
+    noDiseaseDetected: 'Walay nakita nga sakit',
+    healthyNote:
+      'Kini nga dahon morag himsog. Padayon sa pagbantay sa tanom ug pag-scan pag-usab kung naay motungha nga simtomas.',
     recommendedActions: 'Girekomendang mga Aksyon',
     noTreatmentNeeded:
       'Walay kinahanglan nga tambal - padayon sa pagbantay sa tanom ug pag-scan pag-usab kung naay motungha nga simtomas.',

@@ -26,6 +26,14 @@ export const CLASS_DISPLAY_NAME: Record<ScanClassLabel, string> = {
   northern_leaf_blight: 'Northern Leaf Blight',
 };
 
+/** Default risk level per class - matches diseases.default_risk_level in the DB. */
+export const CLASS_RISK_LEVEL: Record<ScanClassLabel, 'none' | 'low' | 'moderate' | 'high'> = {
+  common_rust: 'moderate',
+  gray_leaf_spot: 'high',
+  healthy: 'none',
+  northern_leaf_blight: 'high',
+};
+
 export function isHealthy(scan: ScanEntry): boolean {
   return scan.classLabel === 'healthy';
 }

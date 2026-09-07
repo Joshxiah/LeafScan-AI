@@ -86,7 +86,15 @@ export default function PreviewScreen() {
 
   async function handleDone() {
     const { classLabel, confidence } = pickMockDiagnosis();
-    const scan = await addScan({ classLabel, confidence, scannedAt: new Date() });
+    const scan = await addScan({
+      classLabel,
+      confidence,
+      scannedAt: new Date(),
+      // Keep the uploaded photo with the scan so it can be attached to
+      // a CAO report later for visual verification.
+      imagePath: uploadResult?.imagePath,
+      imageUrl: uploadResult?.imageUrl,
+    });
     goToDiagnosis(router, scan, { replace: true });
   }
 

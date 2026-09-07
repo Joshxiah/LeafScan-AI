@@ -26,6 +26,10 @@ export interface ScanEntry {
   classLabel: ScanClassLabel;
   confidence: number;
   scannedAt: Date;
+  /** Relative path of the uploaded photo ("uploads/xxx.jpg"), when the scan was uploaded. */
+  imagePath?: string;
+  /** Absolute URL of the uploaded photo, for immediate display. */
+  imageUrl?: string;
 }
 
 /** The on-disk shape - a Date cannot survive JSON.stringify, so it is stored as ISO text. */
@@ -34,6 +38,8 @@ interface StoredScanEntry {
   classLabel: ScanClassLabel;
   confidence: number;
   scannedAt: string;
+  imagePath?: string;
+  imageUrl?: string;
 }
 
 /** Reads every logged scan, most recent first. Empty until the farmer scans something. */

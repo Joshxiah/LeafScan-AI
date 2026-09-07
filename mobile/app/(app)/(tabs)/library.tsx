@@ -8,10 +8,15 @@
  * database/seed_treatment_recommendations.sql for the starter set).
  * The healthy "disease" entry is left out - there is nothing to
  * browse about a leaf with no symptoms.
+ *
+ * States are explicit: a spinner while loading, a retryable error
+ * ONLY when the request actually failed, a "no content yet" state
+ * when the server returned nothing, and a "no matches" state for a
+ * search that filtered everything out.
  */
 
-import { useEffect, useMemo, useState } from 'react';
-import { View, Text, Pressable, ScrollView, ActivityIndicator } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, Text, Pressable, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +28,8 @@ import { useLanguage } from '../../../src/context/LanguageContext';
 import { Disease } from '../../../src/types';
 import { brand, shadows } from '../../../src/constants/theme';
 
+type LoadState = 'loading' | 'error' | 'ready';
+
 /** First sentence only, so the card stays one line. */
 function firstSentence(text: string | null): string | null {
   if (!text) return null;
@@ -33,28 +40,34 @@ function firstSentence(text: string | null): string | null {
 export default function LibraryScreen() {
   const router = useRouter();
   const { t } = useLanguage();
-  const [diseases, setDiseases] = useState<Disease[] | null>(null);
-  const [loadFailed, setLoadFailed] = useState(false);
+  const [diseases, setDiseases] = useState<Disease[]>([]);
+  const [state, setState] = useState<LoadState>('loading');
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [query, setQuery] = useState('');
 
-  useEffect(() => {
-    let isMounted = true;
-
-    listDiseases()
-      .then((result) => {
-        if (isMounted) setDiseases(result.filter((d) => !d.isHealthy));
-      })
-      .catch(() => {
-        if (isMounted) setLoadFailed(true);
-      });
-
-    return () => {
-      isMounted = false;
-    };
+  const load = useCallback(async (isRetry = false) => {
+    if (isRetry) setState('loading');
+    try {
+      const result = await listDiseases();
+      setDiseases(result.filter((d) => !d.isHealthy));
+      setState('ready');
+    } catch (error) {
+      console.log('[library] failed to load diseases:', error);
+      setState('error');
+    }
   }, []);
 
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const onRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await load();
+    setIsRefreshing(false);
+  }, [load]);
+
   const filtered = useMemo(() => {
-    if (!diseases) return [];
     const cleanQuery = query.trim().toLowerCase();
     if (!cleanQuery) return diseases;
     return diseases.filter((d) => d.displayName.toLowerCase().includes(cleanQuery));
@@ -68,34 +81,51 @@ export default function LibraryScreen() {
         </Text>
       </View>
 
-      <View className="px-6">
-        <SearchInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder={t.library.searchPlaceholder}
-        />
-      </View>
+      {state === 'ready' && diseases.length > 0 && (
+        <View className="px-6">
+          <SearchInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder={t.library.searchPlaceholder}
+          />
+        </View>
+      )}
 
-      {!diseases && !loadFailed ? (
+      {state === 'loading' ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color={brand.accent} />
         </View>
-      ) : loadFailed ? (
+      ) : state === 'error' ? (
         <EmptyState
           icon="cloud-offline-outline"
           title={t.library.loadingErrorTitle}
           message={t.library.loadingErrorMessage}
+          actionLabel={t.library.retry}
+          onAction={() => void load(true)}
+        />
+      ) : diseases.length === 0 ? (
+        <EmptyState
+          icon="book-outline"
+          title={t.library.emptyTitle}
+          message={t.library.emptyMessage}
         />
       ) : filtered.length === 0 ? (
         <EmptyState
-          icon="book-outline"
+          icon="search-outline"
           title={t.library.noMatchesTitle}
           message={t.library.noMatchesMessage}
         />
       ) : (
         <ScrollView
-          contentContainerClassName="gap-3 px-6 pb-10 pt-4"
+          contentContainerClassName="gap-3 px-6 pb-28 pt-4"
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor={brand.accent}
+            />
+          }
         >
           {filtered.map((disease) => (
             <Pressable

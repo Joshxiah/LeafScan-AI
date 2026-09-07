@@ -10,6 +10,7 @@ import { View, ActivityIndicator } from 'react-native';
 import { Stack, Redirect } from 'expo-router';
 
 import { useAuth } from '../../src/context/AuthContext';
+import { NotificationsProvider } from '../../src/context/NotificationsContext';
 import { colors } from '../../src/constants/theme';
 
 export default function ProtectedLayout() {
@@ -29,5 +30,9 @@ export default function ProtectedLayout() {
     return <Redirect href="/login" />;
   }
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <NotificationsProvider>
+      <Stack screenOptions={{ headerShown: false }} />
+    </NotificationsProvider>
+  );
 }

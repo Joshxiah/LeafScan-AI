@@ -72,23 +72,23 @@ export default function LoginScreen() {
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
+        {router.canGoBack() && (
+          <Pressable
+            onPress={() => router.back()}
+            hitSlop={10}
+            className="ml-4 mt-1 h-10 w-10 items-center justify-center"
+          >
+            <Ionicons name="arrow-back" size={24} color={brand.ink} />
+          </Pressable>
+        )}
+
         <ScrollView
-          contentContainerClassName="grow px-6 pb-8 pt-4"
+          contentContainerClassName="grow justify-center px-6 pb-10 pt-6"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {router.canGoBack() && (
-            <Pressable
-              onPress={() => router.back()}
-              hitSlop={10}
-              className="-ml-2 h-10 w-10 items-center justify-center"
-            >
-              <Ionicons name="arrow-back" size={24} color={brand.ink} />
-            </Pressable>
-          )}
-
           {/* ---------- Brand mark ---------- */}
-          <View className="mb-7 mt-2 items-center">
+          <View className="mb-7 items-center">
             <View className="h-16 w-16 items-center justify-center rounded-2xl bg-[#2F6D46]" style={shadows.card}>
               <Ionicons name="leaf" size={30} color="#ffffff" />
             </View>
@@ -160,15 +160,10 @@ export default function LoginScreen() {
           </Pressable>
 
           {/* ---------- Footer ---------- */}
-          <View className="mt-7 flex-row items-center justify-center">
-            <Text className="text-[13px] text-[#6C8073]">
+          <View className="mt-7 items-center">
+            <Text className="text-center text-[13px] leading-5 text-[#6C8073]">
               {t.login.noAccount}
             </Text>
-            <Pressable onPress={() => router.push('/register')} hitSlop={8}>
-              <Text className="text-[13px] font-bold text-[#2F6D46]">
-                {t.login.createAccount}
-              </Text>
-            </Pressable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

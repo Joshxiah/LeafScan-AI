@@ -36,7 +36,6 @@ import { useLanguage } from '../../../src/context/LanguageContext';
 import { Language } from '../../../src/i18n/translations';
 import { brand, shadows } from '../../../src/constants/theme';
 import { mediaUrl } from '../../../src/utils/media';
-import { CornType } from '../../../src/types';
 import { uploadImage } from '../../../src/services/upload.service';
 import { updateProfile } from '../../../src/services/profile.service';
 import { getErrorMessage } from '../../../src/services/api';
@@ -46,7 +45,6 @@ const LANGUAGE_OPTIONS: { code: Language; label: string }[] = [
   { code: 'ceb', label: 'Cebuano' },
 ];
 
-const CORN_TYPES: CornType[] = ['white', 'yellow', 'both'];
 const PHONE_RULE = /^(09\d{9}|\+639\d{9})$/;
 
 export default function SettingsScreen() {
@@ -65,18 +63,11 @@ export default function SettingsScreen() {
   const [editVisible, setEditVisible] = useState(false);
   const [phone, setPhone] = useState('');
   const [barangay, setBarangay] = useState('');
-  const [cornType, setCornType] = useState<CornType | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
   const initial = (user?.fullName?.charAt(0) ?? '?').toUpperCase();
   const avatarUri = mediaUrl(user?.avatarPath, token);
-
-  const cornTypeLabel: Record<CornType, string> = {
-    white: t.settings.cornTypeWhite,
-    yellow: t.settings.cornTypeYellow,
-    both: t.settings.cornTypeBoth,
-  };
 
   async function handleLogout() {
     setConfirmVisible(false);
@@ -89,7 +80,6 @@ export default function SettingsScreen() {
     setEditError(null);
     setPhone(user?.phoneNumber ?? '');
     setBarangay(user?.farmerProfile?.address ?? '');
-    setCornType(user?.farmerProfile?.cornType ?? null);
     setEditVisible(true);
   }
 
@@ -107,7 +97,6 @@ export default function SettingsScreen() {
       await updateProfile({
         phoneNumber: cleanPhone,
         address: barangay.trim(),
-        cornType: cornType ?? undefined,
       });
       await refreshUser();
       setEditVisible(false);
@@ -267,14 +256,6 @@ export default function SettingsScreen() {
           <InfoRow
             label={t.settings.barangay}
             value={user?.farmerProfile?.address ?? t.settings.notSet}
-          />
-          <InfoRow
-            label={t.settings.mainCrop}
-            value={
-              user?.farmerProfile?.cornType
-                ? cornTypeLabel[user.farmerProfile.cornType]
-                : t.settings.notSet
-            }
             isLast
           />
         </View>
@@ -401,34 +382,6 @@ export default function SettingsScreen() {
                 onChangeText={setBarangay}
                 autoCapitalize="words"
               />
-
-              <View>
-                <Text className="mb-2 text-[12px] font-bold text-[#9BAAA1]">
-                  {t.settings.cornTypeLabel}
-                </Text>
-                <View className="flex-row gap-2">
-                  {CORN_TYPES.map((option) => {
-                    const selected = cornType === option;
-                    return (
-                      <Pressable
-                        key={option}
-                        onPress={() => setCornType(option)}
-                        className={`flex-1 items-center rounded-full py-2 ${
-                          selected ? 'bg-[#2F6D46]' : 'border border-[#DFEDE3] bg-white'
-                        }`}
-                      >
-                        <Text
-                          className={`text-[12px] font-semibold ${
-                            selected ? 'text-white' : 'text-[#6C8073]'
-                          }`}
-                        >
-                          {cornTypeLabel[option]}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
             </View>
 
             {editError && (

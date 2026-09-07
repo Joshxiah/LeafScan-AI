@@ -117,41 +117,70 @@ export default function DiagnosisScreen() {
           </Text>
         </View>
 
-        {/* ---------- Recommended actions ---------- */}
-        <Text className="mb-2.5 mt-6 text-[13px] font-bold text-[#9BAAA1]">
-          {t.diagnosis.recommendedActions}
-        </Text>
-
-        {!diseases && !loadError ? (
-          <ActivityIndicator className="mt-4" color={brand.accent} />
-        ) : isHealthy ? (
-          <ActionCard text={t.diagnosis.noTreatmentNeeded} />
-        ) : disease && disease.treatments.length > 0 ? (
-          <View className="gap-2.5">
-            {disease.treatments.map((treatment) => (
-              <ActionCard key={treatment.id} text={treatment.recommendationText} />
-            ))}
-          </View>
-        ) : (
-          <ActionCard text={t.diagnosis.noTreatmentPublished} />
-        )}
-
-        {/* ---------- View full disease entry ---------- */}
-        {disease && (
-          <Pressable
-            onPress={() =>
-              router.push({
-                pathname: '/disease-detail',
-                params: { data: JSON.stringify(disease) },
-              })
-            }
-            className="mt-6 h-14 flex-row items-center justify-center rounded-full border border-[#EEF5EF] bg-white active:bg-[#F5FAF6]"
+        {isHealthy ? (
+          /* ---------- Healthy leaf: NO treatment plan ---------- */
+          <View
+            className="mt-6 rounded-2xl border border-[#DCEFE1] bg-white px-4 py-4"
             style={shadows.card}
           >
-            <Text className="text-[15px] font-bold text-[#16241B]">
-              {t.diagnosis.viewTreatmentPlan}
+            <View className="flex-row items-center justify-between">
+              <Text className="text-[13px] text-[#9BAAA1]">
+                {t.diagnosis.detectionResult}
+              </Text>
+              <Text className="text-[13px] font-bold text-[#16241B]">
+                {disease?.displayName ?? fallbackName}
+              </Text>
+            </View>
+            <View className="mt-2.5 flex-row items-center justify-between border-t border-[#EEF5EF] pt-2.5">
+              <Text className="text-[13px] text-[#9BAAA1]">{t.diagnosis.statusLabel}</Text>
+              <View className="flex-row items-center">
+                <Ionicons name="checkmark-circle" size={15} color={brand.accent} />
+                <Text className="ml-1.5 text-[13px] font-bold text-[#2F6D46]">
+                  {t.diagnosis.noDiseaseDetected}
+                </Text>
+              </View>
+            </View>
+            <Text className="mt-3 text-[12.5px] leading-5 text-[#6C8073]">
+              {t.diagnosis.healthyNote}
             </Text>
-          </Pressable>
+          </View>
+        ) : (
+          <>
+            {/* ---------- Recommended actions (diseased only) ---------- */}
+            <Text className="mb-2.5 mt-6 text-[13px] font-bold text-[#9BAAA1]">
+              {t.diagnosis.recommendedActions}
+            </Text>
+
+            {!diseases && !loadError ? (
+              <ActivityIndicator className="mt-4" color={brand.accent} />
+            ) : disease && disease.treatments.length > 0 ? (
+              <View className="gap-2.5">
+                {disease.treatments.map((treatment) => (
+                  <ActionCard key={treatment.id} text={treatment.recommendationText} />
+                ))}
+              </View>
+            ) : (
+              <ActionCard text={t.diagnosis.noTreatmentPublished} />
+            )}
+
+            {/* ---------- View full disease entry ---------- */}
+            {disease && (
+              <Pressable
+                onPress={() =>
+                  router.push({
+                    pathname: '/disease-detail',
+                    params: { data: JSON.stringify(disease) },
+                  })
+                }
+                className="mt-6 h-14 flex-row items-center justify-center rounded-full border border-[#EEF5EF] bg-white active:bg-[#F5FAF6]"
+                style={shadows.card}
+              >
+                <Text className="text-[15px] font-bold text-[#16241B]">
+                  {t.diagnosis.viewTreatmentPlan}
+                </Text>
+              </Pressable>
+            )}
+          </>
         )}
       </ScrollView>
     </SafeAreaView>

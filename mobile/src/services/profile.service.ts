@@ -7,12 +7,11 @@
  */
 
 import { api } from './api';
-import { CornType, User } from '../types';
+import { User } from '../types';
 
 export interface UpdateProfilePayload {
   phoneNumber?: string;
   address?: string;
-  cornType?: CornType;
   /** A relative path from a prior uploadImage() call, or '' to remove the photo. */
   avatarPath?: string;
 }

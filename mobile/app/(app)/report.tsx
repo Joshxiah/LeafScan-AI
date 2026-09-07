@@ -37,7 +37,7 @@ import { brand, shadows } from '../../src/constants/theme';
 import { StatCard } from '../../src/components/StatCard';
 import EmptyState from '../../src/components/EmptyState';
 import { getScanLog, ScanEntry } from '../../src/services/scanLog';
-import { summariseScans } from '../../src/data/scanStats';
+import { summariseScans, CLASS_DISPLAY_NAME, CLASS_RISK_LEVEL } from '../../src/data/scanStats';
 import { submitReport } from '../../src/services/report.service';
 import { getErrorMessage } from '../../src/services/api';
 
@@ -126,6 +126,20 @@ export default function ReportScreen() {
     setErrorMessage(null);
     setIsSubmitting(true);
 
+    // The farmer's own scan photos for the affected leaves, so the CAO
+    // can visually verify each reported disease. Only scans that were
+    // uploaded carry an image path; older local-only scans are skipped.
+    const images = (scans ?? [])
+      .filter((s) => s.classLabel !== 'healthy' && s.imagePath)
+      .slice(0, 30)
+      .map((s) => ({
+        imagePath: s.imagePath as string,
+        classLabel: s.classLabel,
+        displayName: CLASS_DISPLAY_NAME[s.classLabel],
+        confidenceScore: s.confidence,
+        riskLevel: CLASS_RISK_LEVEL[s.classLabel],
+      }));
+
     try {
       await submitReport({
         barangay: profile?.address ?? undefined,
@@ -134,6 +148,7 @@ export default function ReportScreen() {
         affectedScans: summary.affected,
         healthyScans: summary.healthy,
         diseaseBreakdown: summary.breakdown,
+        images: images.length > 0 ? images : undefined,
         estimatedAreaHectares: estimatedArea ? Number(estimatedArea) : undefined,
         remarks: remarks.trim() || undefined,
       });
