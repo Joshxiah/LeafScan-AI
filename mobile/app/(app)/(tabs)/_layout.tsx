@@ -10,12 +10,20 @@
 
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { brand } from '../../../src/constants/theme';
 import { useLanguage } from '../../../src/context/LanguageContext';
 
 export default function TabsLayout() {
   const { t } = useLanguage();
+  const insets = useSafeAreaInsets();
+
+  // The tab bar needs explicit room for the icon AND its label, plus
+  // the device's bottom safe-area inset (0 on web / older phones,
+  // ~20-34 on gesture-nav phones). Without this the labels render
+  // past the bottom edge and get clipped.
+  const bottomInset = insets.bottom;
 
   return (
     <Tabs
@@ -27,9 +35,11 @@ export default function TabsLayout() {
           backgroundColor: '#ffffff',
           borderTopColor: brand.line,
           borderTopWidth: 1,
+          height: 64 + bottomInset,
+          paddingTop: 8,
+          paddingBottom: Math.max(bottomInset, 12),
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
-        tabBarItemStyle: { paddingTop: 4 },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginTop: 2, paddingBottom: 2 },
       }}
     >
       <Tabs.Screen
