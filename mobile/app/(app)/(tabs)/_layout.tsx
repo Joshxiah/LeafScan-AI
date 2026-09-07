@@ -9,84 +9,75 @@
  */
 
 import { Tabs } from 'expo-router';
+import { Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { brand } from '../../../src/constants/theme';
 import { useLanguage } from '../../../src/context/LanguageContext';
 
+type TabName = 'home' | 'scan' | 'history' | 'library' | 'settings';
+
+const ICONS: Record<TabName, keyof typeof Ionicons.glyphMap> = {
+  home: 'home-outline',
+  scan: 'camera-outline',
+  history: 'time-outline',
+  library: 'book-outline',
+  settings: 'settings-outline',
+};
+
 export default function TabsLayout() {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
 
-  // The tab bar needs explicit room for the icon AND its label, plus
-  // the device's bottom safe-area inset (0 on web / older phones,
-  // ~20-34 on gesture-nav phones). Without this the labels render
-  // past the bottom edge and get clipped.
-  const bottomInset = insets.bottom;
+  const labels: Record<TabName, string> = {
+    home: t.tabs.home,
+    scan: t.tabs.scans,
+    history: t.tabs.history,
+    library: t.tabs.library,
+    settings: t.tabs.settings,
+  };
 
   return (
     <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: brand.accent,
-        tabBarInactiveTintColor: brand.faint,
-        tabBarStyle: {
-          backgroundColor: '#ffffff',
-          borderTopColor: brand.line,
-          borderTopWidth: 1,
-          height: 64 + bottomInset,
-          paddingTop: 8,
-          paddingBottom: Math.max(bottomInset, 12),
-        },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginTop: 2, paddingBottom: 2 },
+      screenOptions={({ route }) => {
+        const name = route.name as TabName;
+        return {
+          headerShown: false,
+          // Strong dark green for the selected tab so it clearly
+          // stands out against the muted grey of the others.
+          tabBarActiveTintColor: brand.accentDark,
+          tabBarInactiveTintColor: brand.faint,
+          tabBarStyle: {
+            backgroundColor: '#ffffff',
+            borderTopColor: brand.line,
+            borderTopWidth: 1,
+            // Explicit room for the icon AND the label, plus the
+            // device's bottom safe-area inset (0 on web / older
+            // phones). Without this the labels render past the
+            // bottom edge and get clipped or dropped.
+            height: 74 + insets.bottom,
+            paddingTop: 10,
+            paddingBottom: Math.max(insets.bottom, 14),
+          },
+          // Render the label ourselves so it is never auto-hidden
+          // when the navigator thinks the bar is short.
+          tabBarLabel: ({ color }) => (
+            <Text style={{ color, fontSize: 11, fontWeight: '700', marginTop: 3 }}>
+              {labels[name]}
+            </Text>
+          ),
+          tabBarIcon: ({ color }) => (
+            <Ionicons name={ICONS[name]} size={22} color={color} />
+          ),
+        };
       }}
     >
-      <Tabs.Screen
-        name="home"
-        options={{
-          title: t.tabs.home,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="scan"
-        options={{
-          title: t.tabs.scans,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="camera-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="history"
-        options={{
-          title: t.tabs.history,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="time-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="library"
-        options={{
-          title: t.tabs.library,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="book-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: t.tabs.settings,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings-outline" size={size} color={color} />
-          ),
-        }}
-      />
+      <Tabs.Screen name="home" />
+      <Tabs.Screen name="scan" />
+      <Tabs.Screen name="history" />
+      <Tabs.Screen name="library" />
+      <Tabs.Screen name="settings" />
     </Tabs>
   );
 }
