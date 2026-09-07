@@ -180,6 +180,12 @@ export const reportStatusSchema = z.object({
     'resolved',
   ]),
   message: z.string().trim().max(500).optional().or(z.literal('')),
+  /**
+   * Name of the agriculturist being sent to the area. Relevant for
+   * the agriculturist_* statuses. Sent as '' to clear it; omitted to
+   * leave whatever is already recorded untouched.
+   */
+  agriculturist: z.string().trim().max(150).optional(),
 });
 
 /**

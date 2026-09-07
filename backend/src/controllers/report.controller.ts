@@ -120,7 +120,8 @@ export async function updateReportStatus(req: Request, res: Response): Promise<v
     id,
     input.status,
     req.user.userId,
-    input.message || undefined
+    input.message || undefined,
+    input.agriculturist
   );
 
   res.status(200).json({

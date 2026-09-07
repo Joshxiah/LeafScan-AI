@@ -153,6 +153,7 @@ export interface ReportDetail extends ReportSummary {
   images: ReportImage[];
   remarks: string | null;
   caoMessage: string | null;
+  assignedAgriculturist: string | null;
   reviewedByName: string | null;
   reviewedAt: string | null;
 }

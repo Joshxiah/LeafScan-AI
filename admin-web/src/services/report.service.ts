@@ -50,12 +50,15 @@ export async function getReport(id: number): Promise<ReportDetail> {
 /**
  * PATCH /api/reports/:id/status
  * Advances a report through the field-assessment lifecycle, with an
- * optional short message relayed to the farmer.
+ * optional short message relayed to the farmer and, for the
+ * agriculturist steps, the name of the person being sent.
+ * `agriculturist` omitted -> leave as recorded; '' -> clear it.
  */
 export async function updateReportStatus(
   id: number,
   status: AdminSettableStatus,
-  message?: string
+  message?: string,
+  agriculturist?: string
 ): Promise<void> {
-  await api.patch<void>(`/reports/${id}/status`, { status, message });
+  await api.patch<void>(`/reports/${id}/status`, { status, message, agriculturist });
 }

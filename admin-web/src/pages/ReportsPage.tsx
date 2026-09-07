@@ -57,25 +57,29 @@ const RISK_BADGE: Record<RiskLevel, string> = {
   high: 'bg-red-50 text-red-700',
 };
 
-/** The contextual "next step" buttons offered for each current status. */
-const NEXT_ACTIONS: Record<ReportStatus, AdminSettableStatus[]> = {
-  pending: ['under_review'],
-  under_review: ['verified', 'agriculturist_required'],
-  verified: ['agriculturist_required', 'resolved'],
-  agriculturist_required: ['agriculturist_assigned'],
-  agriculturist_assigned: ['field_assessment_completed'],
-  field_assessment_completed: ['resolved'],
-  resolved: [],
-};
+/** Every status the CAO can set, in lifecycle order - the dropdown options. */
+const SETTABLE_STATUSES: AdminSettableStatus[] = [
+  'under_review',
+  'verified',
+  'agriculturist_required',
+  'agriculturist_assigned',
+  'field_assessment_completed',
+  'resolved',
+];
 
-const ACTION_LABEL: Record<AdminSettableStatus, string> = {
-  under_review: 'Start Review',
-  verified: 'Mark Verified',
-  agriculturist_required: 'Send Agriculturist',
-  agriculturist_assigned: 'Mark Agriculturist Assigned',
-  field_assessment_completed: 'Mark Assessment Completed',
-  resolved: 'Mark Resolved',
-};
+/** Pre-selects the sensible next step for the status dropdown. */
+function defaultNextStatus(current: ReportStatus): AdminSettableStatus {
+  const flow: Record<ReportStatus, AdminSettableStatus> = {
+    pending: 'under_review',
+    under_review: 'verified',
+    verified: 'agriculturist_required',
+    agriculturist_required: 'agriculturist_assigned',
+    agriculturist_assigned: 'field_assessment_completed',
+    field_assessment_completed: 'resolved',
+    resolved: 'resolved',
+  };
+  return flow[current];
+}
 
 const PAGE_SIZE = 20;
 
@@ -371,7 +375,8 @@ function ReportDetailModal({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [message, setMessage] = useState('');
-  const [customStatus, setCustomStatus] = useState<AdminSettableStatus | ''>('');
+  const [nextStatus, setNextStatus] = useState<AdminSettableStatus>('under_review');
+  const [agriculturist, setAgriculturist] = useState('');
   const [lightbox, setLightbox] = useState<ReportImage | null>(null);
   const [openDisease, setOpenDisease] = useState<string | null>(null);
 
@@ -383,6 +388,8 @@ function ReportDetailModal({
       .then((detail) => {
         if (!isMounted) return;
         setReport(detail);
+        setNextStatus(defaultNextStatus(detail.status));
+        setAgriculturist(detail.assignedAgriculturist ?? '');
         // Auto-expand the first reported disease so photos are one glance away.
         setOpenDisease(detail.diseaseBreakdown[0]?.classLabel ?? null);
         onChanged();
@@ -412,15 +419,26 @@ function ReportDetailModal({
     return () => window.removeEventListener('keydown', onKey);
   }, [lightbox, onClose]);
 
-  async function applyStatus(next: AdminSettableStatus) {
+  const agriculturistRelevant =
+    nextStatus === 'agriculturist_required' ||
+    nextStatus === 'agriculturist_assigned' ||
+    !!report?.assignedAgriculturist;
+
+  async function handleUpdate() {
     setIsUpdating(true);
     setErrorMessage(null);
     try {
-      await reportService.updateReportStatus(reportId, next, message.trim() || undefined);
+      await reportService.updateReportStatus(
+        reportId,
+        nextStatus,
+        message.trim() || undefined,
+        agriculturistRelevant ? agriculturist.trim() : undefined
+      );
       const refreshed = await reportService.getReport(reportId);
       setReport(refreshed);
       setMessage('');
-      setCustomStatus('');
+      setNextStatus(defaultNextStatus(refreshed.status));
+      setAgriculturist(refreshed.assignedAgriculturist ?? '');
       onChanged();
     } catch (error) {
       setErrorMessage(
@@ -597,71 +615,75 @@ function ReportDetailModal({
                 )}
               </div>
 
+              {report.assignedAgriculturist && (
+                <p className="mt-2 text-xs text-gray-600">
+                  <span className="font-semibold text-gray-700">Agriculturist:</span>{' '}
+                  {report.assignedAgriculturist}
+                </p>
+              )}
+
               {report.caoMessage && (
                 <p className="mt-2 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800">
                   Last message to farmer: “{report.caoMessage}”
                 </p>
               )}
 
-              {report.status !== 'resolved' && (
-                <div className="mt-3 space-y-2">
+              {/* ---------- Update form ---------- */}
+              <div className="mt-3 space-y-2.5">
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    Change status to
+                  </span>
+                  <select
+                    value={nextStatus}
+                    onChange={(e) => setNextStatus(e.target.value as AdminSettableStatus)}
+                    className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-800 focus:border-leaf-500 focus:outline-none"
+                  >
+                    {SETTABLE_STATUSES.map((s) => (
+                      <option key={s} value={s}>
+                        {STATUS_LABEL[s]}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {agriculturistRelevant && (
+                  <label className="block">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      Agriculturist name
+                    </span>
+                    <input
+                      type="text"
+                      value={agriculturist}
+                      onChange={(e) => setAgriculturist(e.target.value)}
+                      placeholder="Who is being sent to the area?"
+                      className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
+                    />
+                  </label>
+                )}
+
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    Message to farmer <span className="font-normal normal-case">(optional)</span>
+                  </span>
                   <textarea
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Optional message to the farmer (sent with the status update)…"
+                    placeholder="Sent with the status update…"
                     rows={2}
-                    className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
+                    className="mt-1 w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
                   />
+                </label>
 
-                  <div className="flex flex-wrap gap-2">
-                    {NEXT_ACTIONS[report.status].map((next) => (
-                      <button
-                        key={next}
-                        type="button"
-                        disabled={isUpdating}
-                        onClick={() => applyStatus(next)}
-                        className={`rounded-lg px-3 py-2 text-sm font-medium text-white disabled:opacity-60 ${
-                          next === 'agriculturist_required'
-                            ? 'bg-orange-600 hover:bg-orange-700'
-                            : next === 'resolved'
-                              ? 'bg-leaf-600 hover:bg-leaf-700'
-                              : 'bg-blue-600 hover:bg-blue-700'
-                        }`}
-                      >
-                        {ACTION_LABEL[next]}
-                      </button>
-                    ))}
-
-                    {/* Correction / jump to any status */}
-                    <div className="flex items-center gap-1">
-                      <select
-                        value={customStatus}
-                        onChange={(e) =>
-                          setCustomStatus(e.target.value as AdminSettableStatus | '')
-                        }
-                        className="rounded-lg border border-gray-200 px-2 py-2 text-sm text-gray-600 focus:border-leaf-500 focus:outline-none"
-                      >
-                        <option value="">Set to…</option>
-                        {(Object.keys(ACTION_LABEL) as AdminSettableStatus[])
-                          .filter((s) => s !== report.status)
-                          .map((s) => (
-                            <option key={s} value={s}>
-                              {STATUS_LABEL[s]}
-                            </option>
-                          ))}
-                      </select>
-                      <button
-                        type="button"
-                        disabled={isUpdating || !customStatus}
-                        onClick={() => customStatus && applyStatus(customStatus)}
-                        className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-40"
-                      >
-                        Apply
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
+                <button
+                  type="button"
+                  disabled={isUpdating}
+                  onClick={handleUpdate}
+                  className="w-full rounded-lg bg-leaf-600 py-2.5 text-sm font-semibold text-white hover:bg-leaf-700 disabled:opacity-60"
+                >
+                  {isUpdating ? 'Updating…' : 'Update Report'}
+                </button>
+              </div>
 
               {errorMessage && <p className="mt-2 text-sm text-red-600">{errorMessage}</p>}
             </div>

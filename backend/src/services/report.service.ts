@@ -75,6 +75,7 @@ export interface ReportDetail extends ReportSummary {
   images: ReportImage[];
   remarks: string | null;
   caoMessage: string | null;
+  assignedAgriculturist: string | null;
   reviewedByName: string | null;
   reviewedAt: Date | null;
 }
@@ -95,6 +96,7 @@ interface ReportRow extends RowDataPacket {
   status: ReportStatus;
   is_read: number;
   cao_message: string | null;
+  assigned_agriculturist: string | null;
   reviewed_by_name: string | null;
   reviewed_at: Date | null;
   image_count: number;
@@ -149,6 +151,7 @@ function toDetail(row: ReportRow, images: ReportImageRow[]): ReportDetail {
     images: images.map(toImage),
     remarks: row.remarks,
     caoMessage: row.cao_message,
+    assignedAgriculturist: row.assigned_agriculturist,
     reviewedByName: row.reviewed_by_name,
     reviewedAt: row.reviewed_at,
   };
@@ -162,7 +165,7 @@ const SELECT_REPORT = `
     r.barangay, r.municipality,
     r.total_scans, r.affected_scans, r.healthy_scans,
     r.disease_breakdown, r.estimated_area_hectares, r.remarks,
-    r.status, r.is_read, r.cao_message,
+    r.status, r.is_read, r.cao_message, r.assigned_agriculturist,
     reviewer.full_name AS reviewed_by_name,
     r.reviewed_at, r.created_at,
     (SELECT COUNT(*) FROM report_images ri WHERE ri.report_id = r.id) AS image_count
@@ -380,10 +383,11 @@ export async function updateReportStatus(
   id: number,
   status: AdminSettableStatus,
   reviewerId: number,
-  message?: string
+  message?: string,
+  agriculturist?: string
 ): Promise<void> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT r.farmer_id, u.full_name AS farmer_name
+    `SELECT r.farmer_id, r.assigned_agriculturist, u.full_name AS farmer_name
      FROM reports r JOIN users u ON u.id = r.farmer_id
      WHERE r.id = ? LIMIT 1`,
     [id]
@@ -393,23 +397,40 @@ export async function updateReportStatus(
     throw ApiError.notFound('Report not found');
   }
 
+  // agriculturist === undefined -> leave whatever is recorded.
+  // agriculturist === ''        -> clear it.
+  const setAgriculturist = agriculturist !== undefined;
+  const agriculturistValue = agriculturist?.trim() ? agriculturist.trim() : null;
+  const effectiveAgriculturist = setAgriculturist
+    ? agriculturistValue
+    : ((report.assigned_agriculturist as string | null) ?? null);
+
   await pool.query<ResultSetHeader>(
     `UPDATE reports
-     SET status = ?, cao_message = ?, reviewed_by = ?, reviewed_at = NOW(),
+     SET status = ?, cao_message = ?,
+         ${setAgriculturist ? 'assigned_agriculturist = ?,' : ''}
+         reviewed_by = ?, reviewed_at = NOW(),
          is_read = 1, read_at = COALESCE(read_at, NOW()), read_by = COALESCE(read_by, ?)
      WHERE id = ?`,
-    [status, message || null, reviewerId, reviewerId, id]
+    setAgriculturist
+      ? [status, message || null, agriculturistValue, reviewerId, reviewerId, id]
+      : [status, message || null, reviewerId, reviewerId, id]
   );
 
   // ---- Notify the farmer ----
   const label = STATUS_LABEL[status];
+  const withName = (base: string): string =>
+    effectiveAgriculturist ? `${base} Agriculturist: ${effectiveAgriculturist}.` : base;
+
   const bodyByStatus: Record<AdminSettableStatus, string> = {
     under_review: 'The City Agriculture Office is now reviewing your report.',
     verified: 'The CAO has verified the disease findings in your report.',
-    agriculturist_required:
-      'Your report requires an agriculturist field assessment. A visit is being arranged.',
-    agriculturist_assigned:
-      'An agriculturist has been assigned to visit and assess your area.',
+    agriculturist_required: withName(
+      'Your report requires an agriculturist field assessment. A visit is being arranged.'
+    ),
+    agriculturist_assigned: withName(
+      'An agriculturist has been assigned to visit and assess your area.'
+    ),
     field_assessment_completed:
       'The field assessment for your report has been completed.',
     resolved: 'Your report has been resolved. Thank you for reporting.',
