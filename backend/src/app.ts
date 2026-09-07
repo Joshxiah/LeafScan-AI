@@ -19,6 +19,7 @@ import dashboardRoutes from './routes/dashboard.routes';
 import diseaseRoutes from './routes/disease.routes';
 import reportRoutes from './routes/report.routes';
 import farmerRoutes from './routes/farmer.routes';
+import notificationRoutes from './routes/notification.routes';
 import healthRoutes from './routes/health.routes';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler';
 import { authenticateAsset } from './middleware/auth.middleware';
@@ -93,6 +94,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/diseases', diseaseRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/farmers', farmerRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Future routers are added here in later phases:
 // app.use('/api/detections', detectionRoutes);      <- Phase 13

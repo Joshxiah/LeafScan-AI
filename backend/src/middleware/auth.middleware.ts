@@ -94,6 +94,30 @@ export function authenticateAsset(req: Request, res: Response, next: NextFunctio
 }
 
 /**
+ * Like authenticate(), but also accepts the token as a "token"
+ * query parameter. Used by the Server-Sent Events stream, which the
+ * browser's EventSource opens with a plain GET and no way to set an
+ * Authorization header. Attaches req.user on success.
+ */
+export function authenticateStream(req: Request, res: Response, next: NextFunction): void {
+  try {
+    const queryToken = typeof req.query.token === 'string' ? req.query.token : undefined;
+    const token = req.headers.authorization
+      ? extractTokenFromHeader(req.headers.authorization)
+      : queryToken;
+
+    if (!token) {
+      throw ApiError.unauthorized('No authentication token provided', 'TOKEN_MISSING');
+    }
+
+    req.user = verifyToken(token);
+    next();
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
  * Requires the farmer role. Used for endpoints that only make
  * sense for a farmer, such as submitting a leaf scan.
  */

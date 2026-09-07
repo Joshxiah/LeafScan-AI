@@ -138,14 +138,93 @@ export const createReportSchema = z.object({
     .max(20)
     .optional(),
 
+  /**
+   * The farmer's OWN scan photos for this report, one per image
+   * they chose to include. class_label/display_name mirror what the
+   * phone classified that photo as, so the CAO can group photos by
+   * disease and verify them. image_path is a relative "uploads/xxx.jpg"
+   * from a prior POST /api/uploads.
+   */
+  images: z
+    .array(
+      z.object({
+        imagePath: z.string().trim().min(1).max(255),
+        classLabel: z.string().trim().max(50).optional().or(z.literal('')),
+        displayName: z.string().trim().max(150).optional().or(z.literal('')),
+        confidenceScore: z.number().min(0).max(100).optional(),
+        riskLevel: z.enum(['none', 'low', 'moderate', 'high']).optional(),
+      })
+    )
+    .max(30)
+    .optional(),
+
   estimatedAreaHectares: z.number().nonnegative().max(99999).optional(),
   remarks: z.string().trim().max(2000).optional().or(z.literal('')),
 });
 
-/** An admin moving a report through its lifecycle. */
+/**
+ * An admin moving a report through the field-assessment lifecycle:
+ *   pending -> under_review -> verified -> agriculturist_required
+ *   -> agriculturist_assigned -> field_assessment_completed -> resolved
+ * Any forward (or corrective) jump is allowed; the UI presents the
+ * sensible next steps. An optional short message is relayed to the
+ * farmer with the status-change notification.
+ */
 export const reportStatusSchema = z.object({
-  status: z.enum(['reviewed', 'resolved']),
+  status: z.enum([
+    'under_review',
+    'verified',
+    'agriculturist_required',
+    'agriculturist_assigned',
+    'field_assessment_completed',
+    'resolved',
+  ]),
+  message: z.string().trim().max(500).optional().or(z.literal('')),
 });
+
+/**
+ * The CAO creating a farmer account from the admin platform. Farmers
+ * no longer self-register (see auth.routes.ts) - the City Agriculture
+ * Office issues credentials. Username and password are optional: when
+ * omitted the service generates them and returns them once so the CAO
+ * can hand them to the farmer.
+ */
+export const createFarmerSchema = z.object({
+  fullName: z
+    .string()
+    .trim()
+    .min(2, 'Full name must be at least 2 characters')
+    .max(150, 'Full name must be at most 150 characters'),
+
+  username: usernameRule.optional(),
+
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .max(72, 'Password must be at most 72 characters')
+    .optional(),
+
+  phoneNumber: phoneRule,
+
+  barangay: z.string().trim().max(255).optional().or(z.literal('')),
+  farmSizeHectares: z.number().positive().max(9999).optional(),
+  yearsFarming: z.number().int().nonnegative().max(120).optional(),
+});
+
+/** The CAO editing a farmer account (activate / deactivate / fix details). */
+export const updateFarmerSchema = z.object({
+  fullName: z.string().trim().min(2).max(150).optional(),
+  phoneNumber: phoneRule.optional(),
+  barangay: z.string().trim().max(255).optional().or(z.literal('')),
+  farmSizeHectares: z.number().positive().max(9999).optional(),
+  yearsFarming: z.number().int().nonnegative().max(120).optional(),
+  isActive: z.boolean().optional(),
+  /** Set a new password for the farmer; returned once to the CAO. */
+  password: z.string().min(8).max(72).optional(),
+});
+
+export type CreateFarmerInput = z.infer<typeof createFarmerSchema>;
+export type UpdateFarmerInput = z.infer<typeof updateFarmerSchema>;
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;

@@ -10,7 +10,6 @@ import { Request, Response } from 'express';
 import * as authService from '../services/auth.service';
 import {
   validate,
-  registerSchema,
   loginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
@@ -20,17 +19,18 @@ import { ApiError } from '../utils/ApiError';
 
 /**
  * POST /api/auth/register
- * Creates a farmer account. Used by the Create Account screen.
+ *
+ * DISABLED. Farmer accounts are issued by the City Agriculture
+ * Office (admin platform -> Farmers -> Add Farmer), not by farmers
+ * themselves. The route stays mounted so older app builds get a
+ * clear message instead of a network error.
  */
-export async function register(req: Request, res: Response): Promise<void> {
-  const input = validate(registerSchema, req.body);
-
-  const result = await authService.registerFarmer(input);
-
-  res.status(201).json({
-    success: true,
-    message: 'Account created successfully',
-    data: result,
+export async function register(_req: Request, res: Response): Promise<void> {
+  res.status(403).json({
+    success: false,
+    code: 'REGISTRATION_DISABLED',
+    message:
+      'Farmer accounts are created by the City Agriculture Office. Please ask the CAO for your login details.',
   });
 }
 

@@ -24,8 +24,15 @@ router.post('/', authenticate, requireFarmer, reportController.createReport);
 router.get('/', authenticate, requireAdmin, reportController.listReports);
 
 /**
+ * GET /api/reports/barangays
+ * PROTECTED, admin only - distinct barangays for the filter dropdown.
+ * Declared before /:id so "barangays" is not read as an id.
+ */
+router.get('/barangays', authenticate, requireAdmin, reportController.listBarangays);
+
+/**
  * GET /api/reports/:id
- * PROTECTED, admin only.
+ * PROTECTED, admin only. Opening a report marks it read.
  */
 router.get('/:id', authenticate, requireAdmin, reportController.getReport);
 
