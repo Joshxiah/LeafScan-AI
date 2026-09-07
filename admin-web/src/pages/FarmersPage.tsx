@@ -168,7 +168,7 @@ export function FarmersPage() {
                   <tr
                     key={farmer.id}
                     onClick={() => setSelected(farmer)}
-                    className="cursor-pointer border-b border-gray-100 last:border-0 hover:bg-gray-50"
+                    className="cursor-pointer border-b border-gray-100 transition-colors last:border-0 hover:bg-gray-100"
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">

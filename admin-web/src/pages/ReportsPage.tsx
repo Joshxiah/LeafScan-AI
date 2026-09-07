@@ -266,8 +266,10 @@ export function ReportsPage() {
                     <tr
                       key={report.id}
                       onClick={() => openReport(report.id, unread)}
-                      className={`cursor-pointer border-b border-gray-100 last:border-0 hover:bg-gray-50 ${
-                        unread ? 'bg-leaf-50/40' : ''
+                      className={`cursor-pointer border-b border-gray-100 transition-colors last:border-0 ${
+                        unread
+                          ? 'bg-leaf-50/60 hover:bg-leaf-100'
+                          : 'hover:bg-gray-100'
                       }`}
                     >
                       <td
