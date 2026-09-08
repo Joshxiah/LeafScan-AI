@@ -16,7 +16,15 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, Pressable, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
+import {
+  View,
+  Text,
+  Image,
+  Pressable,
+  ScrollView,
+  ActivityIndicator,
+  RefreshControl,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,6 +35,7 @@ import { listDiseases } from '../../../src/services/disease.service';
 import { useLanguage } from '../../../src/context/LanguageContext';
 import { Disease } from '../../../src/types';
 import { brand, shadows } from '../../../src/constants/theme';
+import { diseaseImage } from '../../../src/constants/diseaseImages';
 
 type LoadState = 'loading' | 'error' | 'ready';
 
@@ -139,9 +148,11 @@ export default function LibraryScreen() {
               className="flex-row items-center rounded-2xl border border-[#EEF5EF] bg-white p-3 active:bg-[#F5FAF6]"
               style={shadows.card}
             >
-              <View className="h-16 w-16 items-center justify-center rounded-xl bg-[#E7F4EA]">
-                <Ionicons name="leaf" size={26} color={brand.accent} />
-              </View>
+              <Image
+                source={diseaseImage(disease.classLabel)}
+                className="h-16 w-16 rounded-xl bg-[#E7F4EA]"
+                resizeMode="cover"
+              />
 
               <View className="ml-3.5 flex-1">
                 <View className="flex-row items-center">

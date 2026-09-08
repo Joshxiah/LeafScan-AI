@@ -9,7 +9,7 @@
  */
 
 import { useMemo } from 'react';
-import { View, Text, Pressable, ScrollView } from 'react-native';
+import { View, Text, Image, Pressable, ScrollView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Disease } from '../../src/types';
 import { useLanguage } from '../../src/context/LanguageContext';
 import { brand } from '../../src/constants/theme';
+import { diseaseImage } from '../../src/constants/diseaseImages';
 
 /** Turns one blob of prose into individual bullet points. */
 function toBullets(text: string | null): string[] {
@@ -65,8 +66,12 @@ export default function DiseaseDetailScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* ---------- Image header ---------- */}
-        <View className="h-56 items-center justify-center bg-[#E7F4EA]">
-          <Ionicons name="leaf" size={72} color="#2F6D46" />
+        <View className="h-56 bg-[#E7F4EA]">
+          <Image
+            source={diseaseImage(disease.classLabel)}
+            className="h-full w-full"
+            resizeMode="cover"
+          />
 
           <Pressable
             onPress={() => router.back()}
