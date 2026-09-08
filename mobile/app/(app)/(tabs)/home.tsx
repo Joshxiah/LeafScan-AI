@@ -280,8 +280,18 @@ export default function HomeScreen() {
               />
 
               <View className="ml-6 flex-1 gap-2.5">
-                <LegendRow color={brand.accent} label={t.home.healthy} percent={summary.healthyPercent} />
-                <LegendRow color="#D64545" label={t.home.diseased} percent={summary.diseasedPercent} />
+                <LegendRow
+                  color={brand.accent}
+                  label={t.home.healthy}
+                  count={summary.healthy}
+                  percent={summary.healthyPercent}
+                />
+                <LegendRow
+                  color="#D64545"
+                  label={t.home.diseased}
+                  count={summary.diseased}
+                  percent={summary.diseasedPercent}
+                />
               </View>
             </View>
           )}
@@ -390,10 +400,12 @@ function ProfileButton({
 function LegendRow({
   color,
   label,
+  count,
   percent,
 }: {
   color: string;
   label: string;
+  count: number;
   percent: number;
 }) {
   return (
@@ -402,7 +414,10 @@ function LegendRow({
         <View className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
         <Text className="ml-2 text-[13px] text-[#16241B]">{label}</Text>
       </View>
-      <Text className="text-[13px] font-bold text-[#16241B]">{percent}%</Text>
+      <Text className="text-[13px] font-bold text-[#16241B]">
+        {count}
+        <Text className="font-semibold text-[#9BAAA1]">  ·  {percent}%</Text>
+      </Text>
     </View>
   );
 }

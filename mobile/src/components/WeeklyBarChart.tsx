@@ -4,6 +4,7 @@
  * Plain Views scaled to a fixed pixel height - no charting library
  * needed for seven bars. Height is proportional to the tallest day,
  * so the chart re-scales correctly no matter what the counts are.
+ * Each bar is labelled with its exact scan count above it.
  */
 
 import { View, Text } from 'react-native';
@@ -17,7 +18,10 @@ export function WeeklyBarChart({ data }: { data: DayActivity[] }) {
   const max = Math.max(...data.map((d) => d.count), 1);
 
   return (
-    <View className="flex-row items-end justify-between" style={{ height: CHART_HEIGHT + 20 }}>
+    <View
+      className="flex-row items-end justify-between"
+      style={{ height: CHART_HEIGHT + 42 }}
+    >
       {data.map((d) => {
         const barHeight = Math.max(
           MIN_BAR_HEIGHT,
@@ -26,6 +30,12 @@ export function WeeklyBarChart({ data }: { data: DayActivity[] }) {
 
         return (
           <View key={d.day} className="flex-1 items-center">
+            <Text
+              className="mb-1 text-[10px] font-bold"
+              style={{ color: d.count > 0 ? brand.accent : brand.faint }}
+            >
+              {d.count}
+            </Text>
             <View
               className="w-[60%] rounded-md"
               style={{ height: barHeight, backgroundColor: brand.accent }}
