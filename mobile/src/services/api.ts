@@ -123,7 +123,7 @@ async function request<T>(
     throw new ApiError(
       0,
       __DEV__
-        ? `Cannot reach the server at ${config.backendOrigin}. Check the phone and PC share one Wi-Fi, and that Windows Firewall allows port 4000 (run scripts/allow-lan-dev.ps1 as admin).`
+        ? `Cannot reach the server at ${config.backendOrigin}. Check the phone and PC share one Wi-Fi, and that Windows Firewall allows port 4000 (double-click scripts\\allow-lan-dev.bat on the PC).`
         : 'Cannot reach the server. Please check your internet connection and try again.'
     );
   }
@@ -222,7 +222,9 @@ export async function uploadFile<T>(
 
     throw new ApiError(
       0,
-      'Cannot reach the server. Make sure you are connected to the same network as the server.'
+      __DEV__
+        ? `Cannot reach the server at ${config.backendOrigin}. On a phone this is almost always Windows Firewall blocking port 4000 - double-click scripts\\allow-lan-dev.bat on the PC, then fully reload the app. Also check the phone and PC share one Wi-Fi.`
+        : 'Cannot reach the server. Make sure you are connected to the same network as the server.'
     );
   }
 

@@ -3,21 +3,23 @@
  *
  * WHERE IS THE BACKEND?
  *
- * The backend runs on your computer at port 4000. How a device
- * reaches it depends on where the app is running:
+ * The backend runs on your computer at port 4000. A phone on the
+ * same Wi-Fi can usually reach the Expo/Metro bundler (port 8081)
+ * but is often BLOCKED by Windows Firewall from reaching port 4000
+ * directly.
  *
- *   - Web browser on this computer  -> http://localhost:4000
- *   - Web browser opened by LAN IP  -> that same IP, port 4000
- *   - Expo Go / dev build on a phone -> your computer's Wi-Fi IP
+ * So in development the app does NOT hit port 4000. It sends every
+ * /api and /uploads request to the Metro dev server instead, and
+ * Metro forwards it to the backend over loopback on the PC (see the
+ * proxy in metro.config.js). This needs no firewall change.
  *
- * The phone case is handled automaticwally: Expo already knows the
- * IP of the machine running `expo start` (it is in the QR-code
- * URL), and we reuse it here. If that lookup ever fails, the app
- * falls back to DEV_MACHINE_IP below.
+ *   - Phone / emulator (dev) -> Metro host + Metro port  (proxied)
+ *   - Web (dev)              -> same page host + Metro port (proxied)
+ *   - Production build        -> port 4000 on the resolved host
  *
- * The IP changes when you switch Wi-Fi networks. If the phone
- * suddenly cannot reach the server, update DEV_MACHINE_IP to the
- * IPv4 address shown by `ipconfig`.
+ * Expo already knows the bundler's address (it is in the QR-code
+ * URL); we reuse it. If that lookup fails, the app falls back to
+ * DEV_MACHINE_IP below.
  */
 
 import { Platform } from 'react-native';
@@ -29,57 +31,75 @@ import Constants from 'expo-constants';
 //
 // Find it with `ipconfig` (Windows) / `ifconfig` (macOS/Linux) -
 // the "IPv4 Address" of the Wi-Fi adapter, e.g. 192.168.x.x.
-//
-// NOTE: if the phone shows "Cannot reach the server" even though
-// this IP is correct, it is almost always Windows Firewall
-// blocking inbound port 4000. Run scripts/allow-lan-dev.ps1 as
-// Administrator once to fix it.
 // ----------------------------------------------------------
 const DEV_MACHINE_IP = '192.168.68.146';
 
+/** Where the real backend listens. Used directly only in production builds. */
 const BACKEND_PORT = 4000;
 
-/**
- * Figures out the host name or IP the backend is reachable at.
- */
-function resolveBackendHost(): string {
-  // On the web, use whatever host the page itself was loaded from.
-  if (Platform.OS === 'web') {
-    if (typeof window !== 'undefined' && window.location?.hostname) {
-      return window.location.hostname;
-    }
-    return 'localhost';
-  }
+/** Default Metro/Expo port, used when it cannot be read from the host URI. */
+const DEFAULT_METRO_PORT = 8081;
 
-  // On a device, borrow the IP of the Metro bundler that Expo is
-  // already talking to. hostUri looks like "192.168.1.9:8081".
+/** "192.168.1.9:8081" -> { host, port } */
+function parseHostUri(): { host: string; port: number } {
   const hostUri =
     Constants.expoConfig?.hostUri ??
     Constants.expoGoConfig?.debuggerHost ??
     '';
 
-  const host = hostUri.split(':')[0];
+  const [host, portText] = hostUri.split(':');
+  const port = Number(portText);
 
-  return host || DEV_MACHINE_IP;
+  return {
+    host: host || DEV_MACHINE_IP,
+    port: Number.isFinite(port) && port > 0 ? port : DEFAULT_METRO_PORT,
+  };
 }
 
-const BACKEND_HOST = resolveBackendHost();
+function resolve(): { origin: string } {
+  // ---------- Web ----------
+  if (Platform.OS === 'web') {
+    const host =
+      typeof window !== 'undefined' && window.location?.hostname
+        ? window.location.hostname
+        : 'localhost';
+
+    if (__DEV__) {
+      // The page is served BY Metro, so its port already works.
+      const port =
+        typeof window !== 'undefined' && window.location?.port
+          ? window.location.port
+          : String(DEFAULT_METRO_PORT);
+      return { origin: `http://${host}:${port}` };
+    }
+    return { origin: `http://${host}:${BACKEND_PORT}` };
+  }
+
+  // ---------- Native device / emulator ----------
+  const { host, port } = parseHostUri();
+
+  // Dev: go through the Metro proxy (metro.config.js) on the bundler
+  // port. Prod: hit the backend port directly.
+  return { origin: `http://${host}:${__DEV__ ? port : BACKEND_PORT}` };
+}
+
+const { origin } = resolve();
 
 export const config = {
-  /** Base address of the Node.js backend. */
-  apiBaseUrl: `http://${BACKEND_HOST}:${BACKEND_PORT}/api`,
+  /** Base address for API calls. In dev this is the Metro proxy. */
+  apiBaseUrl: `${origin}/api`,
 
   /**
-   * The bare backend address, no path suffix. A stored file path
+   * The bare origin, no path suffix. A stored file path
    * (detections.image_path, users.avatar_path) is already relative
    * to this - "uploads/xxx.jpg" - so build its URL as
    * `${backendOrigin}/${relativePath}`, never uploadsBaseUrl, or
    * "uploads" ends up doubled.
    */
-  backendOrigin: `http://${BACKEND_HOST}:${BACKEND_PORT}`,
+  backendOrigin: origin,
 
   /** Where uploaded leaf images are served from. */
-  uploadsBaseUrl: `http://${BACKEND_HOST}:${BACKEND_PORT}/uploads`,
+  uploadsBaseUrl: `${origin}/uploads`,
 
   /** Give up on a request after this many milliseconds. */
   requestTimeoutMs: 30000,
