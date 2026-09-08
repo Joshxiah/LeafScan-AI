@@ -9,7 +9,7 @@
  */
 
 import { useRef, useState } from 'react';
-import { View, Text, Pressable, ActivityIndicator, Linking } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, Linking, StyleSheet } from 'react-native';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -113,13 +113,17 @@ export default function CameraScreen() {
 
   return (
     <View className="flex-1 bg-black">
+      {/* CameraView does not accept children - the controls are an
+          absolutely-positioned overlay sibling on top of it. */}
       <CameraView
         ref={cameraRef}
         facing={facing}
-        style={{ flex: 1 }}
+        style={StyleSheet.absoluteFill}
         onCameraReady={() => setIsCameraReady(true)}
-      >
-        <SafeAreaView className="flex-1" edges={['top', 'bottom']}>
+      />
+
+      <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+        <SafeAreaView className="flex-1" edges={['top', 'bottom']} pointerEvents="box-none">
           {/* ---------- Top bar ---------- */}
           <View className="flex-row items-center justify-between px-5 pt-2">
             <Pressable
@@ -168,7 +172,7 @@ export default function CameraScreen() {
             </Text>
           </View>
         </SafeAreaView>
-      </CameraView>
+      </View>
     </View>
   );
 }
