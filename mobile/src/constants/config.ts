@@ -25,9 +25,17 @@ import Constants from 'expo-constants';
 
 // ----------------------------------------------------------
 // Manual fallback - your computer's IPv4 address on Wi-Fi.
-// Only used if automatic detection fails.
+// Only used if Expo's automatic host detection fails.
+//
+// Find it with `ipconfig` (Windows) / `ifconfig` (macOS/Linux) -
+// the "IPv4 Address" of the Wi-Fi adapter, e.g. 192.168.x.x.
+//
+// NOTE: if the phone shows "Cannot reach the server" even though
+// this IP is correct, it is almost always Windows Firewall
+// blocking inbound port 4000. Run scripts/allow-lan-dev.ps1 as
+// Administrator once to fix it.
 // ----------------------------------------------------------
-const DEV_MACHINE_IP = '192.168.1.2';
+const DEV_MACHINE_IP = '192.168.68.146';
 
 const BACKEND_PORT = 4000;
 
