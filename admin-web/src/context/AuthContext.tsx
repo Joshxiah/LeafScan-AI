@@ -24,6 +24,8 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
+  /** Re-fetch the signed-in user, e.g. after editing the profile. */
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -94,6 +96,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    try {
+      const currentUser = await authService.getCurrentUser();
+      if (currentUser.role === 'admin') {
+        setUser(currentUser);
+      }
+    } catch (error) {
+      console.log('[auth] Could not refresh user:', error);
+    }
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{
@@ -102,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: user !== null,
         login,
         logout,
+        refreshUser,
       }}
     >
       {children}

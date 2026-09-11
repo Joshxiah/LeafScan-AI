@@ -12,12 +12,122 @@
  */
 
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
+import { PoolConnection } from 'mysql2/promise';
 import { pool } from '../config/database';
 import { ApiError } from '../utils/ApiError';
 import { hashPassword } from '../utils/password';
-import { normalizePhone, CreateFarmerInput, UpdateFarmerInput } from '../utils/validation';
+import {
+  normalizePhone,
+  CreateFarmerInput,
+  UpdateFarmerInput,
+  FarmPlotInput,
+} from '../utils/validation';
 
 export type FarmerAccountStatus = 'active' | 'inactive';
+
+export type AreaUnit = 'hectare' | 'sqm';
+
+/** One plot the farmer works, as stored - plus the area normalised to hectares. */
+export interface FarmPlot {
+  id: number;
+  purok: string | null;
+  areaValue: number;
+  areaUnit: AreaUnit;
+  areaHectares: number;
+  note: string | null;
+}
+
+interface FarmPlotRow extends RowDataPacket {
+  id: number;
+  farmer_user_id: number;
+  purok: string | null;
+  area_value: string | number;
+  area_unit: AreaUnit;
+  area_hectares: string | number;
+  note: string | null;
+}
+
+/** How many hectares a stated area works out to. 1 ha = 10,000 m². */
+export function toAreaHectares(value: number, unit: AreaUnit): number {
+  return unit === 'sqm' ? value / 10_000 : value;
+}
+
+/**
+ * Plots for a set of farmers, keyed by users.id. One query for the
+ * whole page rather than one per row.
+ */
+async function fetchPlotsFor(userIds: number[]): Promise<Map<number, FarmPlot[]>> {
+  const byUser = new Map<number, FarmPlot[]>();
+  if (userIds.length === 0) {
+    return byUser;
+  }
+
+  const [rows] = await pool.query<FarmPlotRow[]>(
+    `SELECT id, farmer_user_id, purok, area_value, area_unit, area_hectares, note
+     FROM farm_plots
+     WHERE farmer_user_id IN (?)
+     ORDER BY (purok IS NULL), purok, id`,
+    [userIds]
+  );
+
+  for (const row of rows) {
+    const plot: FarmPlot = {
+      id: row.id,
+      purok: row.purok,
+      areaValue: Number(row.area_value),
+      areaUnit: row.area_unit,
+      areaHectares: Number(row.area_hectares),
+      note: row.note,
+    };
+    const list = byUser.get(row.farmer_user_id);
+    if (list) list.push(plot);
+    else byUser.set(row.farmer_user_id, [plot]);
+  }
+
+  return byUser;
+}
+
+/**
+ * Replaces a farmer's whole set of plots and refreshes the
+ * denormalised farmers.farm_size_hectares cache (= Σ area_hectares,
+ * or NULL when there are no plots). Runs on the caller's connection
+ * so it is part of their transaction.
+ */
+async function writeFarmerPlots(
+  connection: PoolConnection,
+  userId: number,
+  plots: FarmPlotInput[]
+): Promise<void> {
+  await connection.query('DELETE FROM farm_plots WHERE farmer_user_id = ?', [userId]);
+
+  let totalHectares = 0;
+  if (plots.length > 0) {
+    const values = plots.map(() => '(?, ?, ?, ?, ?, ?)').join(', ');
+    const params = plots.flatMap((plot) => {
+      const areaHectares = toAreaHectares(plot.areaValue, plot.areaUnit);
+      totalHectares += areaHectares;
+      return [
+        userId,
+        plot.purok?.trim() ? plot.purok.trim() : null,
+        plot.areaValue,
+        plot.areaUnit,
+        areaHectares,
+        plot.note?.trim() ? plot.note.trim() : null,
+      ];
+    });
+    await connection.query(
+      `INSERT INTO farm_plots
+         (farmer_user_id, purok, area_value, area_unit, area_hectares, note)
+       VALUES ${values}`,
+      params
+    );
+  }
+
+  await connection.query('UPDATE farmers SET farm_size_hectares = ? WHERE user_id = ?', [
+    plots.length > 0 ? Number(totalHectares.toFixed(2)) : null,
+    userId,
+  ]);
+}
 
 export interface FarmerSummary {
   id: number;
@@ -29,6 +139,10 @@ export interface FarmerSummary {
   barangay: string | null;
   municipality: string | null;
   farmSizeHectares: number | null;
+  /** The farmer's plots by purok. Empty for an account with none recorded. */
+  plots: FarmPlot[];
+  /** Σ of the plots' normalised hectares (falls back to farmSizeHectares). */
+  totalAreaHectares: number;
   yearsFarming: number | null;
   reportCount: number;
   isActive: boolean;
@@ -51,7 +165,14 @@ interface FarmerRow extends RowDataPacket {
   created_at: Date;
 }
 
-function toSummary(row: FarmerRow): FarmerSummary {
+function toSummary(row: FarmerRow, plots: FarmPlot[] = []): FarmerSummary {
+  const farmSizeHectares =
+    row.farm_size_hectares === null ? null : Number(row.farm_size_hectares);
+  const totalAreaHectares =
+    plots.length > 0
+      ? plots.reduce((sum, plot) => sum + plot.areaHectares, 0)
+      : (farmSizeHectares ?? 0);
+
   return {
     id: row.id,
     fullName: row.full_name,
@@ -61,7 +182,9 @@ function toSummary(row: FarmerRow): FarmerSummary {
     avatarPath: row.avatar_path,
     barangay: row.barangay,
     municipality: row.municipality,
-    farmSizeHectares: row.farm_size_hectares === null ? null : Number(row.farm_size_hectares),
+    farmSizeHectares,
+    plots,
+    totalAreaHectares: Number(totalAreaHectares.toFixed(4)),
     yearsFarming: row.years_farming,
     reportCount: Number(row.report_count ?? 0),
     isActive: row.is_active === 1,
@@ -127,8 +250,10 @@ export async function listFarmers(options: ListFarmersOptions): Promise<ListFarm
     params
   );
 
+  const plotsByUser = await fetchPlotsFor(rows.map((row) => row.id));
+
   return {
-    farmers: rows.map(toSummary),
+    farmers: rows.map((row) => toSummary(row, plotsByUser.get(row.id) ?? [])),
     total: Number(countRows[0].total),
     page,
     pageSize,
@@ -142,7 +267,8 @@ export async function getFarmerById(id: number): Promise<FarmerSummary> {
   if (!row) {
     throw ApiError.notFound('Farmer not found');
   }
-  return toSummary(row);
+  const plotsByUser = await fetchPlotsFor([row.id]);
+  return toSummary(row, plotsByUser.get(row.id) ?? []);
 }
 
 /** Six pronounceable-ish characters, no ambiguous 0/O/1/l. */
@@ -232,6 +358,11 @@ export async function createFarmer(input: CreateFarmerInput): Promise<CreatedFar
           input.yearsFarming ?? null,
         ]
       );
+
+      // Plots, when given, own farm_size_hectares from here on.
+      if (input.plots !== undefined) {
+        await writeFarmerPlots(connection, newUserId, input.plots);
+      }
 
       await connection.commit();
 
@@ -325,6 +456,12 @@ export async function updateFarmer(id: number, input: UpdateFarmerInput): Promis
           `UPDATE farmers SET ${farmerSets.join(', ')} WHERE user_id = ?`,
           [...farmerParams, id]
         );
+      }
+
+      // Plots replace the whole set and re-own farm_size_hectares, so
+      // this runs last - after any explicit farmSizeHectares above.
+      if (input.plots !== undefined) {
+        await writeFarmerPlots(connection, id, input.plots);
       }
 
       await connection.commit();

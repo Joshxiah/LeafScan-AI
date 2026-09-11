@@ -57,6 +57,8 @@ export interface DiseaseCount {
 export interface RecentDetection {
   id: number;
   farmerName: string;
+  /** The scanning farmer's barangay, or 'Unspecified' when they have none on file. */
+  barangay: string;
   diseaseName: string | null;
   predictedClass: string;
   confidenceScore: number;
@@ -73,6 +75,7 @@ export interface ScanTrendPoint {
 /** Matches DashboardStatistics in the backend dashboard service. */
 export interface DashboardStatistics {
   totalFarmers: number;
+  totalAgriculturists: number;
   totalScans: number;
   healthyScans: number;
   diseasedScans: number;
@@ -82,7 +85,34 @@ export interface DashboardStatistics {
   totalReports: number;
   diseaseBreakdown: DiseaseCount[];
   scanTrend: ScanTrendPoint[];
-  recentDetections: RecentDetection[];
+}
+
+// ============================================================
+// Barangay breakdown (dashboard "Scans by Barangay")
+// ============================================================
+
+/** Matches BarangayDiseaseCount in the backend dashboard service. */
+export interface BarangayDiseaseCount {
+  classLabel: string;
+  displayName: string;
+  riskLevel: RiskLevel;
+  count: number;
+}
+
+/** Matches BarangayBreakdownRow in the backend dashboard service. */
+export interface BarangayBreakdownRow {
+  barangay: string;
+  healthy: number;
+  diseased: number;
+  total: number;
+  diseases: BarangayDiseaseCount[];
+}
+
+/** Matches BarangayBreakdown in the backend dashboard service. */
+export interface BarangayBreakdown {
+  generatedFor: 'all' | RiskLevel;
+  totals: { healthy: number; diseased: number; total: number };
+  barangays: BarangayBreakdownRow[];
 }
 
 // ============================================================
@@ -153,6 +183,7 @@ export interface ReportDetail extends ReportSummary {
   images: ReportImage[];
   remarks: string | null;
   caoMessage: string | null;
+  assignedAgriculturistId: number | null;
   assignedAgriculturist: string | null;
   reviewedByName: string | null;
   reviewedAt: string | null;
@@ -194,6 +225,18 @@ export interface ListNotificationsResult {
 
 export type FarmerAccountStatus = 'active' | 'inactive';
 
+export type AreaUnit = 'hectare' | 'sqm';
+
+/** Matches FarmPlot in backend/src/services/farmer.service.ts. */
+export interface FarmPlot {
+  id: number;
+  purok: string | null;
+  areaValue: number;
+  areaUnit: AreaUnit;
+  areaHectares: number;
+  note: string | null;
+}
+
 /** Matches FarmerSummary in backend/src/services/farmer.service.ts. */
 export interface FarmerSummary {
   id: number;
@@ -205,6 +248,8 @@ export interface FarmerSummary {
   barangay: string | null;
   municipality: string | null;
   farmSizeHectares: number | null;
+  plots: FarmPlot[];
+  totalAreaHectares: number;
   yearsFarming: number | null;
   reportCount: number;
   isActive: boolean;
@@ -228,4 +273,106 @@ export interface CreatedFarmer {
 export interface UpdatedFarmer {
   farmer: FarmerSummary;
   newPassword?: string;
+}
+
+// ============================================================
+// Agriculturists (CAO directory of field agriculturists)
+// ============================================================
+
+export type AgriculturistAccountStatus = 'active' | 'inactive';
+
+/** Matches AgriculturistSummary in backend/src/services/agriculturist.service.ts. */
+export interface AgriculturistSummary {
+  id: number;
+  fullName: string;
+  phoneNumber: string | null;
+  email: string | null;
+  barangay: string | null;
+  municipality: string | null;
+  specialization: string | null;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface ListAgriculturistsResult {
+  agriculturists: AgriculturistSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+// ============================================================
+// Detections (leaf scans)
+// ============================================================
+
+export type ReviewStatus = 'unreviewed' | 'confirmed' | 'corrected';
+
+/** Matches DetectionSummary in backend/src/services/detection.service.ts. */
+export interface DetectionSummary {
+  id: number;
+  farmerId: number;
+  farmerName: string;
+  barangay: string | null;
+  diseaseName: string | null;
+  predictedClass: string;
+  confidenceScore: number;
+  confidenceLevel: string;
+  riskLevel: RiskLevel;
+  isHealthy: boolean;
+  imagePath: string;
+  detectedAt: string;
+  /** CAO review layer - never overwrites the AI fields above. */
+  reviewStatus: ReviewStatus;
+  correctedClass: string | null;
+  correctedDiseaseName: string | null;
+  reviewNote: string | null;
+  reviewedByName: string | null;
+  reviewedAt: string | null;
+}
+
+export interface ListDetectionsResult {
+  detections: DetectionSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+// ============================================================
+// Disease library (diseases + their treatment recommendations)
+// ============================================================
+
+/** Matches TreatmentRecommendation in backend/src/services/disease.service.ts. */
+export interface TreatmentRecommendation {
+  id: number;
+  title: string;
+  recommendationText: string;
+  applicationMethod: string | null;
+  preventiveMeasures: string | null;
+}
+
+/** Matches DiseaseInfo in backend/src/services/disease.service.ts. */
+export interface DiseaseInfo {
+  id: number;
+  classLabel: string;
+  displayName: string;
+  scientificName: string | null;
+  description: string | null;
+  symptoms: string | null;
+  defaultRiskLevel: RiskLevel;
+  isHealthy: boolean;
+  treatments: TreatmentRecommendation[];
+}
+
+/** Matches RecommendationSummary in backend/src/services/recommendation.service.ts. */
+export interface RecommendationSummary {
+  id: number;
+  diseaseId: number;
+  diseaseName: string;
+  classLabel: string;
+  title: string;
+  recommendationText: string;
+  applicationMethod: string | null;
+  preventiveMeasures: string | null;
+  isActive: boolean;
+  createdAt: string;
 }

@@ -121,6 +121,7 @@ export async function updateReportStatus(req: Request, res: Response): Promise<v
     input.status,
     req.user.userId,
     input.message || undefined,
+    input.agriculturistId,
     input.agriculturist
   );
 

@@ -17,8 +17,11 @@ import authRoutes from './routes/auth.routes';
 import uploadRoutes from './routes/upload.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import diseaseRoutes from './routes/disease.routes';
+import recommendationRoutes from './routes/recommendation.routes';
+import detectionRoutes from './routes/detection.routes';
 import reportRoutes from './routes/report.routes';
 import farmerRoutes from './routes/farmer.routes';
+import agriculturistRoutes from './routes/agriculturist.routes';
 import notificationRoutes from './routes/notification.routes';
 import healthRoutes from './routes/health.routes';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler';
@@ -92,13 +95,12 @@ app.use('/api/uploads', uploadRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/diseases', diseaseRoutes);
+app.use('/api/recommendations', recommendationRoutes);
+app.use('/api/detections', detectionRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/farmers', farmerRoutes);
+app.use('/api/agriculturists', agriculturistRoutes);
 app.use('/api/notifications', notificationRoutes);
-
-// Future routers are added here in later phases:
-// app.use('/api/detections', detectionRoutes);      <- Phase 13
-// app.use('/api/recommendations', recommendationRoutes); <- Phase 22
 
 // ============================================================
 // ERROR HANDLING - must be registered LAST

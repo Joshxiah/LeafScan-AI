@@ -38,6 +38,7 @@ import { brand, shadows } from '../../../src/constants/theme';
 import { mediaUrl } from '../../../src/utils/media';
 import { uploadImage } from '../../../src/services/upload.service';
 import { updateProfile } from '../../../src/services/profile.service';
+import { changePassword } from '../../../src/services/auth.service';
 import { getErrorMessage } from '../../../src/services/api';
 
 const LANGUAGE_OPTIONS: { code: Language; label: string }[] = [
@@ -65,6 +66,15 @@ export default function SettingsScreen() {
   const [barangay, setBarangay] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+
+  // ---------- Change password ----------
+  const [pwVisible, setPwVisible] = useState(false);
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
+  const [isChangingPw, setIsChangingPw] = useState(false);
+  const [pwError, setPwError] = useState<string | null>(null);
+  const [pwDone, setPwDone] = useState(false);
 
   const initial = (user?.fullName?.charAt(0) ?? '?').toUpperCase();
   const avatarUri = mediaUrl(user?.avatarPath, token);
@@ -104,6 +114,40 @@ export default function SettingsScreen() {
       setEditError(getErrorMessage(error, t.settings.profileErrorGeneric, t.apiErrors));
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  // ---------- Change password ----------
+  function openChangePassword() {
+    setPwError(null);
+    setPwDone(false);
+    setCurrentPw('');
+    setNewPw('');
+    setConfirmPw('');
+    setPwVisible(true);
+  }
+
+  async function handleChangePassword() {
+    setPwError(null);
+
+    if (newPw.length < 8) {
+      setPwError(t.settings.passwordErrorLength);
+      return;
+    }
+    if (newPw !== confirmPw) {
+      setPwError(t.settings.passwordErrorMismatch);
+      return;
+    }
+
+    setIsChangingPw(true);
+    try {
+      await changePassword(currentPw, newPw);
+      setPwVisible(false);
+      setPwDone(true);
+    } catch (error) {
+      setPwError(getErrorMessage(error, t.settings.passwordErrorGeneric, t.apiErrors));
+    } finally {
+      setIsChangingPw(false);
     }
   }
 
@@ -260,6 +304,25 @@ export default function SettingsScreen() {
           />
         </View>
 
+        {/* ---------- Security ---------- */}
+        <SectionLabel text={t.settings.changePassword} />
+        <Pressable
+          onPress={openChangePassword}
+          className="flex-row items-center rounded-2xl border border-[#EEF5EF] bg-white px-4 py-3.5 active:bg-[#F5FAF6]"
+          style={shadows.card}
+        >
+          <Ionicons name="lock-closed-outline" size={16} color={brand.muted} />
+          <Text className="ml-2.5 flex-1 text-[14px] text-[#16241B]">
+            {t.settings.changePassword}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={brand.faint} />
+        </Pressable>
+        {pwDone && (
+          <Text className="ml-1 mt-2 text-[12px] text-[#2F6D46]">
+            {t.settings.passwordChanged}
+          </Text>
+        )}
+
         {/* ---------- Language ---------- */}
         <SectionLabel text={t.settings.language} />
         <View className="rounded-2xl border border-[#EEF5EF] bg-white px-4 py-1.5" style={shadows.card}>
@@ -408,6 +471,82 @@ export default function SettingsScreen() {
                 )}
                 <Text className="text-[14px] font-bold text-white">
                   {isSaving ? t.settings.savingChanges : t.settings.saveChanges}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ---------- Change password modal ---------- */}
+      <Modal
+        visible={pwVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPwVisible(false)}
+      >
+        <View className="flex-1 items-center justify-center bg-black/40 px-6">
+          <View className="w-full rounded-2xl bg-white p-6">
+            <Text className="text-center text-lg font-extrabold text-[#16241B]">
+              {t.settings.changePasswordTitle}
+            </Text>
+            <Text className="mt-2 text-center text-[12px] leading-4 text-[#6C8073]">
+              {t.settings.changePasswordHint}
+            </Text>
+
+            <View className="mt-5 gap-4">
+              <FieldInput
+                icon="lock-closed-outline"
+                placeholder={t.settings.currentPasswordPlaceholder}
+                value={currentPw}
+                onChangeText={setCurrentPw}
+                secureTextEntry
+                autoCapitalize="none"
+              />
+              <FieldInput
+                icon="key-outline"
+                placeholder={t.settings.newPasswordPlaceholder}
+                value={newPw}
+                onChangeText={setNewPw}
+                secureTextEntry
+                autoCapitalize="none"
+              />
+              <FieldInput
+                icon="key-outline"
+                placeholder={t.settings.confirmPasswordPlaceholder}
+                value={confirmPw}
+                onChangeText={setConfirmPw}
+                secureTextEntry
+                autoCapitalize="none"
+              />
+            </View>
+
+            {pwError && (
+              <Text className="mt-3 text-[13px] text-[#D64545]">{pwError}</Text>
+            )}
+
+            <View className="mt-6 flex-row gap-3">
+              <Pressable
+                onPress={() => setPwVisible(false)}
+                disabled={isChangingPw}
+                className="h-11 flex-1 items-center justify-center rounded-full border border-[#DFEDE3] bg-white active:bg-[#F5FAF6]"
+              >
+                <Text className="text-[14px] font-semibold text-[#6C8073]">
+                  {t.common.cancel}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={handleChangePassword}
+                disabled={isChangingPw}
+                className="h-11 flex-1 flex-row items-center justify-center rounded-full bg-[#2F6D46] active:opacity-90 disabled:opacity-70"
+              >
+                {isChangingPw && (
+                  <ActivityIndicator size="small" color="#ffffff" className="mr-2" />
+                )}
+                <Text className="text-[14px] font-bold text-white">
+                  {isChangingPw
+                    ? t.settings.changingPassword
+                    : t.settings.changePasswordCta}
                 </Text>
               </Pressable>
             </View>

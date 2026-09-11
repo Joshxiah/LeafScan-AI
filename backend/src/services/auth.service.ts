@@ -17,7 +17,13 @@ import { ApiError } from '../utils/ApiError';
 import { hashPassword, verifyPassword } from '../utils/password';
 import { generateToken } from '../utils/jwt';
 import { sendSms } from '../utils/sms';
-import { RegisterInput, LoginInput, UpdateProfileInput, normalizePhone } from '../utils/validation';
+import {
+  RegisterInput,
+  LoginInput,
+  UpdateProfileInput,
+  ChangePasswordInput,
+  normalizePhone,
+} from '../utils/validation';
 import {
   UserRow,
   FarmerRow,
@@ -205,6 +211,13 @@ export async function updateProfile(
   try {
     await connection.beginTransaction();
 
+    if (input.fullName !== undefined) {
+      await connection.query('UPDATE users SET full_name = ? WHERE id = ?', [
+        input.fullName,
+        userId,
+      ]);
+    }
+
     if (input.phoneNumber !== undefined) {
       const phoneNumber = normalizePhone(input.phoneNumber);
 
@@ -259,6 +272,49 @@ export async function updateProfile(
   }
 
   return getUserById(userId);
+}
+
+/**
+ * Changes the signed-in user's password. Works for both farmers and
+ * CAO admins - the CAO hands out an account, then the holder sets a
+ * password only they know. The current password must be given and
+ * must verify; a deliberately specific error (INVALID_CURRENT_PASSWORD)
+ * lets the client point at the right field.
+ */
+export async function changePassword(
+  userId: number,
+  input: ChangePasswordInput
+): Promise<void> {
+  const [rows] = await pool.query<UserRow[]>(
+    'SELECT id, password_hash FROM users WHERE id = ? LIMIT 1',
+    [userId]
+  );
+
+  const user = rows[0];
+  if (!user) {
+    throw ApiError.notFound('User account no longer exists');
+  }
+
+  const currentMatches = await verifyPassword(input.currentPassword, user.password_hash);
+  if (!currentMatches) {
+    throw ApiError.badRequest(
+      'Your current password is incorrect',
+      'INVALID_CURRENT_PASSWORD'
+    );
+  }
+
+  if (input.newPassword === input.currentPassword) {
+    throw ApiError.badRequest(
+      'Your new password must be different from your current one',
+      'PASSWORD_UNCHANGED'
+    );
+  }
+
+  const passwordHash = await hashPassword(input.newPassword);
+  await pool.query<ResultSetHeader>(
+    'UPDATE users SET password_hash = ? WHERE id = ?',
+    [passwordHash, userId]
+  );
 }
 
 // ============================================================

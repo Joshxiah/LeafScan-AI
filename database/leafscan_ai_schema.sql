@@ -29,6 +29,8 @@ USE leafscan_ai;
 DROP TABLE IF EXISTS detections;
 DROP TABLE IF EXISTS treatment_recommendations;
 DROP TABLE IF EXISTS password_reset_codes;
+DROP TABLE IF EXISTS agriculturists;
+DROP TABLE IF EXISTS farm_plots;
 DROP TABLE IF EXISTS farmers;
 DROP TABLE IF EXISTS diseases;
 DROP TABLE IF EXISTS users;
@@ -118,6 +120,40 @@ CREATE TABLE password_reset_codes (
 
 
 -- ============================================================
+-- SECTION 4c: TABLE - farm_plots
+-- A farmer rarely works one square of land: a single barangay can
+-- hold several plots ("luna") in different puroks. ONE farmer (by
+-- users.id) has MANY plots. Each stores the area exactly as the
+-- farmer stated it (area_value + area_unit) plus that same area
+-- normalised to hectares so plots can be summed. See
+-- database/add_farm_plots.sql.
+-- ============================================================
+
+CREATE TABLE farm_plots (
+    id              INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    farmer_user_id  INT UNSIGNED NOT NULL,
+    purok           VARCHAR(100)  DEFAULT NULL,
+    area_value      DECIMAL(10,2) NOT NULL,
+    area_unit       ENUM('hectare', 'sqm') NOT NULL DEFAULT 'hectare',
+    area_hectares   DECIMAL(12,4) NOT NULL,
+    note            VARCHAR(255)  DEFAULT NULL,
+    created_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP     NOT NULL DEFAULT CURRENT_TIMESTAMP
+                                  ON UPDATE CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    KEY idx_farm_plots_user (farmer_user_id),
+    KEY idx_farm_plots_purok (purok),
+
+    CONSTRAINT fk_farm_plots_user
+        FOREIGN KEY (farmer_user_id) REFERENCES users (id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- ============================================================
 -- SECTION 5: TABLE - diseases
 -- The four classes the MobileNetV2 model can output.
 --
@@ -141,6 +177,35 @@ CREATE TABLE diseases (
 
     PRIMARY KEY (id),
     UNIQUE KEY uq_diseases_class_label (class_label)
+
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- ============================================================
+-- SECTION 5b: TABLE - agriculturists
+-- The City Agriculture Office's directory of field agriculturists
+-- it can send out to assess a farmer's report. Not login accounts -
+-- just reference records the CAO manages from the admin platform.
+-- A report points here via reports.assigned_agriculturist_id (see
+-- database/add_agriculturists.sql).
+-- ============================================================
+
+CREATE TABLE agriculturists (
+    id              INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    full_name       VARCHAR(150) NOT NULL,
+    phone_number    VARCHAR(20)  DEFAULT NULL,
+    email           VARCHAR(150) DEFAULT NULL,
+    barangay        VARCHAR(150) DEFAULT NULL,
+    municipality    VARCHAR(100) DEFAULT 'Pagadian City',
+    specialization  VARCHAR(150) DEFAULT NULL,
+    is_active       TINYINT(1)   NOT NULL DEFAULT 1,
+    created_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+                                 ON UPDATE CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    KEY idx_agriculturists_is_active (is_active),
+    KEY idx_agriculturists_barangay (barangay)
 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -201,6 +266,17 @@ CREATE TABLE detections (
     risk_level         ENUM('none', 'low', 'moderate', 'high') NOT NULL,
     all_probabilities  JSON         DEFAULT NULL,
     model_version      VARCHAR(50)  DEFAULT NULL,
+
+    -- CAO review layer (see database/add_detection_review.sql). The
+    -- AI fields above are never edited; an agronomist confirms or
+    -- corrects a scan here instead.
+    review_status      ENUM('unreviewed', 'confirmed', 'corrected')
+                       NOT NULL DEFAULT 'unreviewed',
+    corrected_class    VARCHAR(50)  DEFAULT NULL,
+    review_note        TEXT         DEFAULT NULL,
+    reviewed_by        INT UNSIGNED DEFAULT NULL,
+    reviewed_at        TIMESTAMP    NULL DEFAULT NULL,
+
     detected_at        TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY (id),
@@ -208,6 +284,7 @@ CREATE TABLE detections (
     KEY idx_detections_disease_id (disease_id),
     KEY idx_detections_detected_at (detected_at),
     KEY idx_detections_risk_level (risk_level),
+    KEY idx_detections_review_status (review_status),
 
     CONSTRAINT fk_detections_user
         FOREIGN KEY (user_id) REFERENCES users (id)
@@ -216,6 +293,11 @@ CREATE TABLE detections (
 
     CONSTRAINT fk_detections_disease
         FOREIGN KEY (disease_id) REFERENCES diseases (id)
+        ON DELETE SET NULL
+        ON UPDATE CASCADE,
+
+    CONSTRAINT fk_detections_reviewed_by
+        FOREIGN KEY (reviewed_by) REFERENCES users (id)
         ON DELETE SET NULL
         ON UPDATE CASCADE
 

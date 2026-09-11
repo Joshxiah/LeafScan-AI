@@ -14,6 +14,7 @@ import {
   forgotPasswordSchema,
   resetPasswordSchema,
   updateProfileSchema,
+  changePasswordSchema,
 } from '../utils/validation';
 import { ApiError } from '../utils/ApiError';
 
@@ -118,5 +119,24 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
     success: true,
     message: 'Profile updated',
     data: { user },
+  });
+}
+
+/**
+ * POST /api/auth/change-password
+ * The signed-in user sets a new password, proving they know the
+ * current one. Used by the admin Profile page and mobile Settings.
+ */
+export async function changePassword(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    throw ApiError.unauthorized('Authentication required');
+  }
+
+  const input = validate(changePasswordSchema, req.body);
+  await authService.changePassword(req.user.userId, input);
+
+  res.status(200).json({
+    success: true,
+    message: 'Your password has been changed.',
   });
 }

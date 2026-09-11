@@ -19,6 +19,11 @@ import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { FarmersPage } from './pages/FarmersPage';
+import { AgriculturistsPage } from './pages/AgriculturistsPage';
+import { DetectionsPage } from './pages/DetectionsPage';
+import { DiseasesPage } from './pages/DiseasesPage';
+import { RecommendationsPage } from './pages/RecommendationsPage';
+import { ProfilePage } from './pages/ProfilePage';
 
 function App() {
   return (
@@ -51,6 +56,51 @@ function App() {
             element={
               <ProtectedRoute>
                 <FarmersPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/agriculturists"
+            element={
+              <ProtectedRoute>
+                <AgriculturistsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/detections"
+            element={
+              <ProtectedRoute>
+                <DetectionsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/diseases"
+            element={
+              <ProtectedRoute>
+                <DiseasesPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/recommendations"
+            element={
+              <ProtectedRoute>
+                <RecommendationsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
               </ProtectedRoute>
             }
           />

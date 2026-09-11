@@ -83,3 +83,19 @@ export const resetPasswordRateLimiter = rateLimit({
   skip: () => env.isDevelopment,
   handler: tooManyRequestsHandler,
 });
+
+/**
+ * POST /api/auth/change-password
+ *
+ * The caller already holds a valid token, so this is only a brake
+ * on someone with a stolen token guessing the current password.
+ * Same shape as the login limiter.
+ */
+export const changePasswordRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => env.isDevelopment,
+  handler: tooManyRequestsHandler,
+});

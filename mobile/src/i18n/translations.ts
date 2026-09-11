@@ -36,6 +36,8 @@ export type Language = 'en' | 'ceb';
  */
 export type ApiErrorCode =
   | 'INVALID_CREDENTIALS'
+  | 'INVALID_CURRENT_PASSWORD'
+  | 'PASSWORD_UNCHANGED'
   | 'ACCOUNT_DEACTIVATED'
   | 'USERNAME_TAKEN'
   | 'PHONE_TAKEN'
@@ -203,6 +205,7 @@ export interface Translations {
     emptyMessage: string;
     noMatchesTitle: string;
     noMatchesMessage: string;
+    viewDetails: string;
   };
 
   notifications: {
@@ -351,6 +354,20 @@ export interface Translations {
     savingChanges: string;
     profileErrorPhone: string;
     profileErrorGeneric: string;
+
+    // Change-password modal
+    changePassword: string;
+    changePasswordTitle: string;
+    changePasswordHint: string;
+    currentPasswordPlaceholder: string;
+    newPasswordPlaceholder: string;
+    confirmPasswordPlaceholder: string;
+    changePasswordCta: string;
+    changingPassword: string;
+    passwordChanged: string;
+    passwordErrorLength: string;
+    passwordErrorMismatch: string;
+    passwordErrorGeneric: string;
 
     // Profile photo
     changePhoto: string;
@@ -514,6 +531,7 @@ export const en: Translations = {
       'The City Agriculture Office has not published any disease entries yet. Check back soon.',
     noMatchesTitle: 'No matches',
     noMatchesMessage: 'Try a different search term.',
+    viewDetails: 'View details',
   },
 
   notifications: {
@@ -668,6 +686,19 @@ export const en: Translations = {
     profileErrorPhone: 'Enter a valid mobile number, for example 09171234567.',
     profileErrorGeneric: 'We could not update your profile. Please try again.',
 
+    changePassword: 'Change Password',
+    changePasswordTitle: 'Change Password',
+    changePasswordHint: 'Enter your current password, then choose a new one only you know.',
+    currentPasswordPlaceholder: 'Current password',
+    newPasswordPlaceholder: 'New password',
+    confirmPasswordPlaceholder: 'Confirm new password',
+    changePasswordCta: 'Change Password',
+    changingPassword: 'Changing...',
+    passwordChanged: 'Your password has been changed.',
+    passwordErrorLength: 'Your new password must be at least 8 characters.',
+    passwordErrorMismatch: 'The new password and its confirmation do not match.',
+    passwordErrorGeneric: 'We could not change your password. Please try again.',
+
     changePhoto: 'Change Photo',
     takePhoto: 'Take Photo',
     chooseFromGallery: 'Choose from Gallery',
@@ -679,6 +710,8 @@ export const en: Translations = {
 
   apiErrors: {
     INVALID_CREDENTIALS: 'Incorrect username or password. Please try again.',
+    INVALID_CURRENT_PASSWORD: 'Your current password is incorrect.',
+    PASSWORD_UNCHANGED: 'Your new password must be different from your current one.',
     ACCOUNT_DEACTIVATED:
       'This account has been deactivated. Please contact the City Agriculture Office.',
     USERNAME_TAKEN: 'That username is already taken. Please choose another.',
@@ -849,6 +882,7 @@ export const ceb: Translations = {
       'Wala pa mag-publish ang City Agriculture Office og mga entry sa sakit. Balik ug susiha sa ulahi.',
     noMatchesTitle: 'Walay natakdo',
     noMatchesMessage: 'Sulayi ang lain nga pulong sa pagpangita.',
+    viewDetails: 'Tan-awa ang detalye',
   },
 
   notifications: {
@@ -1003,6 +1037,20 @@ export const ceb: Translations = {
     profileErrorPhone: 'Pagbutang og saktong numero sa selpon, pananglitan 09171234567.',
     profileErrorGeneric: 'Dili namo mahimo i-update ang imong profile. Palihug sulayi pag-usab.',
 
+    changePassword: 'Ilisan ang Password',
+    changePasswordTitle: 'Ilisan ang Password',
+    changePasswordHint:
+      'Isulod ang imong kasamtangang password, dayon pagpili og bag-o nga ikaw ra ang nakabalo.',
+    currentPasswordPlaceholder: 'Kasamtangang password',
+    newPasswordPlaceholder: 'Bag-ong password',
+    confirmPasswordPlaceholder: 'Kumpirmaha ang bag-ong password',
+    changePasswordCta: 'Ilisan ang Password',
+    changingPassword: 'Ginailisan...',
+    passwordChanged: 'Nailisan na ang imong password.',
+    passwordErrorLength: 'Ang bag-ong password kinahanglan labing menos 8 ka karakter.',
+    passwordErrorMismatch: 'Ang bag-ong password ug ang kumpirmasyon niini wala magkatugma.',
+    passwordErrorGeneric: 'Dili namo mailisan ang imong password. Palihug sulayi pag-usab.',
+
     changePhoto: 'Ilisan ang Litrato',
     takePhoto: 'Pagkuha og Litrato',
     chooseFromGallery: 'Pagpili gikan sa Gallery',
@@ -1014,6 +1062,8 @@ export const ceb: Translations = {
 
   apiErrors: {
     INVALID_CREDENTIALS: 'Sayop ang username o password. Palihug sulayi pag-usab.',
+    INVALID_CURRENT_PASSWORD: 'Sayop ang imong kasamtangang password.',
+    PASSWORD_UNCHANGED: 'Ang bag-ong password kinahanglan lahi sa imong kasamtangan.',
     ACCOUNT_DEACTIVATED:
       'Kini nga account gi-deactivate na. Palihug kontaka ang City Agriculture Office.',
     USERNAME_TAKEN: 'Gigamit na kanang username. Palihug pagpili og lain.',

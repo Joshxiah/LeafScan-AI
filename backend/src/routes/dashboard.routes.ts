@@ -27,4 +27,30 @@ router.get(
   dashboardController.getStatistics
 );
 
+/**
+ * GET /api/dashboard/barangay-breakdown?risk=<none|low|moderate|high>
+ *
+ * Same two guards as /statistics. Scans grouped by the scanning
+ * farmer's barangay, optionally filtered to one risk level.
+ */
+router.get(
+  '/barangay-breakdown',
+  authenticate,
+  requireAdmin,
+  dashboardController.getBarangayBreakdown
+);
+
+/**
+ * GET /api/dashboard/recent-detections?risk=&barangay=&limit=
+ *
+ * Same two guards as /statistics. The most recent scans, optionally
+ * filtered to one risk level and/or one barangay.
+ */
+router.get(
+  '/recent-detections',
+  authenticate,
+  requireAdmin,
+  dashboardController.getRecentDetections
+);
+
 export default router;

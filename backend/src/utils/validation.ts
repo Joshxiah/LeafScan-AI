@@ -90,6 +90,13 @@ export const loginSchema = z.object({
  * quietly ignores them for an admin.
  */
 export const updateProfileSchema = z.object({
+  /** CAO staff edit this from the admin Profile page; farmers do not. */
+  fullName: z
+    .string()
+    .trim()
+    .min(2, 'Full name must be at least 2 characters')
+    .max(150, 'Full name must be at most 150 characters')
+    .optional(),
   phoneNumber: phoneRule.optional(),
   address: z.string().trim().max(255).optional().or(z.literal('')),
   cornType: z.enum(['white', 'yellow', 'both']).optional(),
@@ -110,6 +117,20 @@ export const resetPasswordSchema = z.object({
     .string()
     .min(8, 'Password must be at least 8 characters')
     .max(72, 'Password must be at most 72 characters'),
+});
+
+/**
+ * A signed-in user changing their own password. The CAO issues the
+ * account; the account holder then sets a password only they know.
+ * Used by the admin Profile page and the mobile Settings screen
+ * through the same POST /api/auth/change-password.
+ */
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, 'Enter your current password'),
+  newPassword: z
+    .string()
+    .min(8, 'New password must be at least 8 characters')
+    .max(72, 'New password must be at most 72 characters'),
 });
 
 /**
@@ -181,11 +202,29 @@ export const reportStatusSchema = z.object({
   ]),
   message: z.string().trim().max(500).optional().or(z.literal('')),
   /**
-   * Name of the agriculturist being sent to the area. Relevant for
-   * the agriculturist_* statuses. Sent as '' to clear it; omitted to
-   * leave whatever is already recorded untouched.
+   * The agriculturist being sent to the area, chosen from the CAO's
+   * directory. Relevant for the agriculturist_* statuses. Send a
+   * numeric id to assign, `null` to clear it, or omit to leave
+   * whatever is already recorded untouched.
+   */
+  agriculturistId: z.number().int().positive().nullable().optional(),
+  /**
+   * Legacy free-text agriculturist name. Superseded by
+   * `agriculturistId`; kept so older mobile builds keep working.
    */
   agriculturist: z.string().trim().max(150).optional(),
+});
+
+/**
+ * One farm plot ("luna"). A farmer can work several across different
+ * puroks, each quoted in hectares or square metres. The service
+ * normalises area_value to hectares for summing.
+ */
+export const farmPlotSchema = z.object({
+  purok: z.string().trim().max(100).optional().or(z.literal('')),
+  areaValue: z.number().positive('Plot area must be greater than zero').max(10_000_000),
+  areaUnit: z.enum(['hectare', 'sqm']),
+  note: z.string().trim().max(255).optional().or(z.literal('')),
 });
 
 /**
@@ -213,7 +252,10 @@ export const createFarmerSchema = z.object({
   phoneNumber: phoneRule,
 
   barangay: z.string().trim().max(255).optional().or(z.literal('')),
+  /** Legacy single-number farm size. Superseded by `plots`; still accepted. */
   farmSizeHectares: z.number().positive().max(9999).optional(),
+  /** The farmer's plots by purok. When present, drives farm_size_hectares. */
+  plots: z.array(farmPlotSchema).max(20).optional(),
   yearsFarming: z.number().int().nonnegative().max(120).optional(),
 });
 
@@ -223,19 +265,136 @@ export const updateFarmerSchema = z.object({
   phoneNumber: phoneRule.optional(),
   barangay: z.string().trim().max(255).optional().or(z.literal('')),
   farmSizeHectares: z.number().positive().max(9999).optional(),
+  /** Replaces the farmer's whole set of plots when present. */
+  plots: z.array(farmPlotSchema).max(20).optional(),
   yearsFarming: z.number().int().nonnegative().max(120).optional(),
   isActive: z.boolean().optional(),
   /** Set a new password for the farmer; returned once to the CAO. */
   password: z.string().min(8).max(72).optional(),
 });
 
+/**
+ * The CAO adding an agriculturist to its directory. Not a login
+ * account - just a reference record. Only the name is required; the
+ * phone rule is deliberately loose here (an office landline is fine),
+ * unlike a farmer's mobile number.
+ */
+export const createAgriculturistSchema = z.object({
+  fullName: z
+    .string()
+    .trim()
+    .min(2, 'Full name must be at least 2 characters')
+    .max(150, 'Full name must be at most 150 characters'),
+  phoneNumber: z.string().trim().max(20).optional().or(z.literal('')),
+  email: z
+    .string()
+    .trim()
+    .max(150)
+    .email('Enter a valid email address')
+    .optional()
+    .or(z.literal('')),
+  barangay: z.string().trim().max(150).optional().or(z.literal('')),
+  municipality: z.string().trim().max(100).optional().or(z.literal('')),
+  specialization: z.string().trim().max(150).optional().or(z.literal('')),
+});
+
+/** The CAO editing an agriculturist (fix details / activate / deactivate). */
+export const updateAgriculturistSchema = z.object({
+  fullName: z.string().trim().min(2).max(150).optional(),
+  phoneNumber: z.string().trim().max(20).optional().or(z.literal('')),
+  email: z
+    .string()
+    .trim()
+    .max(150)
+    .email('Enter a valid email address')
+    .optional()
+    .or(z.literal('')),
+  barangay: z.string().trim().max(150).optional().or(z.literal('')),
+  municipality: z.string().trim().max(100).optional().or(z.literal('')),
+  specialization: z.string().trim().max(150).optional().or(z.literal('')),
+  isActive: z.boolean().optional(),
+});
+
+/**
+ * The CAO editing a disease's reference content from the admin
+ * Diseases page. The four classes are fixed (they mirror the model's
+ * output), so there is no create/delete - only edits to the text and
+ * the default risk level, which the schema deliberately stores as
+ * data so the CAO can change it without code.
+ */
+export const updateDiseaseSchema = z.object({
+  displayName: z.string().trim().min(2).max(100).optional(),
+  scientificName: z.string().trim().max(150).optional().or(z.literal('')),
+  description: z.string().trim().max(4000).optional().or(z.literal('')),
+  symptoms: z.string().trim().max(4000).optional().or(z.literal('')),
+  defaultRiskLevel: z.enum(['none', 'low', 'moderate', 'high']).optional(),
+});
+
+/** The CAO adding a treatment recommendation for a disease. */
+export const createRecommendationSchema = z.object({
+  diseaseId: z.number().int().positive(),
+  title: z.string().trim().min(2, 'Title must be at least 2 characters').max(150),
+  recommendationText: z
+    .string()
+    .trim()
+    .min(2, 'Recommendation text is required')
+    .max(4000),
+  applicationMethod: z.string().trim().max(4000).optional().or(z.literal('')),
+  preventiveMeasures: z.string().trim().max(4000).optional().or(z.literal('')),
+  isActive: z.boolean().optional(),
+});
+
+/** The CAO editing an existing recommendation. */
+export const updateRecommendationSchema = z.object({
+  title: z.string().trim().min(2).max(150).optional(),
+  recommendationText: z.string().trim().min(2).max(4000).optional(),
+  applicationMethod: z.string().trim().max(4000).optional().or(z.literal('')),
+  preventiveMeasures: z.string().trim().max(4000).optional().or(z.literal('')),
+  isActive: z.boolean().optional(),
+});
+
+/**
+ * A completed leaf scan the mobile app is recording. Until the
+ * server-side model exists (Phase 13) the phone runs a stand-in
+ * classifier and posts its verdict here, so every scan a farmer
+ * runs lands in the same `detections` table the CAO's Detections
+ * page and dashboard read. `predictedClass` is a diseases.class_label.
+ */
+export const createDetectionSchema = z.object({
+  imagePath: z.string().trim().min(1).max(255),
+  predictedClass: z.string().trim().min(1).max(50),
+  confidenceScore: z.number().min(0).max(100),
+});
+
+/**
+ * A CAO agronomist reviewing a leaf scan. This never edits the
+ * model's output - it records a parallel verdict: leave it
+ * 'unreviewed', mark it 'confirmed', or mark it 'corrected' and name
+ * the class it really is.
+ */
+export const reviewDetectionSchema = z.object({
+  status: z.enum(['unreviewed', 'confirmed', 'corrected']),
+  /** class_label of the true disease; required in spirit when status is 'corrected'. */
+  correctedClass: z.string().trim().max(50).optional().or(z.literal('')),
+  note: z.string().trim().max(2000).optional().or(z.literal('')),
+});
+
+export type FarmPlotInput = z.infer<typeof farmPlotSchema>;
 export type CreateFarmerInput = z.infer<typeof createFarmerSchema>;
 export type UpdateFarmerInput = z.infer<typeof updateFarmerSchema>;
+export type CreateAgriculturistInput = z.infer<typeof createAgriculturistSchema>;
+export type UpdateAgriculturistInput = z.infer<typeof updateAgriculturistSchema>;
+export type UpdateDiseaseInput = z.infer<typeof updateDiseaseSchema>;
+export type CreateRecommendationInput = z.infer<typeof createRecommendationSchema>;
+export type UpdateRecommendationInput = z.infer<typeof updateRecommendationSchema>;
+export type CreateDetectionInput = z.infer<typeof createDetectionSchema>;
+export type ReviewDetectionInput = z.infer<typeof reviewDetectionSchema>;
 
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type CreateReportInput = z.infer<typeof createReportSchema>;
 export type ReportStatusInput = z.infer<typeof reportStatusSchema>;
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;

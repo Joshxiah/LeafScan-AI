@@ -15,6 +15,8 @@
 
 import { RowDataPacket } from 'mysql2';
 import { pool } from '../config/database';
+import { ApiError } from '../utils/ApiError';
+import { UpdateDiseaseInput } from '../utils/validation';
 
 export type RiskLevel = 'none' | 'low' | 'moderate' | 'high';
 export type DiseaseLang = 'en' | 'ceb';
@@ -125,4 +127,56 @@ export async function listDiseases(lang: DiseaseLang = 'en'): Promise<DiseaseInf
     isHealthy: row.is_healthy === 1,
     treatments: treatmentsByDisease.get(row.id) ?? [],
   }));
+}
+
+/**
+ * CAO admin only. Edits one disease's English reference content and
+ * default risk level. The four classes are fixed (they mirror the
+ * model's outputs) so there is no create or delete - and
+ * `class_label` / `is_healthy` are never touched here.
+ */
+export async function updateDisease(
+  id: number,
+  input: UpdateDiseaseInput
+): Promise<DiseaseInfo> {
+  const [existing] = await pool.query<RowDataPacket[]>(
+    'SELECT id FROM diseases WHERE id = ? LIMIT 1',
+    [id]
+  );
+  if (existing.length === 0) {
+    throw ApiError.notFound('Disease not found');
+  }
+
+  const sets: string[] = [];
+  const params: (string | null)[] = [];
+  if (input.displayName !== undefined) {
+    sets.push('display_name = ?');
+    params.push(input.displayName);
+  }
+  if (input.scientificName !== undefined) {
+    sets.push('scientific_name = ?');
+    params.push(input.scientificName || null);
+  }
+  if (input.description !== undefined) {
+    sets.push('description = ?');
+    params.push(input.description || null);
+  }
+  if (input.symptoms !== undefined) {
+    sets.push('symptoms = ?');
+    params.push(input.symptoms || null);
+  }
+  if (input.defaultRiskLevel !== undefined) {
+    sets.push('default_risk_level = ?');
+    params.push(input.defaultRiskLevel);
+  }
+
+  if (sets.length > 0) {
+    await pool.query(`UPDATE diseases SET ${sets.join(', ')} WHERE id = ?`, [...params, id]);
+  }
+
+  const updated = (await listDiseases('en')).find((disease) => disease.id === id);
+  if (!updated) {
+    throw ApiError.notFound('Disease not found');
+  }
+  return updated;
 }

@@ -68,3 +68,17 @@ export async function getCurrentUser(): Promise<User> {
   const result = await api.get<{ user: User }>('/auth/me');
   return result.user;
 }
+
+/**
+ * POST /api/auth/change-password
+ * Protected - the signed-in farmer sets a new password, proving they
+ * know the current one. The CAO issues the account; the farmer then
+ * owns their own credential. Throws ApiError (400,
+ * INVALID_CURRENT_PASSWORD) when the current password is wrong.
+ */
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<void> {
+  await api.post<void>('/auth/change-password', { currentPassword, newPassword });
+}

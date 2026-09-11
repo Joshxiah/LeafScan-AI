@@ -12,6 +12,7 @@ import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 
 import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../services/api';
+import { LeafMark } from '../components/LeafMark';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -72,8 +73,8 @@ export function LoginPage() {
     <div className="flex min-h-screen">
       {/* ---------- Left: branding ---------- */}
       <div className="hidden flex-1 flex-col justify-center bg-leaf-800 px-16 lg:flex">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-3xl">
-          🌽
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white">
+          <LeafMark className="h-9 w-9 text-leaf-600" />
         </div>
 
         <h1 className="mt-8 text-4xl font-bold text-white">LeafScan AI</h1>
@@ -99,8 +100,8 @@ export function LoginPage() {
         <div className="w-full max-w-sm">
           {/* Small-screen logo, since the left panel is hidden */}
           <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-leaf-600 text-xl">
-              🌽
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-leaf-600">
+              <LeafMark className="h-6 w-6 text-white" />
             </div>
             <div>
               <p className="text-base font-bold text-leaf-800">LeafScan AI</p>

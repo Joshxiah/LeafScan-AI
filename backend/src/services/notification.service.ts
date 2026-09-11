@@ -178,3 +178,16 @@ export async function markAllRead(userId: number): Promise<void> {
     [userId]
   );
 }
+
+/**
+ * Marks every unread notification this user holds for one report as
+ * read. Called when the CAO opens or acts on that report, so the
+ * bell badge can never disagree with the report list's read state.
+ */
+export async function markReadByReport(userId: number, reportId: number): Promise<void> {
+  await pool.query(
+    `UPDATE notifications SET is_read = 1, read_at = NOW()
+     WHERE user_id = ? AND report_id = ? AND is_read = 0`,
+    [userId, reportId]
+  );
+}

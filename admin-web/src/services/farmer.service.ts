@@ -7,11 +7,20 @@
 
 import { api } from './api';
 import type {
+  AreaUnit,
   CreatedFarmer,
   FarmerAccountStatus,
   ListFarmersResult,
   UpdatedFarmer,
 } from '../types';
+
+/** One farm plot as the admin form submits it. */
+export interface FarmPlotPayload {
+  purok?: string;
+  areaValue: number;
+  areaUnit: AreaUnit;
+  note?: string;
+}
 
 export interface ListFarmersFilters {
   status?: FarmerAccountStatus;
@@ -39,6 +48,7 @@ export interface CreateFarmerPayload {
   username?: string;
   password?: string;
   farmSizeHectares?: number;
+  plots?: FarmPlotPayload[];
   yearsFarming?: number;
 }
 
@@ -52,6 +62,8 @@ export interface UpdateFarmerPayload {
   phoneNumber?: string;
   barangay?: string;
   farmSizeHectares?: number;
+  /** Replaces the farmer's whole set of plots when present. */
+  plots?: FarmPlotPayload[];
   yearsFarming?: number;
   isActive?: boolean;
   password?: string;

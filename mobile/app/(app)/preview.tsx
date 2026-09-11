@@ -29,6 +29,7 @@ import { getErrorMessage } from '../../src/services/api';
 import { goToDiagnosis } from '../../src/navigation/diagnosis';
 import { pickMockDiagnosis } from '../../src/data/scanStats';
 import { addScan } from '../../src/services/scanLog';
+import { recordDetection } from '../../src/services/detection.service';
 import { useLanguage } from '../../src/context/LanguageContext';
 import { useAuth } from '../../src/context/AuthContext';
 import { withAuthToken } from '../../src/utils/media';
@@ -86,6 +87,22 @@ export default function PreviewScreen() {
 
   async function handleDone() {
     const { classLabel, confidence } = pickMockDiagnosis();
+
+    // Send the scan to the backend so the CAO's Detections page and
+    // dashboard see it. Best-effort: the farmer still gets their
+    // result even if this call fails or there is no connection.
+    if (uploadResult?.imagePath) {
+      try {
+        await recordDetection({
+          imagePath: uploadResult.imagePath,
+          predictedClass: classLabel,
+          confidenceScore: confidence,
+        });
+      } catch (error) {
+        console.warn('[preview] Could not record the detection on the server:', error);
+      }
+    }
+
     const scan = await addScan({
       classLabel,
       confidence,

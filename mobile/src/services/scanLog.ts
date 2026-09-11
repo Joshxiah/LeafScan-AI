@@ -6,10 +6,12 @@
  * is what Home, History and the CAO report read - a farmer who has
  * not scanned anything yet sees zero everywhere, honestly.
  *
- * This is a STAND-IN for the real detections table (Phase 13 - see
- * backend/src/controllers/upload.controller.ts): once every scan is
- * uploaded AND classified by the AI model server-side, this file is
- * replaced by a `GET /api/detections` call. Every screen that reads
+ * Every completed scan is ALSO posted to the backend now
+ * (src/services/detection.service.ts -> POST /api/detections), so
+ * the CAO's Detections page and dashboard match what the farmer
+ * sees. This local log stays the source for Home / History / the
+ * report summary; once those screens read `GET /api/detections`
+ * instead (Phase 13), this file goes away. Every screen that reads
  * getScanLog() is already shaped for that swap.
  */
 

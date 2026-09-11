@@ -75,6 +75,7 @@ export interface ReportDetail extends ReportSummary {
   images: ReportImage[];
   remarks: string | null;
   caoMessage: string | null;
+  assignedAgriculturistId: number | null;
   assignedAgriculturist: string | null;
   reviewedByName: string | null;
   reviewedAt: Date | null;
@@ -96,6 +97,7 @@ interface ReportRow extends RowDataPacket {
   status: ReportStatus;
   is_read: number;
   cao_message: string | null;
+  assigned_agriculturist_id: number | null;
   assigned_agriculturist: string | null;
   reviewed_by_name: string | null;
   reviewed_at: Date | null;
@@ -151,6 +153,8 @@ function toDetail(row: ReportRow, images: ReportImageRow[]): ReportDetail {
     images: images.map(toImage),
     remarks: row.remarks,
     caoMessage: row.cao_message,
+    assignedAgriculturistId:
+      row.assigned_agriculturist_id === null ? null : Number(row.assigned_agriculturist_id),
     assignedAgriculturist: row.assigned_agriculturist,
     reviewedByName: row.reviewed_by_name,
     reviewedAt: row.reviewed_at,
@@ -165,13 +169,16 @@ const SELECT_REPORT = `
     r.barangay, r.municipality,
     r.total_scans, r.affected_scans, r.healthy_scans,
     r.disease_breakdown, r.estimated_area_hectares, r.remarks,
-    r.status, r.is_read, r.cao_message, r.assigned_agriculturist,
+    r.status, r.is_read, r.cao_message,
+    r.assigned_agriculturist_id,
+    COALESCE(ag.full_name, r.assigned_agriculturist) AS assigned_agriculturist,
     reviewer.full_name AS reviewed_by_name,
     r.reviewed_at, r.created_at,
     (SELECT COUNT(*) FROM report_images ri WHERE ri.report_id = r.id) AS image_count
   FROM reports r
   JOIN users u ON u.id = r.farmer_id
   LEFT JOIN users reviewer ON reviewer.id = r.reviewed_by
+  LEFT JOIN agriculturists ag ON ag.id = r.assigned_agriculturist_id
 `;
 
 /**
@@ -372,6 +379,9 @@ export async function markReportRead(id: number, adminId: number): Promise<void>
     );
     if (rows.length === 0) throw ApiError.notFound('Report not found');
   }
+
+  // Opening the report counts as seeing its bell notification(s) too.
+  await notificationService.markReadByReport(adminId, id);
 }
 
 /**
@@ -384,6 +394,7 @@ export async function updateReportStatus(
   status: AdminSettableStatus,
   reviewerId: number,
   message?: string,
+  agriculturistId?: number | null,
   agriculturist?: string
 ): Promise<void> {
   const [rows] = await pool.query<RowDataPacket[]>(
@@ -397,25 +408,63 @@ export async function updateReportStatus(
     throw ApiError.notFound('Report not found');
   }
 
-  // agriculturist === undefined -> leave whatever is recorded.
-  // agriculturist === ''        -> clear it.
-  const setAgriculturist = agriculturist !== undefined;
-  const agriculturistValue = agriculturist?.trim() ? agriculturist.trim() : null;
-  const effectiveAgriculturist = setAgriculturist
-    ? agriculturistValue
+  // Does this update touch the assigned agriculturist, and if so with
+  // what id + name? `agriculturistId` is the modern path (a pick from
+  // the CAO directory): a number assigns, `null` clears, `undefined`
+  // leaves it. `agriculturist` is a legacy free-text name kept for
+  // older callers and only consulted when no id was sent.
+  let touchAgriculturist = false;
+  let agriculturistIdValue: number | null = null;
+  let agriculturistNameValue: string | null = null;
+
+  if (agriculturistId !== undefined) {
+    touchAgriculturist = true;
+    if (agriculturistId !== null) {
+      const [agRows] = await pool.query<RowDataPacket[]>(
+        `SELECT full_name FROM agriculturists WHERE id = ? LIMIT 1`,
+        [agriculturistId]
+      );
+      if (agRows.length === 0) {
+        throw ApiError.badRequest(
+          'That agriculturist no longer exists',
+          'AGRICULTURIST_NOT_FOUND'
+        );
+      }
+      agriculturistIdValue = agriculturistId;
+      agriculturistNameValue = agRows[0].full_name as string;
+    }
+  } else if (agriculturist !== undefined) {
+    touchAgriculturist = true;
+    agriculturistNameValue = agriculturist.trim() ? agriculturist.trim() : null;
+  }
+
+  const effectiveAgriculturist = touchAgriculturist
+    ? agriculturistNameValue
     : ((report.assigned_agriculturist as string | null) ?? null);
 
-  await pool.query<ResultSetHeader>(
-    `UPDATE reports
-     SET status = ?, cao_message = ?,
-         ${setAgriculturist ? 'assigned_agriculturist = ?,' : ''}
-         reviewed_by = ?, reviewed_at = NOW(),
-         is_read = 1, read_at = COALESCE(read_at, NOW()), read_by = COALESCE(read_by, ?)
-     WHERE id = ?`,
-    setAgriculturist
-      ? [status, message || null, agriculturistValue, reviewerId, reviewerId, id]
-      : [status, message || null, reviewerId, reviewerId, id]
+  const sets: string[] = ['status = ?', 'cao_message = ?'];
+  const params: (string | number | null)[] = [status, message || null];
+  if (touchAgriculturist) {
+    sets.push('assigned_agriculturist_id = ?', 'assigned_agriculturist = ?');
+    params.push(agriculturistIdValue, agriculturistNameValue);
+  }
+  sets.push(
+    'reviewed_by = ?',
+    'reviewed_at = NOW()',
+    'is_read = 1',
+    'read_at = COALESCE(read_at, NOW())',
+    'read_by = COALESCE(read_by, ?)'
   );
+  params.push(reviewerId, reviewerId, id);
+
+  await pool.query<ResultSetHeader>(
+    `UPDATE reports SET ${sets.join(', ')} WHERE id = ?`,
+    params
+  );
+
+  // The acting CAO has plainly seen this report - clear their bell
+  // notification(s) for it so the inbox matches the report list.
+  await notificationService.markReadByReport(reviewerId, id);
 
   // ---- Notify the farmer ----
   const label = STATUS_LABEL[status];

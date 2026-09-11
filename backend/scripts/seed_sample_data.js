@@ -30,7 +30,11 @@ const SALT_ROUNDS = 12; // must match backend/src/utils/password.ts
 const DEMO_PASSWORD = 'Farmer@2026';
 const MODEL_VERSION = 'seed-demo';
 
-/** Five realistic farmer accounts across real Pagadian City barangays. */
+/**
+ * Five realistic farmer accounts across real Pagadian City barangays.
+ * `plots` is the farmer's land by purok, some quoted in hectares and
+ * some in square metres - the values sum to farmSizeHectares.
+ */
 const SAMPLE_FARMERS = [
   {
     username: 'roberto.villanueva',
@@ -40,6 +44,11 @@ const SAMPLE_FARMERS = [
     cornType: 'yellow',
     farmSizeHectares: 2.4,
     yearsFarming: 14,
+    plots: [
+      { purok: 'Purok 1', value: 1.2, unit: 'hectare' },
+      { purok: 'Purok 3', value: 8000, unit: 'sqm' },
+      { purok: 'Purok 5', value: 0.4, unit: 'hectare' },
+    ],
   },
   {
     username: 'teresita.amora',
@@ -49,6 +58,10 @@ const SAMPLE_FARMERS = [
     cornType: 'white',
     farmSizeHectares: 1.1,
     yearsFarming: 8,
+    plots: [
+      { purok: 'Purok 2', value: 0.7, unit: 'hectare' },
+      { purok: 'Purok 4', value: 4000, unit: 'sqm' },
+    ],
   },
   {
     username: 'ramon.cabahug',
@@ -58,6 +71,10 @@ const SAMPLE_FARMERS = [
     cornType: 'both',
     farmSizeHectares: 3.6,
     yearsFarming: 21,
+    plots: [
+      { purok: 'Purok 1', value: 2.0, unit: 'hectare' },
+      { purok: 'Purok 2', value: 1.6, unit: 'hectare' },
+    ],
   },
   {
     username: 'ligaya.dumagan',
@@ -67,6 +84,7 @@ const SAMPLE_FARMERS = [
     cornType: 'yellow',
     farmSizeHectares: 0.8,
     yearsFarming: 5,
+    plots: [{ purok: 'Purok 6', value: 8000, unit: 'sqm' }],
   },
   {
     username: 'edwin.tacastacas',
@@ -76,7 +94,19 @@ const SAMPLE_FARMERS = [
     cornType: 'yellow',
     farmSizeHectares: 1.9,
     yearsFarming: 11,
+    plots: [
+      { purok: 'Purok 3', value: 1.5, unit: 'hectare' },
+      { purok: 'Purok 7', value: 4000, unit: 'sqm' },
+    ],
   },
+];
+
+/** A few agriculturists the CAO can send out, one per sample barangay. */
+const SAMPLE_AGRICULTURISTS = [
+  { fullName: 'Ernesto Bautista', phone: '09171000001', email: 'ernesto.bautista@cao.pagadian.gov.ph', barangay: 'Balangasan', specialization: 'Corn foliar diseases' },
+  { fullName: 'Marites Padilla', phone: '09171000002', email: 'marites.padilla@cao.pagadian.gov.ph', barangay: 'Santa Lucia', specialization: 'Integrated pest management' },
+  { fullName: 'Rodel Fernandez', phone: '09171000003', email: 'rodel.fernandez@cao.pagadian.gov.ph', barangay: 'Tiguma', specialization: 'Soil health and fertilization' },
+  { fullName: 'Grace Villaruz', phone: '09171000004', email: 'grace.villaruz@cao.pagadian.gov.ph', barangay: 'San Francisco', specialization: 'Crop extension and training' },
 ];
 
 /** How far back the scan history goes. */
@@ -135,7 +165,45 @@ async function ensureFarmer(connection, farmer) {
     [userId, farmer.barangay, farmer.cornType, farmer.farmSizeHectares, farmer.yearsFarming]
   );
 
+  // Plots by purok - some quoted in m², normalised to hectares for summing.
+  if (Array.isArray(farmer.plots) && farmer.plots.length > 0) {
+    for (const plot of farmer.plots) {
+      const areaHectares = plot.unit === 'sqm' ? plot.value / 10000 : plot.value;
+      await connection.query(
+        `INSERT INTO farm_plots
+           (farmer_user_id, purok, area_value, area_unit, area_hectares)
+         VALUES (?, ?, ?, ?, ?)`,
+        [userId, plot.purok, plot.value, plot.unit, areaHectares]
+      );
+    }
+  }
+
   return userId;
+}
+
+async function ensureAgriculturist(connection, agriculturist) {
+  const [existing] = await connection.query(
+    'SELECT id FROM agriculturists WHERE full_name = ? LIMIT 1',
+    [agriculturist.fullName]
+  );
+
+  if (existing.length > 0) {
+    return existing[0].id;
+  }
+
+  const [result] = await connection.query(
+    `INSERT INTO agriculturists (full_name, phone_number, email, barangay, specialization)
+     VALUES (?, ?, ?, ?, ?)`,
+    [
+      agriculturist.fullName,
+      agriculturist.phone,
+      agriculturist.email,
+      agriculturist.barangay,
+      agriculturist.specialization,
+    ]
+  );
+
+  return result.insertId;
 }
 
 async function main() {
@@ -163,6 +231,14 @@ async function main() {
       farmerIds[farmer.username] = await ensureFarmer(connection, farmer);
     }
     console.log(`Sample farmers ready: ${Object.keys(farmerIds).join(', ')}`);
+
+    // ---------- Agriculturists ----------
+    const agriculturistIdByBarangay = {};
+    for (const agriculturist of SAMPLE_AGRICULTURISTS) {
+      const id = await ensureAgriculturist(connection, agriculturist);
+      agriculturistIdByBarangay[agriculturist.barangay] = { id, fullName: agriculturist.fullName };
+    }
+    console.log(`Sample agriculturists ready: ${SAMPLE_AGRICULTURISTS.map((a) => a.fullName).join(', ')}`);
 
     // ---------- Detections ----------
     // Everyday odds, per farmer, of scanning at all that day.
@@ -275,7 +351,7 @@ async function main() {
         breakdown: [{ classLabel: 'common_rust', displayName: 'Common Rust', count: 2 }],
         area: 0.6,
         remarks: 'A few rust pustules spotted, applying fungicide as advised in the app.',
-        status: 'reviewed',
+        status: 'agriculturist_assigned',
         daysAgo: 6,
       },
       {
@@ -321,7 +397,7 @@ async function main() {
       const reviewedAt = isReviewed ? daysAgo(Math.max(report.daysAgo - 1, 0)) : null;
       const reviewedBy = isReviewed && admin ? admin.id : null;
 
-      await connection.query(
+      const [reportResult] = await connection.query(
         `INSERT INTO reports
            (farmer_id, barangay, municipality, total_scans, affected_scans,
             healthy_scans, disease_breakdown, estimated_area_hectares, remarks,
@@ -333,6 +409,19 @@ async function main() {
           report.remarks, report.status, reviewedBy, reviewedAt, daysAgo(report.daysAgo),
         ]
       );
+
+      // A report already at an "agriculturist" stage has someone assigned -
+      // pick the agriculturist whose service area is this report's barangay.
+      const assigned = agriculturistIdByBarangay[report.barangay];
+      if (assigned && report.status.startsWith('agriculturist_')) {
+        await connection.query(
+          `UPDATE reports
+             SET assigned_agriculturist_id = ?, assigned_agriculturist = ?
+           WHERE id = ?`,
+          [assigned.id, assigned.fullName, reportResult.insertId]
+        );
+      }
+
       reportCount++;
     }
     console.log(`Inserted ${reportCount} sample reports (pending / reviewed / resolved).`);

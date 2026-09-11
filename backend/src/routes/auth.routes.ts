@@ -6,6 +6,7 @@
  *   POST  /api/auth/login
  *   POST  /api/auth/forgot-password
  *   POST  /api/auth/reset-password
+ *   POST  /api/auth/change-password
  *   GET   /api/auth/me
  *   PATCH /api/auth/me
  */
@@ -18,6 +19,7 @@ import {
   registerRateLimiter,
   forgotPasswordRateLimiter,
   resetPasswordRateLimiter,
+  changePasswordRateLimiter,
 } from '../middleware/rateLimit.middleware';
 
 const router = Router();
@@ -58,5 +60,17 @@ router.get('/me', authenticate, authController.getCurrentUser);
  * PROTECTED - a user editing their own profile from Settings.
  */
 router.patch('/me', authenticate, authController.updateProfile);
+
+/**
+ * POST /api/auth/change-password
+ * PROTECTED - the signed-in user sets a new password, proving they
+ * know the current one. Used by both the admin platform and the app.
+ */
+router.post(
+  '/change-password',
+  changePasswordRateLimiter,
+  authenticate,
+  authController.changePassword
+);
 
 export default router;

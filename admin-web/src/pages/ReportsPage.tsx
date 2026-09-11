@@ -18,10 +18,12 @@ import { AdminLayout } from '../components/layout/AdminLayout';
 import { ApiError } from '../services/api';
 import { mediaUrl } from '../services/media';
 import * as reportService from '../services/report.service';
+import * as agriculturistService from '../services/agriculturist.service';
 import { useNotifications } from '../context/NotificationsContext';
 import {
   STATUS_LABEL,
   type AdminSettableStatus,
+  type AgriculturistSummary,
   type ReportDetail,
   type ReportImage,
   type ReportStatus,
@@ -376,9 +378,19 @@ function ReportDetailModal({
   const [isUpdating, setIsUpdating] = useState(false);
   const [message, setMessage] = useState('');
   const [nextStatus, setNextStatus] = useState<AdminSettableStatus>('under_review');
-  const [agriculturist, setAgriculturist] = useState('');
+  const [agriculturistId, setAgriculturistId] = useState<number | null>(null);
+  const [agriculturists, setAgriculturists] = useState<AgriculturistSummary[]>([]);
   const [lightbox, setLightbox] = useState<ReportImage | null>(null);
   const [openDisease, setOpenDisease] = useState<string | null>(null);
+
+  // The CAO's active agriculturist directory - the options for the
+  // "who is being sent?" dropdown. Loaded once; not report-specific.
+  useEffect(() => {
+    agriculturistService
+      .listAgriculturists({ status: 'active', pageSize: 100 })
+      .then((result) => setAgriculturists(result.agriculturists))
+      .catch(() => setAgriculturists([]));
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -389,7 +401,7 @@ function ReportDetailModal({
         if (!isMounted) return;
         setReport(detail);
         setNextStatus(defaultNextStatus(detail.status));
-        setAgriculturist(detail.assignedAgriculturist ?? '');
+        setAgriculturistId(detail.assignedAgriculturistId ?? null);
         // Auto-expand the first reported disease so photos are one glance away.
         setOpenDisease(detail.diseaseBreakdown[0]?.classLabel ?? null);
         onChanged();
@@ -424,6 +436,18 @@ function ReportDetailModal({
     nextStatus === 'agriculturist_assigned' ||
     !!report?.assignedAgriculturist;
 
+  // Agriculturists whose service area matches this report's barangay
+  // float to the top of the dropdown.
+  const sortedAgriculturists = useMemo(() => {
+    const barangay = report?.barangay;
+    return [...agriculturists].sort((a, b) => {
+      const aMatch = barangay && a.barangay === barangay ? 0 : 1;
+      const bMatch = barangay && b.barangay === barangay ? 0 : 1;
+      if (aMatch !== bMatch) return aMatch - bMatch;
+      return a.fullName.localeCompare(b.fullName);
+    });
+  }, [agriculturists, report?.barangay]);
+
   async function handleUpdate() {
     setIsUpdating(true);
     setErrorMessage(null);
@@ -432,13 +456,13 @@ function ReportDetailModal({
         reportId,
         nextStatus,
         message.trim() || undefined,
-        agriculturistRelevant ? agriculturist.trim() : undefined
+        agriculturistRelevant ? agriculturistId : undefined
       );
       const refreshed = await reportService.getReport(reportId);
       setReport(refreshed);
       setMessage('');
       setNextStatus(defaultNextStatus(refreshed.status));
-      setAgriculturist(refreshed.assignedAgriculturist ?? '');
+      setAgriculturistId(refreshed.assignedAgriculturistId ?? null);
       onChanged();
     } catch (error) {
       setErrorMessage(
@@ -650,15 +674,37 @@ function ReportDetailModal({
                 {agriculturistRelevant && (
                   <label className="block">
                     <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                      Agriculturist name
+                      Agriculturist
                     </span>
-                    <input
-                      type="text"
-                      value={agriculturist}
-                      onChange={(e) => setAgriculturist(e.target.value)}
-                      placeholder="Who is being sent to the area?"
+                    <select
+                      value={agriculturistId ?? ''}
+                      onChange={(e) =>
+                        setAgriculturistId(e.target.value ? Number(e.target.value) : null)
+                      }
                       className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
-                    />
+                    >
+                      <option value="">— None —</option>
+                      {agriculturistId != null &&
+                        !sortedAgriculturists.some((a) => a.id === agriculturistId) && (
+                          <option value={agriculturistId}>
+                            {report.assignedAgriculturist ?? 'Currently assigned'} (inactive)
+                          </option>
+                        )}
+                      {sortedAgriculturists.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.fullName}
+                          {a.barangay ? ` — ${a.barangay}` : ''}
+                          {report.barangay && a.barangay === report.barangay
+                            ? ' (this barangay)'
+                            : ''}
+                        </option>
+                      ))}
+                    </select>
+                    {agriculturists.length === 0 && (
+                      <span className="mt-1 block text-xs text-gray-400">
+                        No agriculturists yet — add them on the Agriculturists page.
+                      </span>
+                    )}
                   </label>
                 )}
 
