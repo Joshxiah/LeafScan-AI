@@ -24,9 +24,9 @@ export interface AgriculturistSummary {
   fullName: string;
   phoneNumber: string | null;
   email: string | null;
+  avatarPath: string | null;
   barangay: string | null;
   municipality: string | null;
-  specialization: string | null;
   isActive: boolean;
   createdAt: Date;
 }
@@ -36,9 +36,9 @@ interface AgriculturistRow extends RowDataPacket {
   full_name: string;
   phone_number: string | null;
   email: string | null;
+  avatar_path: string | null;
   barangay: string | null;
   municipality: string | null;
-  specialization: string | null;
   is_active: number;
   created_at: Date;
 }
@@ -49,17 +49,17 @@ function toSummary(row: AgriculturistRow): AgriculturistSummary {
     fullName: row.full_name,
     phoneNumber: row.phone_number,
     email: row.email,
+    avatarPath: row.avatar_path,
     barangay: row.barangay,
     municipality: row.municipality,
-    specialization: row.specialization,
     isActive: row.is_active === 1,
     createdAt: row.created_at,
   };
 }
 
 const SELECT_AGRICULTURIST = `
-  SELECT id, full_name, phone_number, email, barangay, municipality,
-         specialization, is_active, created_at
+  SELECT id, full_name, phone_number, email, avatar_path, barangay, municipality,
+         is_active, created_at
   FROM agriculturists
 `;
 
@@ -141,15 +141,15 @@ export async function createAgriculturist(
 ): Promise<AgriculturistSummary> {
   const [result] = await pool.query<ResultSetHeader>(
     `INSERT INTO agriculturists
-       (full_name, phone_number, email, barangay, municipality, specialization)
+       (full_name, phone_number, email, avatar_path, barangay, municipality)
      VALUES (?, ?, ?, ?, ?, ?)`,
     [
       input.fullName,
       input.phoneNumber || null,
       input.email || null,
+      input.avatarPath || null,
       input.barangay || null,
       input.municipality || 'Pagadian City',
-      input.specialization || null,
     ]
   );
 
@@ -184,6 +184,10 @@ export async function updateAgriculturist(
     sets.push('email = ?');
     params.push(input.email || null);
   }
+  if (input.avatarPath !== undefined) {
+    sets.push('avatar_path = ?');
+    params.push(input.avatarPath || null);
+  }
   if (input.barangay !== undefined) {
     sets.push('barangay = ?');
     params.push(input.barangay || null);
@@ -191,10 +195,6 @@ export async function updateAgriculturist(
   if (input.municipality !== undefined) {
     sets.push('municipality = ?');
     params.push(input.municipality || null);
-  }
-  if (input.specialization !== undefined) {
-    sets.push('specialization = ?');
-    params.push(input.specialization || null);
   }
   if (input.isActive !== undefined) {
     sets.push('is_active = ?');

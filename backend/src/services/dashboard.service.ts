@@ -400,3 +400,37 @@ export async function getBarangayBreakdown(
     barangays,
   };
 }
+
+// ============================================================
+// FARMERS PER BARANGAY
+//
+// Registered farmers (not scans) grouped by barangay, for the
+// dashboard's "Registered Farmers by Barangay" chart. Every user
+// with role = 'farmer' is counted exactly once, so
+// sum(total) === getStatistics().totalFarmers - a farmer counts
+// even before their farmers profile row exists, bucketed under
+// 'Unspecified' same as everywhere else barangay is read.
+// ============================================================
+
+export interface FarmerBarangayCount {
+  barangay: string;
+  total: number;
+}
+
+/**
+ * Registered farmers grouped by barangay, highest first. Aggregated
+ * in SQL rather than fetched-then-grouped in JS, matching
+ * getBarangayBreakdown() above.
+ */
+export async function getFarmersPerBarangay(): Promise<FarmerBarangayCount[]> {
+  const [rows] = await pool.query<(FarmerBarangayCount & RowDataPacket)[]>(
+    `SELECT ${barangayExpr()} AS barangay, COUNT(*) AS total
+     FROM users u
+     LEFT JOIN farmers f ON f.user_id = u.id
+     WHERE u.role = 'farmer'
+     GROUP BY barangay
+     ORDER BY total DESC, barangay ASC`
+  );
+
+  return rows.map((row) => ({ barangay: row.barangay, total: Number(row.total) }));
+}

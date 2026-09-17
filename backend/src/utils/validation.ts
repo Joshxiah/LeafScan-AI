@@ -7,7 +7,15 @@
  */
 
 import { z } from 'zod';
+import { BARANGAYS } from '../constants/barangays';
 import { ApiError } from './ApiError';
+
+/**
+ * A farmer's or agriculturist's barangay must be one of the fixed
+ * list (constants/barangays.ts), or left unset - keeps both sides of
+ * the CAO/Farmers barangay matching on the same values.
+ */
+const barangayRule = z.enum(BARANGAYS).optional().or(z.literal(''));
 
 /**
  * Usernames are lowercase letters, numbers, underscore and dot.
@@ -141,6 +149,11 @@ export const changePasswordSchema = z.object({
  * (Phase 13 - see backend/src/services/scanLog equivalent on mobile).
  */
 export const createReportSchema = z.object({
+  // Free text, not the fixed barangayRule enum: this comes from
+  // farmers.address, which a farmer can still self-edit as free text
+  // on the mobile Settings screen - constraining it here would reject
+  // real report submissions from anyone whose saved address predates
+  // (or falls outside) the fixed barangay list.
   barangay: z.string().trim().max(150).optional().or(z.literal('')),
   municipality: z.string().trim().max(100).optional().or(z.literal('')),
 
@@ -228,30 +241,58 @@ export const farmPlotSchema = z.object({
 });
 
 /**
- * The CAO creating a farmer account from the admin platform. Farmers
- * no longer self-register (see auth.routes.ts) - the City Agriculture
- * Office issues credentials. Username and password are optional: when
- * omitted the service generates them and returns them once so the CAO
- * can hand them to the farmer.
+ * The CAO creating an account from the admin platform's Users page -
+ * a farmer (with a farm profile) or a fellow admin. Nobody self-
+ * registers (see auth.routes.ts); the City Agriculture Office issues
+ * credentials, choosing the username and password itself.
+ *
+ * Region/province/city-municipality/barangay come from the Create
+ * Account form's cascading picker (backed by /api/address), not free
+ * text, so they are plain trimmed strings rather than the closed
+ * `barangayRule` enum used elsewhere - the picker itself is what
+ * keeps them consistent, and it covers far more than this app's
+ * usual Pagadian-City-only barangay list. Only meaningful when role
+ * is 'farmer'; ignored for 'admin'.
  */
-export const createFarmerSchema = z.object({
-  fullName: z
+export const createAccountSchema = z.object({
+  role: z.enum(['farmer', 'admin']).default('farmer'),
+
+  firstName: z
     .string()
     .trim()
-    .min(2, 'Full name must be at least 2 characters')
-    .max(150, 'Full name must be at most 150 characters'),
+    .min(1, 'Enter a first name')
+    .max(75, 'First name must be at most 75 characters'),
+  middleName: z.string().trim().max(75).optional().or(z.literal('')),
+  lastName: z
+    .string()
+    .trim()
+    .min(1, 'Enter a last name')
+    .max(75, 'Last name must be at most 75 characters'),
 
-  username: usernameRule.optional(),
+  username: usernameRule,
 
   password: z
     .string()
     .min(8, 'Password must be at least 8 characters')
-    .max(72, 'Password must be at most 72 characters')
-    .optional(),
+    .max(72, 'Password must be at most 72 characters'),
 
   phoneNumber: phoneRule,
 
-  barangay: z.string().trim().max(255).optional().or(z.literal('')),
+  gender: z.enum(['male', 'female', 'other']).optional(),
+  dateOfBirth: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
+    .optional()
+    .or(z.literal('')),
+  /** Set by uploading through POST /api/uploads first. */
+  avatarPath: z.string().trim().max(255).optional().or(z.literal('')),
+
+  // ---- Farmer-only below; ignored when role is 'admin' ----
+  region: z.string().trim().max(100).optional().or(z.literal('')),
+  province: z.string().trim().max(100).optional().or(z.literal('')),
+  municipality: z.string().trim().max(100).optional().or(z.literal('')),
+  barangay: z.string().trim().max(150).optional().or(z.literal('')),
   /** Legacy single-number farm size. Superseded by `plots`; still accepted. */
   farmSizeHectares: z.number().positive().max(9999).optional(),
   /** The farmer's plots by purok. When present, drives farm_size_hectares. */
@@ -263,7 +304,9 @@ export const createFarmerSchema = z.object({
 export const updateFarmerSchema = z.object({
   fullName: z.string().trim().min(2).max(150).optional(),
   phoneNumber: phoneRule.optional(),
-  barangay: z.string().trim().max(255).optional().or(z.literal('')),
+  barangay: barangayRule,
+  /** Relative path from a prior POST /api/uploads, or '' to remove the photo. */
+  avatarPath: z.string().trim().max(255).optional().or(z.literal('')),
   farmSizeHectares: z.number().positive().max(9999).optional(),
   /** Replaces the farmer's whole set of plots when present. */
   plots: z.array(farmPlotSchema).max(20).optional(),
@@ -293,9 +336,10 @@ export const createAgriculturistSchema = z.object({
     .email('Enter a valid email address')
     .optional()
     .or(z.literal('')),
-  barangay: z.string().trim().max(150).optional().or(z.literal('')),
+  barangay: barangayRule,
   municipality: z.string().trim().max(100).optional().or(z.literal('')),
-  specialization: z.string().trim().max(150).optional().or(z.literal('')),
+  /** Relative path from a prior POST /api/uploads. */
+  avatarPath: z.string().trim().max(255).optional().or(z.literal('')),
 });
 
 /** The CAO editing an agriculturist (fix details / activate / deactivate). */
@@ -309,9 +353,10 @@ export const updateAgriculturistSchema = z.object({
     .email('Enter a valid email address')
     .optional()
     .or(z.literal('')),
-  barangay: z.string().trim().max(150).optional().or(z.literal('')),
+  barangay: barangayRule,
   municipality: z.string().trim().max(100).optional().or(z.literal('')),
-  specialization: z.string().trim().max(150).optional().or(z.literal('')),
+  /** Relative path from a prior POST /api/uploads, or '' to remove the photo. */
+  avatarPath: z.string().trim().max(255).optional().or(z.literal('')),
   isActive: z.boolean().optional(),
 });
 
@@ -380,7 +425,7 @@ export const reviewDetectionSchema = z.object({
 });
 
 export type FarmPlotInput = z.infer<typeof farmPlotSchema>;
-export type CreateFarmerInput = z.infer<typeof createFarmerSchema>;
+export type CreateAccountInput = z.infer<typeof createAccountSchema>;
 export type UpdateFarmerInput = z.infer<typeof updateFarmerSchema>;
 export type CreateAgriculturistInput = z.infer<typeof createAgriculturistSchema>;
 export type UpdateAgriculturistInput = z.infer<typeof updateAgriculturistSchema>;

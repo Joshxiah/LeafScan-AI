@@ -109,6 +109,7 @@ export interface ListDetectionsOptions {
   /** 'healthy' -> only healthy-leaf scans; 'diseased' -> everything else. */
   result?: DetectionResult;
   search?: string;
+  barangay?: string;
   page: number;
   pageSize: number;
 }
@@ -124,7 +125,7 @@ export interface ListDetectionsResult {
 export async function listDetections(
   options: ListDetectionsOptions
 ): Promise<ListDetectionsResult> {
-  const { farmerId, riskLevel, result, search, page, pageSize } = options;
+  const { farmerId, riskLevel, result, search, barangay, page, pageSize } = options;
   const offset = (page - 1) * pageSize;
 
   const conditions: string[] = [];
@@ -150,6 +151,10 @@ export async function listDetections(
     const like = `%${search}%`;
     params.push(like, like, like);
   }
+  if (barangay) {
+    conditions.push('COALESCE(f.barangay, f.address) = ?');
+    params.push(barangay);
+  }
   const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
   const [rows] = await pool.query<DetectionRow[]>(
@@ -164,6 +169,7 @@ export async function listDetections(
      FROM detections d
      JOIN users u ON u.id = d.user_id
      LEFT JOIN diseases dis ON dis.id = d.disease_id
+     LEFT JOIN farmers f ON f.user_id = u.id
      ${whereClause}`,
     params
   );

@@ -12,6 +12,8 @@ import { useState } from 'react';
 import { AdminLayout } from '../components/layout/AdminLayout';
 import { ApiError } from '../services/api';
 import * as authService from '../services/auth.service';
+import * as uploadService from '../services/upload.service';
+import { mediaUrl } from '../services/media';
 import { useAuth } from '../context/AuthContext';
 
 function formatDate(iso: string): string {
@@ -27,6 +29,8 @@ export function ProfilePage() {
 
   const [fullName, setFullName] = useState(user?.fullName ?? '');
   const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber ?? '');
+  const [avatarPath, setAvatarPath] = useState(user?.avatarPath ?? '');
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [justSaved, setJustSaved] = useState(false);
@@ -48,7 +52,24 @@ export function ProfilePage() {
       .toUpperCase() || '?';
 
   const dirty =
-    fullName.trim() !== user.fullName || phoneNumber.trim() !== (user.phoneNumber ?? '');
+    fullName.trim() !== user.fullName ||
+    phoneNumber.trim() !== (user.phoneNumber ?? '') ||
+    avatarPath !== (user.avatarPath ?? '');
+
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+    setIsUploadingAvatar(true);
+    try {
+      const uploaded = await uploadService.uploadImage(file);
+      setAvatarPath(uploaded.imagePath);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not upload that image.');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  }
 
   async function save() {
     setError(null);
@@ -59,6 +80,7 @@ export function ProfilePage() {
         fullName: fullName.trim() !== user!.fullName ? fullName.trim() : undefined,
         phoneNumber:
           phoneNumber.trim() !== (user!.phoneNumber ?? '') ? phoneNumber.trim() : undefined,
+        avatarPath: avatarPath !== (user!.avatarPath ?? '') ? avatarPath : undefined,
       });
       await refreshUser();
       setJustSaved(true);
@@ -74,9 +96,17 @@ export function ProfilePage() {
       <div className="max-w-xl space-y-4">
         <section className="rounded-xl border border-gray-200 bg-white p-6">
           <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-leaf-600 text-lg font-semibold text-white">
-              {initials}
-            </div>
+            {mediaUrl(avatarPath) ? (
+              <img
+                src={mediaUrl(avatarPath)!}
+                alt={user.fullName}
+                className="h-14 w-14 shrink-0 rounded-full object-cover"
+              />
+            ) : (
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-leaf-600 text-lg font-semibold text-white">
+                {initials}
+              </div>
+            )}
             <div>
               <p className="text-lg font-semibold text-gray-900">{user.fullName}</p>
               <p className="text-sm text-gray-500">@{user.username} · CAO Administrator</p>
@@ -107,6 +137,26 @@ export function ProfilePage() {
                 placeholder="09171234567"
                 className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
               />
+            </label>
+
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Profile image
+              </span>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={handleAvatarChange}
+                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-700 focus:border-leaf-500 focus:outline-none"
+              />
+              {isUploadingAvatar && (
+                <span className="mt-1 block text-xs text-gray-400">Uploading…</span>
+              )}
+              {avatarPath && !isUploadingAvatar && avatarPath !== (user.avatarPath ?? '') && (
+                <span className="mt-1 block text-xs text-green-600">
+                  New image uploaded — save to apply.
+                </span>
+              )}
             </label>
 
             <div className="grid grid-cols-2 gap-4 pt-1 text-sm">
@@ -140,7 +190,7 @@ export function ProfilePage() {
 
           <button
             type="button"
-            disabled={isSaving || !dirty}
+            disabled={isSaving || isUploadingAvatar || !dirty}
             onClick={save}
             className="mt-5 rounded-lg bg-leaf-600 px-4 py-2 text-sm font-medium text-white hover:bg-leaf-700 disabled:opacity-40"
           >

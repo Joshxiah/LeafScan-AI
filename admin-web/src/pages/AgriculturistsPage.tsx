@@ -13,18 +13,13 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { AdminLayout } from '../components/layout/AdminLayout';
+import { BarangayInput } from '../components/BarangayInput';
 import { ApiError } from '../services/api';
 import * as agriculturistService from '../services/agriculturist.service';
-import type {
-  AgriculturistAccountStatus,
-  AgriculturistSummary,
-} from '../types';
-
-const STATUS_FILTERS: { label: string; value: AgriculturistAccountStatus | 'all' }[] = [
-  { label: 'All', value: 'all' },
-  { label: 'Active', value: 'active' },
-  { label: 'Inactive', value: 'inactive' },
-];
+import * as farmerService from '../services/farmer.service';
+import * as uploadService from '../services/upload.service';
+import { mediaUrl } from '../services/media';
+import type { AgriculturistAccountStatus, AgriculturistSummary } from '../types';
 
 const PAGE_SIZE = 20;
 
@@ -40,6 +35,32 @@ function initialsOf(fullName: string): string {
   return fullName.trim().charAt(0).toUpperCase() || '?';
 }
 
+function Avatar({
+  agriculturist,
+  sizeClass,
+}: {
+  agriculturist: { fullName: string; avatarPath: string | null };
+  sizeClass: string;
+}) {
+  const url = mediaUrl(agriculturist.avatarPath);
+  if (url) {
+    return (
+      <img
+        src={url}
+        alt={agriculturist.fullName}
+        className={`shrink-0 rounded-full object-cover ${sizeClass}`}
+      />
+    );
+  }
+  return (
+    <div
+      className={`flex shrink-0 items-center justify-center rounded-full bg-leaf-50 font-bold text-leaf-700 ${sizeClass}`}
+    >
+      {initialsOf(agriculturist.fullName)}
+    </div>
+  );
+}
+
 function StatusBadge({ isActive }: { isActive: boolean }) {
   return (
     <span
@@ -53,22 +74,30 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
 }
 
 export function AgriculturistsPage() {
-  const [filter, setFilter] = useState<AgriculturistAccountStatus | 'all'>('all');
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<AgriculturistAccountStatus | 'all'>('all');
   const [page, setPage] = useState(1);
 
   const [agriculturists, setAgriculturists] = useState<AgriculturistSummary[] | null>(null);
   const [total, setTotal] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [barangays, setBarangays] = useState<string[]>([]);
 
   const [selected, setSelected] = useState<AgriculturistSummary | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+
+  useEffect(() => {
+    farmerService
+      .listBarangays()
+      .then(setBarangays)
+      .catch(() => setBarangays([]));
+  }, []);
 
   const load = useCallback(async () => {
     setErrorMessage(null);
     try {
       const result = await agriculturistService.listAgriculturists({
-        status: filter === 'all' ? undefined : filter,
+        status: statusFilter === 'all' ? undefined : statusFilter,
         search: search.trim() || undefined,
         page,
         pageSize: PAGE_SIZE,
@@ -80,7 +109,7 @@ export function AgriculturistsPage() {
         error instanceof ApiError ? error.message : 'Could not load agriculturists.'
       );
     }
-  }, [filter, search, page]);
+  }, [search, statusFilter, page]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), search ? 300 : 0);
@@ -93,27 +122,7 @@ export function AgriculturistsPage() {
     <AdminLayout title="Agriculturists">
       {/* ---------- Toolbar ---------- */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          {STATUS_FILTERS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => {
-                setFilter(option.value);
-                setPage(1);
-              }}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                filter === option.value
-                  ? 'bg-leaf-600 text-white'
-                  : 'bg-white text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <input
             type="search"
             value={search}
@@ -126,12 +135,41 @@ export function AgriculturistsPage() {
           />
           <button
             type="button"
-            onClick={() => setIsCreating(true)}
-            className="rounded-lg bg-leaf-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-leaf-700"
+            onClick={() => {
+              setStatusFilter((prev) => (prev === 'active' ? 'all' : 'active'));
+              setPage(1);
+            }}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+              statusFilter === 'active'
+                ? 'bg-leaf-600 text-white'
+                : 'bg-white text-gray-600 hover:bg-gray-100'
+            }`}
           >
-            + Add Agriculturist
+            Active
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setStatusFilter((prev) => (prev === 'inactive' ? 'all' : 'inactive'));
+              setPage(1);
+            }}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+              statusFilter === 'inactive'
+                ? 'bg-leaf-600 text-white'
+                : 'bg-white text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            Inactive
           </button>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setIsCreating(true)}
+          className="rounded-lg bg-leaf-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-leaf-700"
+        >
+          + Add Agriculturist
+        </button>
       </div>
 
       {errorMessage && (
@@ -163,7 +201,6 @@ export function AgriculturistsPage() {
                   <th className="px-4 py-3 font-medium">Name</th>
                   <th className="px-4 py-3 font-medium">Phone</th>
                   <th className="px-4 py-3 font-medium">Service area</th>
-                  <th className="px-4 py-3 font-medium">Specialization</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Added</th>
                 </tr>
@@ -177,9 +214,7 @@ export function AgriculturistsPage() {
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-leaf-50 text-xs font-bold text-leaf-700">
-                          {initialsOf(agriculturist.fullName)}
-                        </div>
+                        <Avatar agriculturist={agriculturist} sizeClass="h-8 w-8 text-xs" />
                         <div>
                           <p className="font-medium text-gray-900">{agriculturist.fullName}</p>
                           {agriculturist.email && (
@@ -192,9 +227,6 @@ export function AgriculturistsPage() {
                     <td className="px-4 py-3 text-gray-600">
                       {agriculturist.barangay ?? '—'}
                       {agriculturist.municipality ? `, ${agriculturist.municipality}` : ''}
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {agriculturist.specialization ?? '—'}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge isActive={agriculturist.isActive} />
@@ -240,6 +272,7 @@ export function AgriculturistsPage() {
       {selected && (
         <AgriculturistDetailModal
           agriculturist={selected}
+          barangays={barangays}
           onClose={() => setSelected(null)}
           onChanged={load}
           onDeleted={() => {
@@ -251,6 +284,7 @@ export function AgriculturistsPage() {
 
       {isCreating && (
         <CreateAgriculturistModal
+          barangays={barangays}
           onClose={() => setIsCreating(false)}
           onCreated={() => {
             setIsCreating(false);
@@ -267,9 +301,11 @@ export function AgriculturistsPage() {
 // ============================================================
 
 function CreateAgriculturistModal({
+  barangays,
   onClose,
   onCreated,
 }: {
+  barangays: string[];
   onClose: () => void;
   onCreated: () => void;
 }) {
@@ -277,9 +313,25 @@ function CreateAgriculturistModal({
   const [phoneNumber, setPhoneNumber] = useState('');
   const [email, setEmail] = useState('');
   const [barangay, setBarangay] = useState('');
-  const [specialization, setSpecialization] = useState('');
+  const [avatarPath, setAvatarPath] = useState<string | undefined>();
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+    setIsUploadingAvatar(true);
+    try {
+      const uploaded = await uploadService.uploadImage(file);
+      setAvatarPath(uploaded.imagePath);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not upload that image.');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  }
 
   async function handleSubmit() {
     setError(null);
@@ -295,7 +347,7 @@ function CreateAgriculturistModal({
         phoneNumber: phoneNumber.trim() || undefined,
         email: email.trim() || undefined,
         barangay: barangay.trim() || undefined,
-        specialization: specialization.trim() || undefined,
+        avatarPath,
       });
       onCreated();
     } catch (err) {
@@ -321,21 +373,28 @@ function CreateAgriculturistModal({
           onChange={setEmail}
           placeholder="name@cao.pagadian.gov.ph"
         />
-        <Field
-          label="Service area / barangay (optional)"
-          value={barangay}
-          onChange={setBarangay}
-          placeholder="Balangasan"
-        />
-        <Field
-          label="Specialization (optional)"
-          value={specialization}
-          onChange={setSpecialization}
-          placeholder="Corn foliar diseases"
-        />
+        <BarangayInput value={barangay} onChange={setBarangay} barangays={barangays} />
         <p className="text-xs text-gray-400">
           The service area is used on the Reports page to list the nearest agriculturist first.
         </p>
+
+        <label className="block">
+          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+            Photo (optional)
+          </span>
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={handleAvatarChange}
+            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-700 focus:border-leaf-500 focus:outline-none"
+          />
+          {isUploadingAvatar && (
+            <span className="mt-1 block text-xs text-gray-400">Uploading…</span>
+          )}
+          {avatarPath && !isUploadingAvatar && (
+            <span className="mt-1 block text-xs text-green-600">Image uploaded.</span>
+          )}
+        </label>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
       </div>
@@ -350,7 +409,7 @@ function CreateAgriculturistModal({
         </button>
         <button
           type="button"
-          disabled={isSubmitting}
+          disabled={isSubmitting || isUploadingAvatar}
           onClick={handleSubmit}
           className="flex-1 rounded-lg bg-leaf-600 py-2.5 text-sm font-medium text-white hover:bg-leaf-700 disabled:opacity-60"
         >
@@ -367,11 +426,13 @@ function CreateAgriculturistModal({
 
 function AgriculturistDetailModal({
   agriculturist,
+  barangays,
   onClose,
   onChanged,
   onDeleted,
 }: {
   agriculturist: AgriculturistSummary;
+  barangays: string[];
   onClose: () => void;
   onChanged: () => void;
   onDeleted: () => void;
@@ -381,17 +442,34 @@ function AgriculturistDetailModal({
   const [phoneNumber, setPhoneNumber] = useState(agriculturist.phoneNumber ?? '');
   const [email, setEmail] = useState(agriculturist.email ?? '');
   const [barangay, setBarangay] = useState(agriculturist.barangay ?? '');
-  const [specialization, setSpecialization] = useState(agriculturist.specialization ?? '');
+  const [avatarPath, setAvatarPath] = useState(agriculturist.avatarPath ?? '');
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [askDelete, setAskDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const dirty =
     fullName.trim() !== current.fullName ||
     phoneNumber.trim() !== (current.phoneNumber ?? '') ||
     email.trim() !== (current.email ?? '') ||
     barangay.trim() !== (current.barangay ?? '') ||
-    specialization.trim() !== (current.specialization ?? '');
+    avatarPath !== (current.avatarPath ?? '');
+
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+    setIsUploadingAvatar(true);
+    try {
+      const uploaded = await uploadService.uploadImage(file);
+      setAvatarPath(uploaded.imagePath);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not upload that image.');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  }
 
   async function save(extra: agriculturistService.AgriculturistPayload = {}) {
     setError(null);
@@ -405,10 +483,7 @@ function AgriculturistDetailModal({
             phoneNumber.trim() !== (current.phoneNumber ?? '') ? phoneNumber.trim() : undefined,
           email: email.trim() !== (current.email ?? '') ? email.trim() : undefined,
           barangay: barangay.trim() !== (current.barangay ?? '') ? barangay.trim() : undefined,
-          specialization:
-            specialization.trim() !== (current.specialization ?? '')
-              ? specialization.trim()
-              : undefined,
+          avatarPath: avatarPath !== (current.avatarPath ?? '') ? avatarPath : undefined,
           ...extra,
         }
       );
@@ -423,22 +498,23 @@ function AgriculturistDetailModal({
 
   async function remove() {
     setError(null);
-    setIsSaving(true);
+    setIsDeleting(true);
     try {
       await agriculturistService.deleteAgriculturist(current.id);
       onDeleted();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not remove this agriculturist.');
-      setIsSaving(false);
+      setIsDeleting(false);
     }
   }
 
   return (
     <ModalShell title="Agriculturist Details" onClose={onClose}>
       <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-leaf-50 text-lg font-bold text-leaf-700">
-          {initialsOf(current.fullName)}
-        </div>
+        <Avatar
+          agriculturist={{ fullName: current.fullName, avatarPath: avatarPath || null }}
+          sizeClass="h-12 w-12 text-lg"
+        />
         <div>
           <p className="text-lg font-semibold text-gray-900">{current.fullName}</p>
           <p className="text-sm text-gray-500">{current.email ?? 'No email on file'}</p>
@@ -452,8 +528,27 @@ function AgriculturistDetailModal({
         <Field label="Full name" value={fullName} onChange={setFullName} />
         <Field label="Phone" value={phoneNumber} onChange={setPhoneNumber} />
         <Field label="Email" value={email} onChange={setEmail} />
-        <Field label="Service area / barangay" value={barangay} onChange={setBarangay} />
-        <Field label="Specialization" value={specialization} onChange={setSpecialization} />
+        <BarangayInput value={barangay} onChange={setBarangay} barangays={barangays} />
+
+        <label className="block">
+          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+            Photo
+          </span>
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={handleAvatarChange}
+            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-700 focus:border-leaf-500 focus:outline-none"
+          />
+          {isUploadingAvatar && (
+            <span className="mt-1 block text-xs text-gray-400">Uploading…</span>
+          )}
+          {avatarPath && !isUploadingAvatar && avatarPath !== (current.avatarPath ?? '') && (
+            <span className="mt-1 block text-xs text-green-600">
+              New image uploaded — save to apply.
+            </span>
+          )}
+        </label>
 
         <div className="grid grid-cols-2 gap-3 pt-1 text-sm">
           <ReadOnly label="Municipality" value={current.municipality ?? '—'} />
@@ -466,7 +561,7 @@ function AgriculturistDetailModal({
       <div className="mt-5 flex flex-wrap gap-2">
         <button
           type="button"
-          disabled={isSaving || !dirty}
+          disabled={isSaving || isUploadingAvatar || !dirty}
           onClick={() => save()}
           className="rounded-lg bg-leaf-600 px-3 py-2 text-sm font-medium text-white hover:bg-leaf-700 disabled:opacity-40"
         >
@@ -486,42 +581,71 @@ function AgriculturistDetailModal({
           {current.isActive ? 'Deactivate' : 'Reactivate'}
         </button>
 
-        {askDelete ? (
-          <>
-            <button
-              type="button"
-              disabled={isSaving}
-              onClick={remove}
-              className="rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-40"
-            >
-              Confirm delete
-            </button>
-            <button
-              type="button"
-              onClick={() => setAskDelete(false)}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
-            >
-              Cancel
-            </button>
-          </>
-        ) : (
-          <button
-            type="button"
-            disabled={isSaving}
-            onClick={() => setAskDelete(true)}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-40"
-          >
-            Delete
-          </button>
-        )}
+        <button
+          type="button"
+          disabled={isSaving}
+          onClick={() => setAskDelete(true)}
+          className="rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-40"
+        >
+          Delete
+        </button>
       </div>
 
       {askDelete && (
-        <p className="mt-2 text-xs text-gray-500">
-          Removing an agriculturist leaves past reports untouched — they keep the recorded name.
-        </p>
+        <ConfirmDeleteDialog
+          message="This permanently removes the agriculturist from the directory. Past reports keep the recorded name, so history is unaffected. There is no undo."
+          isDeleting={isDeleting}
+          onConfirm={remove}
+          onCancel={() => setAskDelete(false)}
+        />
       )}
     </ModalShell>
+  );
+}
+
+/** Pops up over the Agriculturist Details modal to confirm a permanent delete. */
+function ConfirmDeleteDialog({
+  message,
+  isDeleting,
+  onConfirm,
+  onCancel,
+}: {
+  message: string;
+  isDeleting: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4"
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-base font-semibold text-gray-900">Confirm delete</h3>
+        <p className="mt-2 text-sm text-gray-600">{message}</p>
+        <div className="mt-4 flex gap-3">
+          <button
+            type="button"
+            disabled={isDeleting}
+            onClick={onCancel}
+            className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={isDeleting}
+            onClick={onConfirm}
+            className="flex-1 rounded-lg bg-red-600 py-2.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
+          >
+            {isDeleting ? 'Deleting…' : 'Confirm delete'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -31,6 +31,8 @@ export async function getCurrentUser(): Promise<User> {
 export interface UpdateProfilePayload {
   fullName?: string;
   phoneNumber?: string;
+  /** From uploadImage() in upload.service.ts, or '' to remove the photo. */
+  avatarPath?: string;
 }
 
 /**

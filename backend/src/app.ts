@@ -13,6 +13,7 @@ import morgan from 'morgan';
 import path from 'path';
 
 import { env } from './config/env';
+import addressRoutes from './routes/address.routes';
 import authRoutes from './routes/auth.routes';
 import uploadRoutes from './routes/upload.routes';
 import dashboardRoutes from './routes/dashboard.routes';
@@ -92,6 +93,7 @@ app.get('/', (req: Request, res: Response) => {
 
 app.use('/api/health', healthRoutes);
 app.use('/api/uploads', uploadRoutes);
+app.use('/api/address', addressRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/diseases', diseaseRoutes);

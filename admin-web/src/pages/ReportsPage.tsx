@@ -431,10 +431,11 @@ function ReportDetailModal({
     return () => window.removeEventListener('keydown', onKey);
   }, [lightbox, onClose]);
 
+  // The "who is being sent?" picker only belongs to the Assign step -
+  // Agriculturist Required just flags that a visit is needed, the
+  // actual assignment happens separately.
   const agriculturistRelevant =
-    nextStatus === 'agriculturist_required' ||
-    nextStatus === 'agriculturist_assigned' ||
-    !!report?.assignedAgriculturist;
+    nextStatus === 'agriculturist_assigned' || !!report?.assignedAgriculturist;
 
   // Agriculturists whose service area matches this report's barangay
   // float to the top of the dropdown.
@@ -449,8 +450,12 @@ function ReportDetailModal({
   }, [agriculturists, report?.barangay]);
 
   async function handleUpdate() {
-    setIsUpdating(true);
     setErrorMessage(null);
+    if (nextStatus === 'agriculturist_assigned' && agriculturistId == null) {
+      setErrorMessage('Pick an agriculturist before marking this report Agriculturist Assigned.');
+      return;
+    }
+    setIsUpdating(true);
     try {
       await reportService.updateReportStatus(
         reportId,
@@ -705,6 +710,11 @@ function ReportDetailModal({
                         No agriculturists yet — add them on the Agriculturists page.
                       </span>
                     )}
+                    {nextStatus === 'agriculturist_assigned' && agriculturistId == null && (
+                      <span className="mt-1 block text-xs text-red-600">
+                        Required to mark this report Agriculturist Assigned.
+                      </span>
+                    )}
                   </label>
                 )}
 
@@ -723,7 +733,10 @@ function ReportDetailModal({
 
                 <button
                   type="button"
-                  disabled={isUpdating}
+                  disabled={
+                    isUpdating ||
+                    (nextStatus === 'agriculturist_assigned' && agriculturistId == null)
+                  }
                   onClick={handleUpdate}
                   className="w-full rounded-lg bg-leaf-600 py-2.5 text-sm font-semibold text-white hover:bg-leaf-700 disabled:opacity-60"
                 >

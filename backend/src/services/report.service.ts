@@ -442,6 +442,16 @@ export async function updateReportStatus(
     ? agriculturistNameValue
     : ((report.assigned_agriculturist as string | null) ?? null);
 
+  // "Agriculturist Assigned" without anyone actually assigned is a
+  // contradiction - block it here so the API can't be pushed into
+  // that state even if the admin UI's own guard is bypassed.
+  if (status === 'agriculturist_assigned' && !effectiveAgriculturist) {
+    throw ApiError.badRequest(
+      'Pick an agriculturist before marking this report Agriculturist Assigned.',
+      'AGRICULTURIST_REQUIRED'
+    );
+  }
+
   const sets: string[] = ['status = ?', 'cao_message = ?'];
   const params: (string | number | null)[] = [status, message || null];
   if (touchAgriculturist) {

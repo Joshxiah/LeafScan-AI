@@ -4,10 +4,12 @@
  * Route: /recommendations
  *
  * The CAO authors every treatment recommendation here - add, edit,
- * activate / deactivate, or delete - grouped by the disease it
- * treats. The mobile app shows the ACTIVE ones after a diagnosis
- * (via GET /api/diseases); inactive ones are hidden there but stay
- * visible on this page so they can be brought back.
+ * activate / deactivate, or delete. Tapping "Recommendations" shows
+ * the diseases first; picking one then shows only that disease's
+ * recommendations, so two diseases' treatments never appear together.
+ * The mobile app shows the ACTIVE ones after a diagnosis (via GET
+ * /api/diseases); inactive ones are hidden there but stay visible on
+ * this page so they can be brought back.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -23,6 +25,7 @@ export function RecommendationsPage() {
   const [diseases, setDiseases] = useState<DiseaseInfo[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const [selectedDiseaseId, setSelectedDiseaseId] = useState<number | null>(null);
   const [editing, setEditing] = useState<RecommendationSummary | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
@@ -46,27 +49,33 @@ export function RecommendationsPage() {
       .catch(() => setDiseases([]));
   }, [load]);
 
-  /** Recommendations grouped by disease, in the list's existing order. */
-  const groups = useMemo(() => {
-    const map = new Map<number, { name: string; items: RecommendationSummary[] }>();
-    for (const rec of recommendations ?? []) {
-      const group = map.get(rec.diseaseId) ?? { name: rec.diseaseName, items: [] };
-      group.items.push(rec);
-      map.set(rec.diseaseId, group);
-    }
-    return [...map.values()];
-  }, [recommendations]);
+  /** The diseases a CAO writes treatments for - the "healthy" class has none. */
+  const treatableDiseases = useMemo(() => diseases.filter((d) => !d.isHealthy), [diseases]);
+
+  const selectedDisease = useMemo(
+    () => treatableDiseases.find((d) => d.id === selectedDiseaseId) ?? null,
+    [treatableDiseases, selectedDiseaseId]
+  );
+
+  const recommendationsForSelected = useMemo(
+    () => (recommendations ?? []).filter((rec) => rec.diseaseId === selectedDiseaseId),
+    [recommendations, selectedDiseaseId]
+  );
 
   return (
     <AdminLayout title="Recommendations">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">
-          {recommendations
-            ? `${recommendations.length} recommendation${
-                recommendations.length === 1 ? '' : 's'
-              }`
-            : ' '}
-        </p>
+        {selectedDisease ? (
+          <button
+            type="button"
+            onClick={() => setSelectedDiseaseId(null)}
+            className="text-sm font-medium text-leaf-700 hover:underline"
+          >
+            ← Back to diseases
+          </button>
+        ) : (
+          <p className="text-sm text-gray-500">Select a disease to view its recommendations.</p>
+        )}
         <button
           type="button"
           onClick={() => setIsCreating(true)}
@@ -86,42 +95,50 @@ export function RecommendationsPage() {
         <div className="mt-4 flex h-64 items-center justify-center">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-leaf-200 border-t-leaf-600" />
         </div>
-      ) : recommendations.length === 0 ? (
-        <div className="mt-4 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-16 text-center">
-          <p className="text-sm text-gray-500">No treatment recommendations yet.</p>
-          <p className="mt-1 text-xs text-gray-400">
-            Use “Add Recommendation” to publish the first one.
-          </p>
-        </div>
+      ) : !selectedDisease ? (
+        <DiseaseSelector
+          diseases={treatableDiseases}
+          recommendations={recommendations}
+          onSelect={setSelectedDiseaseId}
+        />
       ) : (
-        <div className="mt-4 space-y-6">
-          {groups.map((group) => (
-            <section key={group.name}>
-              <h2 className="text-sm font-semibold text-gray-900">
-                {group.name}
-                <span className="ml-2 text-xs font-normal text-gray-400">
-                  {group.items.length} recommendation{group.items.length === 1 ? '' : 's'}
-                </span>
-              </h2>
+        <div className="mt-4">
+          <h2 className="text-sm font-semibold text-gray-900">
+            {selectedDisease.displayName}
+            <span className="ml-2 text-xs font-normal text-gray-400">
+              {recommendationsForSelected.length} recommendation
+              {recommendationsForSelected.length === 1 ? '' : 's'}
+            </span>
+          </h2>
 
-              <div className="mt-2 grid gap-3 lg:grid-cols-2">
-                {group.items.map((rec) => (
-                  <RecommendationCard
-                    key={rec.id}
-                    rec={rec}
-                    onEdit={() => setEditing(rec)}
-                    onChanged={load}
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
+          {recommendationsForSelected.length === 0 ? (
+            <div className="mt-3 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-16 text-center">
+              <p className="text-sm text-gray-500">
+                No treatment recommendations for this disease yet.
+              </p>
+              <p className="mt-1 text-xs text-gray-400">
+                Use “Add Recommendation” to publish the first one.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-2 grid gap-3 lg:grid-cols-2">
+              {recommendationsForSelected.map((rec) => (
+                <RecommendationCard
+                  key={rec.id}
+                  rec={rec}
+                  onEdit={() => setEditing(rec)}
+                  onChanged={load}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
       {isCreating && (
         <RecommendationModal
-          diseases={diseases}
+          diseases={treatableDiseases}
+          initialDiseaseId={selectedDiseaseId ?? undefined}
           onClose={() => setIsCreating(false)}
           onSaved={() => {
             setIsCreating(false);
@@ -132,7 +149,7 @@ export function RecommendationsPage() {
 
       {editing && (
         <RecommendationModal
-          diseases={diseases}
+          diseases={treatableDiseases}
           existing={editing}
           onClose={() => setEditing(null)}
           onSaved={() => {
@@ -142,6 +159,48 @@ export function RecommendationsPage() {
         />
       )}
     </AdminLayout>
+  );
+}
+
+function DiseaseSelector({
+  diseases,
+  recommendations,
+  onSelect,
+}: {
+  diseases: DiseaseInfo[];
+  recommendations: RecommendationSummary[];
+  onSelect: (diseaseId: number) => void;
+}) {
+  if (diseases.length === 0) {
+    return (
+      <div className="mt-4 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-16 text-center">
+        <p className="text-sm text-gray-500">No diseases in the library yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 grid gap-4 sm:grid-cols-3">
+      {diseases.map((disease) => {
+        const count = recommendations.filter((rec) => rec.diseaseId === disease.id).length;
+        return (
+          <button
+            key={disease.id}
+            type="button"
+            onClick={() => onSelect(disease.id)}
+            className="rounded-xl border border-gray-200 bg-white p-5 text-left transition-colors hover:border-leaf-300 hover:bg-leaf-50"
+          >
+            <h3 className="text-base font-semibold text-gray-900">{disease.displayName}</h3>
+            {disease.scientificName && (
+              <p className="mt-0.5 text-xs italic text-gray-500">{disease.scientificName}</p>
+            )}
+            <p className="mt-3 text-xs font-medium text-leaf-700">
+              {count} recommendation{count === 1 ? '' : 's'} →
+            </p>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -166,6 +225,7 @@ function RecommendationCard({
       onChanged();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'That did not work.');
+    } finally {
       setBusy(false);
     }
   }
@@ -258,16 +318,19 @@ function RecommendationCard({
 function RecommendationModal({
   diseases,
   existing,
+  initialDiseaseId,
   onClose,
   onSaved,
 }: {
   diseases: DiseaseInfo[];
   existing?: RecommendationSummary;
+  /** Pre-selects the disease being viewed when "Add Recommendation" is used from its page. */
+  initialDiseaseId?: number;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [diseaseId, setDiseaseId] = useState<number>(
-    existing?.diseaseId ?? diseases[0]?.id ?? 0
+    existing?.diseaseId ?? initialDiseaseId ?? diseases[0]?.id ?? 0
   );
   const [title, setTitle] = useState(existing?.title ?? '');
   const [text, setText] = useState(existing?.recommendationText ?? '');

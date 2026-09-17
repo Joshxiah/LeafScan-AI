@@ -70,7 +70,7 @@ export default function DiseaseDetailScreen() {
           <Image
             source={diseaseImage(disease.classLabel)}
             className="h-full w-full"
-            resizeMode="cover"
+            resizeMode="contain"
           />
 
           <Pressable

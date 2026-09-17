@@ -31,7 +31,7 @@ export async function createDetection(req: Request, res: Response): Promise<void
 const RISK_LEVELS: RiskLevel[] = ['none', 'low', 'moderate', 'high'];
 
 /**
- * GET /api/detections?farmerId=&risk=&result=&search=&page=&pageSize=
+ * GET /api/detections?farmerId=&risk=&result=&search=&barangay=&page=&pageSize=
  * CAO admin only. Powers the Detections page and the per-farmer
  * "view this farmer's scans" drill-down.
  */
@@ -54,6 +54,9 @@ export async function listDetections(req: Request, res: Response): Promise<void>
   const searchParam = typeof req.query.search === 'string' ? req.query.search.trim() : '';
   const search = searchParam.length > 0 ? searchParam : undefined;
 
+  const barangayParam = typeof req.query.barangay === 'string' ? req.query.barangay.trim() : '';
+  const barangay = barangayParam.length > 0 ? barangayParam : undefined;
+
   const page = Math.max(1, Number(req.query.page) || 1);
   const pageSize = Math.min(100, Math.max(1, Number(req.query.pageSize) || 20));
 
@@ -62,6 +65,7 @@ export async function listDetections(req: Request, res: Response): Promise<void>
     riskLevel,
     result,
     search,
+    barangay,
     page,
     pageSize,
   });

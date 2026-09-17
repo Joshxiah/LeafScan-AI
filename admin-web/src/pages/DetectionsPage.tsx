@@ -4,21 +4,24 @@
  * Route: /detections
  *
  * Every leaf scan recorded in the `detections` table, newest first.
- * Filter by risk or by healthy / diseased, search by farmer or
- * disease, and deep-link in from:
+ * Filter by risk or by barangay, search by farmer or disease, and
+ * deep-link in from:
  *   - the dashboard tiles   (/detections?risk=high, ?result=healthy…)
  *   - a farmer's detail      (/detections?farmerId=123)
  * so a farmer's scans, the disease each was, and that disease's
- * treatments are one chain of clicks apart.
+ * treatments are one chain of clicks apart. `result` has no toolbar
+ * control of its own (the dashboard's Healthy/Diseased tiles are the
+ * only way in) - it just shows as a clearable banner, same as farmerId.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 
 import { AdminLayout } from '../components/layout/AdminLayout';
 import { ApiError } from '../services/api';
 import * as detectionService from '../services/detection.service';
 import * as diseaseService from '../services/disease.service';
+import * as farmerService from '../services/farmer.service';
 import type { DetectionSummary, DiseaseInfo, RiskLevel } from '../types';
 
 const RISK_BADGE: Record<RiskLevel, string> = {
@@ -36,11 +39,10 @@ const RISK_OPTIONS: { label: string; value: RiskLevel | 'all' }[] = [
   { label: 'High', value: 'high' },
 ];
 
-const RESULT_FILTERS: { label: string; value: 'all' | 'healthy' | 'diseased' }[] = [
-  { label: 'All', value: 'all' },
-  { label: 'Healthy', value: 'healthy' },
-  { label: 'Diseased', value: 'diseased' },
-];
+const RESULT_LABEL: Record<'healthy' | 'diseased', string> = {
+  healthy: 'healthy scans',
+  diseased: 'diseased scans',
+};
 
 const PAGE_SIZE = 20;
 
@@ -58,6 +60,7 @@ export function DetectionsPage() {
   const farmerId = Number(searchParams.get('farmerId')) || undefined;
   const risk = (searchParams.get('risk') as RiskLevel | null) ?? 'all';
   const result = (searchParams.get('result') as 'healthy' | 'diseased' | null) ?? 'all';
+  const barangay = searchParams.get('barangay') ?? 'all';
 
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -66,14 +69,19 @@ export function DetectionsPage() {
   const [total, setTotal] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const [reviewing, setReviewing] = useState<DetectionSummary | null>(null);
   const [diseases, setDiseases] = useState<DiseaseInfo[]>([]);
+  const [barangays, setBarangays] = useState<string[]>([]);
+  const [viewingDisease, setViewingDisease] = useState<DiseaseInfo | null>(null);
 
   useEffect(() => {
     diseaseService
       .listDiseases()
       .then(setDiseases)
       .catch(() => setDiseases([]));
+    farmerService
+      .listBarangays()
+      .then(setBarangays)
+      .catch(() => setBarangays([]));
   }, []);
 
   /** Merge a set of param changes and reset to page 1. */
@@ -97,6 +105,7 @@ export function DetectionsPage() {
         farmerId,
         risk: risk === 'all' ? undefined : risk,
         result: result === 'all' ? undefined : result,
+        barangay: barangay === 'all' ? undefined : barangay,
         search: search.trim() || undefined,
         page,
         pageSize: PAGE_SIZE,
@@ -108,7 +117,7 @@ export function DetectionsPage() {
         error instanceof ApiError ? error.message : 'Could not load detections.'
       );
     }
-  }, [farmerId, risk, result, search, page]);
+  }, [farmerId, risk, result, barangay, search, page]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), search ? 300 : 0);
@@ -125,24 +134,20 @@ export function DetectionsPage() {
     <AdminLayout title="Detections">
       {/* ---------- Toolbar ---------- */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          {RESULT_FILTERS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => patchParams({ result: option.value })}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                result === option.value
-                  ? 'bg-leaf-600 text-white'
-                  : 'bg-white text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-
         <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={barangay}
+            onChange={(e) => patchParams({ barangay: e.target.value })}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:border-leaf-500 focus:outline-none"
+          >
+            <option value="all">All Barangays</option>
+            {barangays.map((b) => (
+              <option key={b} value={b}>
+                {b}
+              </option>
+            ))}
+          </select>
+
           <select
             value={risk}
             onChange={(e) => patchParams({ risk: e.target.value })}
@@ -154,18 +159,18 @@ export function DetectionsPage() {
               </option>
             ))}
           </select>
-
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            placeholder="Search farmer or disease…"
-            className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:border-leaf-500 focus:outline-none"
-          />
         </div>
+
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+          placeholder="Search farmer or disease…"
+          className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:border-leaf-500 focus:outline-none"
+        />
       </div>
 
       {farmerId && (
@@ -180,6 +185,21 @@ export function DetectionsPage() {
             className="rounded-md px-2 py-0.5 text-xs font-medium text-leaf-700 hover:bg-leaf-100"
           >
             Show all farmers
+          </button>
+        </div>
+      )}
+
+      {result !== 'all' && (
+        <div className="mt-3 flex items-center justify-between rounded-lg border border-leaf-200 bg-leaf-50 px-4 py-2 text-sm text-leaf-800">
+          <span>
+            Showing <span className="font-semibold">{RESULT_LABEL[result]}</span> only
+          </span>
+          <button
+            type="button"
+            onClick={() => patchParams({ result: null })}
+            className="rounded-md px-2 py-0.5 text-xs font-medium text-leaf-700 hover:bg-leaf-100"
+          >
+            Clear filter
           </button>
         </div>
       )}
@@ -214,52 +234,52 @@ export function DetectionsPage() {
                   <th className="px-4 py-3 font-medium">Risk</th>
                   <th className="px-4 py-3 font-medium">Barangay</th>
                   <th className="px-4 py-3 font-medium">Date</th>
-                  <th className="px-4 py-3 font-medium">CAO review</th>
                 </tr>
               </thead>
               <tbody>
-                {detections.map((detection) => (
-                  <tr
-                    key={detection.id}
-                    className="border-b border-gray-100 transition-colors last:border-0 hover:bg-gray-50"
-                  >
-                    <td className="px-4 py-3 font-medium text-gray-900">
-                      {detection.farmerName}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link
-                        to={`/diseases#${detection.predictedClass}`}
-                        className={`rounded px-2 py-0.5 text-xs font-medium hover:underline ${
-                          detection.isHealthy
-                            ? 'bg-green-50 text-green-700'
-                            : 'bg-amber-50 text-amber-800'
-                        }`}
-                      >
-                        {detection.diseaseName ?? detection.predictedClass}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {detection.confidenceScore.toFixed(1)}%
-                    </td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`rounded px-2 py-0.5 text-xs font-medium capitalize ${
-                          RISK_BADGE[detection.riskLevel]
-                        }`}
-                      >
-                        {detection.riskLevel}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{detection.barangay ?? '—'}</td>
-                    <td className="px-4 py-3 text-gray-500">{formatDate(detection.detectedAt)}</td>
-                    <td className="px-4 py-3">
-                      <ReviewChip
-                        detection={detection}
-                        onClick={() => setReviewing(detection)}
-                      />
-                    </td>
-                  </tr>
-                ))}
+                {detections.map((detection) => {
+                  const disease = diseases.find((d) => d.classLabel === detection.predictedClass);
+                  return (
+                    <tr
+                      key={detection.id}
+                      className="border-b border-gray-100 transition-colors last:border-0 hover:bg-gray-50"
+                    >
+                      <td className="px-4 py-3 font-medium text-gray-900">
+                        {detection.farmerName}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          disabled={!disease}
+                          onClick={() => disease && setViewingDisease(disease)}
+                          className={`rounded px-2 py-0.5 text-xs font-medium hover:underline disabled:no-underline disabled:opacity-70 ${
+                            detection.isHealthy
+                              ? 'bg-green-50 text-green-700'
+                              : 'bg-amber-50 text-amber-800'
+                          }`}
+                        >
+                          {detection.diseaseName ?? detection.predictedClass}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {detection.confidenceScore.toFixed(1)}%
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`rounded px-2 py-0.5 text-xs font-medium capitalize ${
+                            RISK_BADGE[detection.riskLevel]
+                          }`}
+                        >
+                          {detection.riskLevel}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">{detection.barangay ?? '—'}</td>
+                      <td className="px-4 py-3 text-gray-500">
+                        {formatDate(detection.detectedAt)}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -293,213 +313,109 @@ export function DetectionsPage() {
         </div>
       )}
 
-      {reviewing && (
-        <ReviewModal
-          detection={reviewing}
-          diseases={diseases}
-          onClose={() => setReviewing(null)}
-          onSaved={(updated) => {
-            setDetections((list) =>
-              list ? list.map((d) => (d.id === updated.id ? updated : d)) : list
-            );
-            setReviewing(null);
-          }}
-        />
+      {viewingDisease && (
+        <DiseaseDetailModal disease={viewingDisease} onClose={() => setViewingDisease(null)} />
       )}
     </AdminLayout>
   );
 }
 
-function ReviewChip({
-  detection,
-  onClick,
-}: {
-  detection: DetectionSummary;
-  onClick: () => void;
-}) {
-  if (detection.reviewStatus === 'confirmed') {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        className="rounded bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700 hover:bg-green-100"
-      >
-        ✓ Confirmed
-      </button>
-    );
-  }
-  if (detection.reviewStatus === 'corrected') {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        className="rounded bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 hover:bg-amber-100"
-      >
-        ✎ {detection.correctedDiseaseName ?? detection.correctedClass ?? 'Corrected'}
-      </button>
-    );
-  }
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded border border-gray-200 px-2 py-0.5 text-xs font-medium text-gray-500 hover:bg-gray-100"
-    >
-      Review
-    </button>
-  );
-}
-
-function ReviewModal({
-  detection,
-  diseases,
+/**
+ * Shows exactly one disease - the one the clicked scan predicted -
+ * never the whole library. Sized like the mobile Library's detail
+ * card (generously, but capped) with its own scrollbar so a long
+ * description/symptoms/treatments list can't blow up the page.
+ */
+function DiseaseDetailModal({
+  disease,
   onClose,
-  onSaved,
 }: {
-  detection: DetectionSummary;
-  diseases: DiseaseInfo[];
+  disease: DiseaseInfo;
   onClose: () => void;
-  onSaved: (updated: DetectionSummary) => void;
 }) {
-  const [status, setStatus] = useState<'unreviewed' | 'confirmed' | 'corrected'>(
-    detection.reviewStatus
-  );
-  const [correctedClass, setCorrectedClass] = useState(detection.correctedClass ?? '');
-  const [note, setNote] = useState(detection.reviewNote ?? '');
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function save() {
-    setError(null);
-    if (status === 'corrected' && !correctedClass) {
-      setError('Pick the disease this scan should be.');
-      return;
-    }
-    setIsSaving(true);
-    try {
-      const { detection: updated } = await detectionService.reviewDetection(detection.id, {
-        status,
-        correctedClass: status === 'corrected' ? correctedClass : undefined,
-        note: note.trim() || undefined,
-      });
-      onSaved(updated);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not save the review.');
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  const OPTIONS: { value: typeof status; label: string }[] = [
-    { value: 'unreviewed', label: 'Not reviewed' },
-    { value: 'confirmed', label: 'Confirm the AI result' },
-    { value: 'corrected', label: 'Correct it' },
-  ];
-
   return (
     <div
       className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl"
+        className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
-          <h2 className="text-base font-semibold text-gray-900">Review scan</h2>
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-gray-200 px-6 py-4">
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-semibold text-gray-900">{disease.displayName}</h2>
+              <span
+                className={`rounded px-2 py-0.5 text-xs font-medium capitalize ${
+                  RISK_BADGE[disease.defaultRiskLevel]
+                }`}
+              >
+                {disease.defaultRiskLevel} risk
+              </span>
+              {disease.isHealthy && (
+                <span className="rounded bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+                  Healthy class
+                </span>
+              )}
+            </div>
+            {disease.scientificName && (
+              <p className="mt-0.5 text-sm italic text-gray-500">{disease.scientificName}</p>
+            )}
+          </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
             aria-label="Close"
           >
             ✕
           </button>
         </div>
 
-        <div className="space-y-4 px-5 py-5">
-          <div className="rounded-lg bg-gray-50 px-3 py-2.5 text-sm">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-              AI result (kept as-is)
-            </p>
-            <p className="mt-0.5 text-gray-800">
-              {detection.diseaseName ?? detection.predictedClass} ·{' '}
-              {detection.confidenceScore.toFixed(1)}% · {detection.riskLevel} risk
-            </p>
-            <p className="mt-0.5 text-xs text-gray-500">
-              {detection.farmerName}
-              {detection.barangay ? ` · ${detection.barangay}` : ''}
-            </p>
-          </div>
-
-          <div className="space-y-1.5">
-            {OPTIONS.map((option) => (
-              <label
-                key={option.value}
-                className="flex items-center gap-2 rounded-lg px-1 py-1 text-sm text-gray-700"
-              >
-                <input
-                  type="radio"
-                  name="review-status"
-                  checked={status === option.value}
-                  onChange={() => setStatus(option.value)}
-                />
-                {option.label}
-              </label>
-            ))}
-          </div>
-
-          {status === 'corrected' && (
-            <label className="block">
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                Actual disease
-              </span>
-              <select
-                value={correctedClass}
-                onChange={(e) => setCorrectedClass(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
-              >
-                <option value="">Select…</option>
-                {diseases.map((disease) => (
-                  <option key={disease.id} value={disease.classLabel}>
-                    {disease.displayName}
-                  </option>
-                ))}
-              </select>
-            </label>
+        <div className="overflow-y-auto px-6 py-5">
+          {disease.description && (
+            <p className="text-sm text-gray-700">{disease.description}</p>
           )}
 
-          <label className="block">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-              Note <span className="font-normal normal-case">(optional)</span>
-            </span>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              rows={2}
-              className="mt-1 w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
-            />
-          </label>
+          {disease.symptoms && (
+            <div className="mt-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Symptoms
+              </h3>
+              <p className="mt-1 text-sm text-gray-700">{disease.symptoms}</p>
+            </div>
+          )}
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
-        </div>
-
-        <div className="flex gap-3 border-t border-gray-100 px-5 py-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            disabled={isSaving}
-            onClick={save}
-            className="flex-1 rounded-lg bg-leaf-600 py-2.5 text-sm font-medium text-white hover:bg-leaf-700 disabled:opacity-60"
-          >
-            {isSaving ? 'Saving…' : 'Save review'}
-          </button>
+          <div className="mt-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+              Treatment recommendations ({disease.treatments.length})
+            </h3>
+            {disease.treatments.length === 0 ? (
+              <p className="mt-1 text-sm text-gray-400">None published for this class yet.</p>
+            ) : (
+              <ul className="mt-2 space-y-3">
+                {disease.treatments.map((treatment) => (
+                  <li key={treatment.id} className="text-sm text-gray-700">
+                    <span className="font-medium text-gray-900">{treatment.title}</span> —{' '}
+                    {treatment.recommendationText}
+                    {treatment.applicationMethod && (
+                      <p className="mt-1 text-xs text-gray-600">
+                        <span className="font-semibold">Application: </span>
+                        {treatment.applicationMethod}
+                      </p>
+                    )}
+                    {treatment.preventiveMeasures && (
+                      <p className="mt-0.5 text-xs text-gray-600">
+                        <span className="font-semibold">Prevention: </span>
+                        {treatment.preventiveMeasures}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       </div>
     </div>

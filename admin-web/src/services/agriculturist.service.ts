@@ -41,7 +41,8 @@ export interface AgriculturistPayload {
   email?: string;
   barangay?: string;
   municipality?: string;
-  specialization?: string;
+  /** From uploadImage() in upload.service.ts, or '' to remove the photo. */
+  avatarPath?: string;
   isActive?: boolean;
 }
 

@@ -21,6 +21,7 @@
     "morgan": "^1.12.0",
     "multer": "^2.3.0",
     "mysql2": "^3.24.2",
+    "phil-reg-prov-mun-brgy": "^1.1.0",
     "zod": "^4.5.4"
   },
   "devDependencies": {

@@ -19,9 +19,16 @@ import { StatCard } from '../components/StatCard';
 import { ScanTrendChart } from '../components/charts/ScanTrendChart';
 import { DiseaseBreakdownChart } from '../components/charts/DiseaseBreakdownChart';
 import { BarangayRiskChart } from '../components/charts/BarangayRiskChart';
+import { FarmersByBarangayChart } from '../components/charts/FarmersByBarangayChart';
 import { api, ApiError } from '../services/api';
 import * as dashboardService from '../services/dashboard.service';
-import type { BarangayBreakdown, DashboardStatistics, RecentDetection, RiskLevel } from '../types';
+import type {
+  BarangayBreakdown,
+  DashboardStatistics,
+  FarmerBarangayCount,
+  RecentDetection,
+  RiskLevel,
+} from '../types';
 
 const RISK_BADGE: Record<RiskLevel, string> = {
   none: 'bg-green-50 text-green-700',
@@ -62,6 +69,12 @@ export function DashboardPage() {
       );
     }
   }, [barangayRisk, barangayData]);
+
+  // ---- "Registered Farmers by Barangay" section ----
+  const [farmersByBarangay, setFarmersByBarangay] = useState<FarmerBarangayCount[] | null>(null);
+  const [farmersByBarangayError, setFarmersByBarangayError] = useState<string | null>(null);
+  const [isFarmersByBarangayLoading, setIsFarmersByBarangayLoading] = useState(true);
+  const [farmersByBarangayReloadKey, setFarmersByBarangayReloadKey] = useState(0);
 
   // ---- "Recent Detections" section (its own barangay + risk filters) ----
   const [recentRisk, setRecentRisk] = useState<RiskLevel | 'all'>('all');
@@ -129,6 +142,32 @@ export function DashboardPage() {
       isMounted = false;
     };
   }, [barangayRisk]);
+
+  useEffect(() => {
+    let isMounted = true;
+    setIsFarmersByBarangayLoading(true);
+    setFarmersByBarangayError(null);
+
+    dashboardService
+      .getFarmersPerBarangay()
+      .then((data) => {
+        if (isMounted) setFarmersByBarangay(data);
+      })
+      .catch((error) => {
+        if (isMounted) {
+          setFarmersByBarangayError(
+            error instanceof ApiError ? error.message : 'Could not load farmers by barangay.'
+          );
+        }
+      })
+      .finally(() => {
+        if (isMounted) setIsFarmersByBarangayLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [farmersByBarangayReloadKey]);
 
   useEffect(() => {
     let isMounted = true;
@@ -248,6 +287,57 @@ export function DashboardPage() {
             <div className="mt-4">
               <ScanTrendChart data={statistics.scanTrend} />
             </div>
+          </section>
+
+          {/* ---------- Registered Farmers by Barangay ---------- */}
+          <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900">
+                  Registered Farmers by Barangay
+                </h2>
+                <p className="mt-0.5 text-xs text-gray-400">
+                  Number of registered farmers across each barangay
+                </p>
+              </div>
+
+              <p className="text-sm text-gray-500">
+                Total Registered Farmers:{' '}
+                <span className="font-semibold text-gray-900">
+                  {statistics.totalFarmers.toLocaleString()}
+                </span>
+              </p>
+            </div>
+
+            {farmersByBarangayError && (
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+                <p className="text-sm text-red-700">{farmersByBarangayError}</p>
+                <button
+                  type="button"
+                  onClick={() => setFarmersByBarangayReloadKey((key) => key + 1)}
+                  className="shrink-0 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {isFarmersByBarangayLoading ? (
+              <div className="flex h-64 items-center justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-leaf-200 border-t-leaf-600" />
+              </div>
+            ) : farmersByBarangayError ? null : farmersByBarangay && farmersByBarangay.length > 0 ? (
+              <div className="mt-4">
+                <FarmersByBarangayChart data={farmersByBarangay} />
+              </div>
+            ) : (
+              <div className="mt-4 rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-10 text-center">
+                <p className="text-sm text-gray-500">No registered farmers yet.</p>
+                <p className="mt-1 text-xs text-gray-400">
+                  Farmers will appear here once the CAO adds them under Farmer Management.
+                </p>
+              </div>
+            )}
           </section>
 
           <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">

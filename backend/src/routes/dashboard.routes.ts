@@ -41,6 +41,19 @@ router.get(
 );
 
 /**
+ * GET /api/dashboard/farmers-per-barangay
+ *
+ * Same two guards as /statistics. Registered farmers grouped by
+ * barangay, highest first.
+ */
+router.get(
+  '/farmers-per-barangay',
+  authenticate,
+  requireAdmin,
+  dashboardController.getFarmersPerBarangay
+);
+
+/**
  * GET /api/dashboard/recent-detections?risk=&barangay=&limit=
  *
  * Same two guards as /statistics. The most recent scans, optionally

@@ -28,6 +28,7 @@ export interface User {
   /** Optional - CAO staff have one, farmers usually do not. */
   email: string | null;
   phoneNumber: string | null;
+  avatarPath: string | null;
   role: UserRole;
   isActive: boolean;
   createdAt: string;
@@ -113,6 +114,16 @@ export interface BarangayBreakdown {
   generatedFor: 'all' | RiskLevel;
   totals: { healthy: number; diseased: number; total: number };
   barangays: BarangayBreakdownRow[];
+}
+
+// ============================================================
+// Farmers per barangay (dashboard "Registered Farmers by Barangay")
+// ============================================================
+
+/** Matches FarmerBarangayCount in the backend dashboard service. */
+export interface FarmerBarangayCount {
+  barangay: string;
+  total: number;
 }
 
 // ============================================================
@@ -225,6 +236,8 @@ export interface ListNotificationsResult {
 
 export type FarmerAccountStatus = 'active' | 'inactive';
 
+export type AccountRole = 'farmer' | 'admin';
+
 export type AreaUnit = 'hectare' | 'sqm';
 
 /** Matches FarmPlot in backend/src/services/farmer.service.ts. */
@@ -237,14 +250,23 @@ export interface FarmPlot {
   note: string | null;
 }
 
-/** Matches FarmerSummary in backend/src/services/farmer.service.ts. */
+/**
+ * Matches FarmerSummary in backend/src/services/farmer.service.ts.
+ * The Users page now covers both roles - farmer-only fields
+ * (barangay, plots, ...) are null/empty for an admin row.
+ */
 export interface FarmerSummary {
   id: number;
+  role: AccountRole;
   fullName: string;
   username: string;
   email: string | null;
   phoneNumber: string | null;
+  gender: string | null;
+  dateOfBirth: string | null;
   avatarPath: string | null;
+  region: string | null;
+  province: string | null;
   barangay: string | null;
   municipality: string | null;
   farmSizeHectares: number | null;
@@ -287,9 +309,9 @@ export interface AgriculturistSummary {
   fullName: string;
   phoneNumber: string | null;
   email: string | null;
+  avatarPath: string | null;
   barangay: string | null;
   municipality: string | null;
-  specialization: string | null;
   isActive: boolean;
   createdAt: string;
 }

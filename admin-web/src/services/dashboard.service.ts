@@ -7,7 +7,7 @@
  */
 
 import { api } from './api';
-import type { BarangayBreakdown, RecentDetection, RiskLevel } from '../types';
+import type { BarangayBreakdown, FarmerBarangayCount, RecentDetection, RiskLevel } from '../types';
 
 /**
  * GET /api/dashboard/barangay-breakdown?risk=
@@ -20,6 +20,20 @@ import type { BarangayBreakdown, RecentDetection, RiskLevel } from '../types';
 export async function getBarangayBreakdown(risk?: RiskLevel): Promise<BarangayBreakdown> {
   const query = risk ? `?risk=${risk}` : '';
   return api.get<BarangayBreakdown>(`/dashboard/barangay-breakdown${query}`);
+}
+
+/**
+ * GET /api/dashboard/farmers-per-barangay
+ *
+ * Registered farmers grouped by barangay, highest first. Summing
+ * every row's `total` equals the dashboard's headline "Total Farmers"
+ * tile.
+ */
+export async function getFarmersPerBarangay(): Promise<FarmerBarangayCount[]> {
+  const result = await api.get<{ barangays: FarmerBarangayCount[] }>(
+    '/dashboard/farmers-per-barangay'
+  );
+  return result.barangays;
 }
 
 export interface RecentDetectionsFilters {

@@ -52,6 +52,21 @@ export async function getBarangayBreakdown(req: Request, res: Response): Promise
 }
 
 /**
+ * GET /api/dashboard/farmers-per-barangay
+ * CAO admin only. Registered farmers grouped by barangay, highest
+ * first - powers the "Registered Farmers by Barangay" chart. Summing
+ * every row's `total` equals /statistics' totalFarmers tile.
+ */
+export async function getFarmersPerBarangay(req: Request, res: Response): Promise<void> {
+  const barangays = await dashboardService.getFarmersPerBarangay();
+
+  res.status(200).json({
+    success: true,
+    data: { barangays },
+  });
+}
+
+/**
  * GET /api/dashboard/recent-detections?risk=&barangay=&limit=
  * CAO admin only. The most recent scans, optionally filtered to one
  * risk level and/or one barangay. Powers the dashboard's "Recent

@@ -14,16 +14,18 @@
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
 import { PoolConnection } from 'mysql2/promise';
 import { pool } from '../config/database';
+import { BARANGAYS } from '../constants/barangays';
 import { ApiError } from '../utils/ApiError';
 import { hashPassword } from '../utils/password';
 import {
   normalizePhone,
-  CreateFarmerInput,
+  CreateAccountInput,
   UpdateFarmerInput,
   FarmPlotInput,
 } from '../utils/validation';
 
 export type FarmerAccountStatus = 'active' | 'inactive';
+export type AccountRole = 'farmer' | 'admin';
 
 export type AreaUnit = 'hectare' | 'sqm';
 
@@ -131,11 +133,17 @@ async function writeFarmerPlots(
 
 export interface FarmerSummary {
   id: number;
+  /** 'farmer' or 'admin' - the Users page now lists and creates both. */
+  role: AccountRole;
   fullName: string;
   username: string;
   email: string | null;
   phoneNumber: string | null;
+  gender: string | null;
+  dateOfBirth: string | null;
   avatarPath: string | null;
+  region: string | null;
+  province: string | null;
   barangay: string | null;
   municipality: string | null;
   farmSizeHectares: number | null;
@@ -151,11 +159,16 @@ export interface FarmerSummary {
 
 interface FarmerRow extends RowDataPacket {
   id: number;
+  role: AccountRole;
   full_name: string;
   username: string;
   email: string | null;
   phone_number: string | null;
+  gender: string | null;
+  date_of_birth: Date | null;
   avatar_path: string | null;
+  region: string | null;
+  province: string | null;
   barangay: string | null;
   municipality: string | null;
   farm_size_hectares: number | null;
@@ -175,11 +188,16 @@ function toSummary(row: FarmerRow, plots: FarmPlot[] = []): FarmerSummary {
 
   return {
     id: row.id,
+    role: row.role,
     fullName: row.full_name,
     username: row.username,
     email: row.email,
     phoneNumber: row.phone_number,
+    gender: row.gender,
+    dateOfBirth: row.date_of_birth ? new Date(row.date_of_birth).toISOString().slice(0, 10) : null,
     avatarPath: row.avatar_path,
+    region: row.region,
+    province: row.province,
     barangay: row.barangay,
     municipality: row.municipality,
     farmSizeHectares,
@@ -194,21 +212,27 @@ function toSummary(row: FarmerRow, plots: FarmPlot[] = []): FarmerSummary {
 
 // `address` and `barangay` on the farmers table are kept in sync by
 // this module; COALESCE reads whichever a legacy row happens to have.
+// The Users page now covers both roles, so no farmers row at all
+// (an admin account) is expected here - the LEFT JOIN already handles
+// that gracefully, leaving every farmers.* column NULL.
 const SELECT_FARMER = `
   SELECT
-    u.id, u.full_name, u.username, u.email, u.phone_number, u.avatar_path,
+    u.id, u.role, u.full_name, u.username, u.email, u.phone_number,
+    u.gender, u.date_of_birth, u.avatar_path,
     u.is_active, u.created_at,
+    f.region, f.province,
     COALESCE(f.barangay, f.address) AS barangay,
     f.municipality, f.farm_size_hectares, f.years_farming,
     (SELECT COUNT(*) FROM reports r WHERE r.farmer_id = u.id) AS report_count
   FROM users u
   LEFT JOIN farmers f ON f.user_id = u.id
-  WHERE u.role = 'farmer'
+  WHERE u.role IN ('farmer', 'admin')
 `;
 
 export interface ListFarmersOptions {
   status?: FarmerAccountStatus;
   search?: string;
+  barangay?: string;
   page: number;
   pageSize: number;
 }
@@ -222,7 +246,7 @@ export interface ListFarmersResult {
 
 /** CAO admin only. Newest account first, optionally filtered/searched. */
 export async function listFarmers(options: ListFarmersOptions): Promise<ListFarmersResult> {
-  const { status, search, page, pageSize } = options;
+  const { status, search, barangay, page, pageSize } = options;
   const offset = (page - 1) * pageSize;
 
   const conditions: string[] = [];
@@ -236,6 +260,10 @@ export async function listFarmers(options: ListFarmersOptions): Promise<ListFarm
     const like = `%${search}%`;
     params.push(like, like, like);
   }
+  if (barangay) {
+    conditions.push('COALESCE(f.barangay, f.address) = ?');
+    params.push(barangay);
+  }
   const extraClause = conditions.length ? `AND ${conditions.join(' AND ')}` : '';
 
   const [rows] = await pool.query<FarmerRow[]>(
@@ -246,7 +274,10 @@ export async function listFarmers(options: ListFarmersOptions): Promise<ListFarm
   );
 
   const [countRows] = await pool.query<RowDataPacket[]>(
-    `SELECT COUNT(*) AS total FROM users u WHERE u.role = 'farmer' ${extraClause}`,
+    `SELECT COUNT(*) AS total
+     FROM users u
+     LEFT JOIN farmers f ON f.user_id = u.id
+     WHERE u.role IN ('farmer', 'admin') ${extraClause}`,
     params
   );
 
@@ -260,61 +291,50 @@ export async function listFarmers(options: ListFarmersOptions): Promise<ListFarm
   };
 }
 
-/** CAO admin only. One farmer's full account + profile detail. */
+/**
+ * CAO admin only. The fixed barangay list (see constants/barangays.ts)
+ * - the single source of truth behind the Farmers/Detections barangay
+ * filters and the Add/Edit Farmer dropdown, so a barangay can't drift
+ * into "San Jose" / "san jose" / "SAN  JOSE" variants across the app.
+ */
+export async function listFarmerBarangays(): Promise<string[]> {
+  return [...BARANGAYS];
+}
+
+/** CAO admin only. One account's full detail - farmer or admin. */
 export async function getFarmerById(id: number): Promise<FarmerSummary> {
   const [rows] = await pool.query<FarmerRow[]>(`${SELECT_FARMER} AND u.id = ? LIMIT 1`, [id]);
   const row = rows[0];
   if (!row) {
-    throw ApiError.notFound('Farmer not found');
+    throw ApiError.notFound('Account not found');
   }
   const plotsByUser = await fetchPlotsFor([row.id]);
   return toSummary(row, plotsByUser.get(row.id) ?? []);
 }
 
-/** Six pronounceable-ish characters, no ambiguous 0/O/1/l. */
-function generatePassword(): string {
-  const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
-  let out = '';
-  for (let i = 0; i < 10; i++) {
-    out += alphabet[Math.floor(Math.random() * alphabet.length)];
-  }
-  return out;
-}
-
-async function deriveUsername(fullName: string): Promise<string> {
-  const base =
-    fullName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '.')
-      .replace(/^\.+|\.+$/g, '')
-      .slice(0, 40) || 'farmer';
-
-  for (let attempt = 0; attempt < 50; attempt++) {
-    const candidate = attempt === 0 ? base : `${base}${attempt + 1}`;
-    const padded = candidate.length < 4 ? `${candidate}farm`.slice(0, 8) : candidate;
-    const [rows] = await pool.query<RowDataPacket[]>(
-      'SELECT id FROM users WHERE username = ? LIMIT 1',
-      [padded]
-    );
-    if (rows.length === 0) return padded;
-  }
-  return `farmer${Date.now()}`;
-}
-
 export interface CreatedFarmer {
+  /** The newly created account - a farmer or an admin, per the chosen role. */
   farmer: FarmerSummary;
   /** Plaintext credentials, shown to the CAO once so they can pass them on. */
   credentials: { username: string; password: string };
 }
 
+/** "Juan", "Santos", "Dela Cruz" -> "Juan Santos Dela Cruz" (blank middle name dropped). */
+function combineName(firstName: string, middleName: string | undefined, lastName: string): string {
+  return [firstName.trim(), middleName?.trim(), lastName.trim()].filter(Boolean).join(' ');
+}
+
 /**
- * The CAO issues a new farmer account. Writes users + farmers in one
- * transaction. Returns the account plus the credentials to hand over
- * (the password is never retrievable again afterwards).
+ * The CAO issues a new account - a farmer (with a farm profile) or a
+ * fellow admin. Writes `users` (both roles) and, for a farmer, also
+ * `farmers` + its plots, in one transaction. Returns the account plus
+ * the credentials to hand over (the password is never retrievable
+ * again afterwards).
  */
-export async function createFarmer(input: CreateFarmerInput): Promise<CreatedFarmer> {
-  const username = (input.username ?? (await deriveUsername(input.fullName))).toLowerCase();
-  const password = input.password ?? generatePassword();
+export async function createAccount(input: CreateAccountInput): Promise<CreatedFarmer> {
+  const fullName = combineName(input.firstName, input.middleName, input.lastName);
+  const username = input.username.toLowerCase();
+  const password = input.password;
   const phoneNumber = normalizePhone(input.phoneNumber);
 
   const connection = await pool.getConnection();
@@ -340,34 +360,51 @@ export async function createFarmer(input: CreateFarmerInput): Promise<CreatedFar
     await connection.beginTransaction();
     try {
       const [userResult] = await connection.query<ResultSetHeader>(
-        `INSERT INTO users (full_name, username, email, phone_number, password_hash, role, is_active)
-         VALUES (?, ?, NULL, ?, ?, 'farmer', 1)`,
-        [input.fullName, username, phoneNumber, passwordHash]
+        `INSERT INTO users
+           (full_name, username, email, phone_number, gender, date_of_birth,
+            avatar_path, password_hash, role, is_active)
+         VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?, 1)`,
+        [
+          fullName,
+          username,
+          phoneNumber,
+          input.gender ?? null,
+          input.dateOfBirth || null,
+          input.avatarPath || null,
+          passwordHash,
+          input.role,
+        ]
       );
       const newUserId = userResult.insertId;
 
-      await connection.query<ResultSetHeader>(
-        `INSERT INTO farmers
-           (user_id, address, barangay, municipality, farm_size_hectares, years_farming)
-         VALUES (?, ?, ?, 'Pagadian City', ?, ?)`,
-        [
-          newUserId,
-          input.barangay || null,
-          input.barangay || null,
-          input.farmSizeHectares ?? null,
-          input.yearsFarming ?? null,
-        ]
-      );
+      if (input.role === 'farmer') {
+        await connection.query<ResultSetHeader>(
+          `INSERT INTO farmers
+             (user_id, region, province, address, barangay, municipality,
+              farm_size_hectares, years_farming)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            newUserId,
+            input.region || null,
+            input.province || null,
+            input.barangay || null,
+            input.barangay || null,
+            input.municipality || null,
+            input.farmSizeHectares ?? null,
+            input.yearsFarming ?? null,
+          ]
+        );
 
-      // Plots, when given, own farm_size_hectares from here on.
-      if (input.plots !== undefined) {
-        await writeFarmerPlots(connection, newUserId, input.plots);
+        // Plots, when given, own farm_size_hectares from here on.
+        if (input.plots !== undefined) {
+          await writeFarmerPlots(connection, newUserId, input.plots);
+        }
       }
 
       await connection.commit();
 
-      const farmer = await getFarmerById(newUserId);
-      return { farmer, credentials: { username, password } };
+      const account = await getFarmerById(newUserId);
+      return { farmer: account, credentials: { username, password } };
     } catch (error) {
       await connection.rollback();
       throw error;
@@ -383,16 +420,21 @@ export interface UpdatedFarmer {
   newPassword?: string;
 }
 
-/** CAO admin only. Edit details, activate/deactivate, or reset the password. */
+/**
+ * CAO admin only. Edit details, activate/deactivate, or reset the
+ * password - for a farmer or an admin account (barangay/farm-size/
+ * plots updates below are no-ops for an admin, since it has no
+ * `farmers` row to write to).
+ */
 export async function updateFarmer(id: number, input: UpdateFarmerInput): Promise<UpdatedFarmer> {
   const connection = await pool.getConnection();
   try {
     const [existing] = await connection.query<RowDataPacket[]>(
-      "SELECT id FROM users WHERE id = ? AND role = 'farmer' LIMIT 1",
+      "SELECT id FROM users WHERE id = ? AND role IN ('farmer', 'admin') LIMIT 1",
       [id]
     );
     if (existing.length === 0) {
-      throw ApiError.notFound('Farmer not found');
+      throw ApiError.notFound('Account not found');
     }
 
     await connection.beginTransaction();
@@ -415,6 +457,10 @@ export async function updateFarmer(id: number, input: UpdateFarmerInput): Promis
         }
         userSets.push('phone_number = ?');
         userParams.push(phoneNumber);
+      }
+      if (input.avatarPath !== undefined) {
+        userSets.push('avatar_path = ?');
+        userParams.push(input.avatarPath || null);
       }
       if (input.isActive !== undefined) {
         userSets.push('is_active = ?');
@@ -474,5 +520,22 @@ export async function updateFarmer(id: number, input: UpdateFarmerInput): Promis
     }
   } finally {
     connection.release();
+  }
+}
+
+/**
+ * CAO admin only. Permanently removes an account. `ON DELETE CASCADE`
+ * on the users foreign keys takes its `farmers` row, farm plots,
+ * detections, and reports down with it - there is no undo, unlike
+ * Deactivate. `reviewed_by`/`created_by` references elsewhere are
+ * left in place with that column set to NULL instead.
+ */
+export async function deleteAccount(id: number): Promise<void> {
+  const [result] = await pool.query<ResultSetHeader>(
+    "DELETE FROM users WHERE id = ? AND role IN ('farmer', 'admin')",
+    [id]
+  );
+  if (result.affectedRows === 0) {
+    throw ApiError.notFound('Account not found');
   }
 }

@@ -20,6 +20,15 @@
  * Expo already knows the bundler's address (it is in the QR-code
  * URL); we reuse it. If that lookup fails, the app falls back to
  * DEV_MACHINE_IP below.
+ *
+ * "Something went wrong" in Expo Go / QR code points at the wrong
+ * network: `npm start` (and android/ios/web) run through
+ * scripts/dev.js, which pins the IP Expo advertises via
+ * REACT_NATIVE_PACKAGER_HOSTNAME. Without it, Expo's own auto-detect
+ * can pick a disconnected adapter or a stale IP, especially right
+ * after switching networks (e.g. a phone hotspot) - see the comment
+ * at the top of that script. Always start the app with `npm start`,
+ * not `npx expo start` directly.
  */
 
 import { Platform } from 'react-native';
@@ -32,7 +41,7 @@ import Constants from 'expo-constants';
 // Find it with `ipconfig` (Windows) / `ifconfig` (macOS/Linux) -
 // the "IPv4 Address" of the Wi-Fi adapter, e.g. 192.168.x.x.
 // ----------------------------------------------------------
-const DEV_MACHINE_IP = ' 10.94.129.25';
+const DEV_MACHINE_IP = '192.168.1.12';
 
 /** Where the real backend listens. Used directly only in production builds. */
 const BACKEND_PORT = 4000;

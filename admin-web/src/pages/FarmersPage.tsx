@@ -13,22 +13,22 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { AdminLayout } from '../components/layout/AdminLayout';
+import { BarangayInput } from '../components/BarangayInput';
 import { ApiError } from '../services/api';
+import * as addressService from '../services/address.service';
+import type { AddressOption } from '../services/address.service';
 import * as farmerService from '../services/farmer.service';
 import type { FarmPlotPayload } from '../services/farmer.service';
+import * as uploadService from '../services/upload.service';
+import { mediaUrl } from '../services/media';
 import type {
+  AccountRole,
   AreaUnit,
   CreatedFarmer,
   FarmerAccountStatus,
   FarmerSummary,
   FarmPlot,
 } from '../types';
-
-const STATUS_FILTERS: { label: string; value: FarmerAccountStatus | 'all' }[] = [
-  { label: 'All', value: 'all' },
-  { label: 'Active', value: 'active' },
-  { label: 'Inactive', value: 'inactive' },
-];
 
 const PAGE_SIZE = 20;
 
@@ -44,6 +44,32 @@ function initialsOf(fullName: string): string {
   return fullName.trim().charAt(0).toUpperCase() || '?';
 }
 
+function Avatar({
+  person,
+  sizeClass,
+}: {
+  person: { fullName: string; avatarPath?: string | null };
+  sizeClass: string;
+}) {
+  const url = mediaUrl(person.avatarPath);
+  if (url) {
+    return (
+      <img
+        src={url}
+        alt={person.fullName}
+        className={`shrink-0 rounded-full object-cover ${sizeClass}`}
+      />
+    );
+  }
+  return (
+    <div
+      className={`flex shrink-0 items-center justify-center rounded-full bg-leaf-50 font-bold text-leaf-700 ${sizeClass}`}
+    >
+      {initialsOf(person.fullName)}
+    </div>
+  );
+}
+
 function StatusBadge({ isActive }: { isActive: boolean }) {
   return (
     <span
@@ -57,23 +83,33 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
 }
 
 export function FarmersPage() {
-  const [filter, setFilter] = useState<FarmerAccountStatus | 'all'>('all');
+  const [barangayFilter, setBarangayFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState<FarmerAccountStatus | 'all'>('all');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
   const [farmers, setFarmers] = useState<FarmerSummary[] | null>(null);
   const [total, setTotal] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [barangays, setBarangays] = useState<string[]>([]);
 
   const [selected, setSelected] = useState<FarmerSummary | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [createdResult, setCreatedResult] = useState<CreatedFarmer | null>(null);
 
+  useEffect(() => {
+    farmerService
+      .listBarangays()
+      .then(setBarangays)
+      .catch(() => setBarangays([]));
+  }, []);
+
   const load = useCallback(async () => {
     setErrorMessage(null);
     try {
       const result = await farmerService.listFarmers({
-        status: filter === 'all' ? undefined : filter,
+        barangay: barangayFilter === 'all' ? undefined : barangayFilter,
+        status: statusFilter === 'all' ? undefined : statusFilter,
         search: search.trim() || undefined,
         page,
         pageSize: PAGE_SIZE,
@@ -83,7 +119,7 @@ export function FarmersPage() {
     } catch (error) {
       setErrorMessage(error instanceof ApiError ? error.message : 'Could not load farmers.');
     }
-  }, [filter, search, page]);
+  }, [barangayFilter, statusFilter, search, page]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), search ? 300 : 0);
@@ -93,30 +129,10 @@ export function FarmersPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <AdminLayout title="Farmers">
+    <AdminLayout title="Users">
       {/* ---------- Toolbar ---------- */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          {STATUS_FILTERS.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => {
-                setFilter(option.value);
-                setPage(1);
-              }}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-                filter === option.value
-                  ? 'bg-leaf-600 text-white'
-                  : 'bg-white text-gray-600 hover:bg-gray-100'
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <input
             type="search"
             value={search}
@@ -127,14 +143,58 @@ export function FarmersPage() {
             placeholder="Search name, username, phone…"
             className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:border-leaf-500 focus:outline-none"
           />
+          <select
+            value={barangayFilter}
+            onChange={(e) => {
+              setBarangayFilter(e.target.value);
+              setPage(1);
+            }}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:border-leaf-500 focus:outline-none"
+          >
+            <option value="all">All Barangays</option>
+            {barangays.map((b) => (
+              <option key={b} value={b}>
+                {b}
+              </option>
+            ))}
+          </select>
           <button
             type="button"
-            onClick={() => setIsCreating(true)}
-            className="rounded-lg bg-leaf-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-leaf-700"
+            onClick={() => {
+              setStatusFilter((prev) => (prev === 'active' ? 'all' : 'active'));
+              setPage(1);
+            }}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+              statusFilter === 'active'
+                ? 'bg-leaf-600 text-white'
+                : 'bg-white text-gray-600 hover:bg-gray-100'
+            }`}
           >
-            + Add Farmer
+            Active
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setStatusFilter((prev) => (prev === 'inactive' ? 'all' : 'inactive'));
+              setPage(1);
+            }}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+              statusFilter === 'inactive'
+                ? 'bg-leaf-600 text-white'
+                : 'bg-white text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            Inactive
           </button>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setIsCreating(true)}
+          className="rounded-lg bg-leaf-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-leaf-700"
+        >
+          + Add Farmer
+        </button>
       </div>
 
       {errorMessage && (
@@ -152,7 +212,9 @@ export function FarmersPage() {
         ) : farmers.length === 0 ? (
           <div className="px-4 py-16 text-center">
             <p className="text-sm text-gray-500">
-              {search ? 'No farmers match your search.' : 'No farmer accounts yet.'}
+              {search || barangayFilter !== 'all'
+                ? 'No farmers match your filters.'
+                : 'No farmer accounts yet.'}
             </p>
             <p className="mt-1 text-xs text-gray-400">
               Use “Add Farmer” to create an account and issue credentials.
@@ -164,6 +226,7 @@ export function FarmersPage() {
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-400">
                   <th className="px-4 py-3 font-medium">Farmer</th>
+                  <th className="px-4 py-3 font-medium">Role</th>
                   <th className="px-4 py-3 font-medium">Phone</th>
                   <th className="px-4 py-3 font-medium">Barangay</th>
                   <th className="px-4 py-3 font-medium">Area</th>
@@ -181,14 +244,23 @@ export function FarmersPage() {
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2.5">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-leaf-50 text-xs font-bold text-leaf-700">
-                          {initialsOf(farmer.fullName)}
-                        </div>
+                        <Avatar person={farmer} sizeClass="h-8 w-8 text-xs" />
                         <div>
                           <p className="font-medium text-gray-900">{farmer.fullName}</p>
                           <p className="text-xs text-gray-400">@{farmer.username}</p>
                         </div>
                       </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`rounded px-2 py-0.5 text-xs font-medium capitalize ${
+                          farmer.role === 'admin'
+                            ? 'bg-purple-50 text-purple-700'
+                            : 'bg-leaf-50 text-leaf-700'
+                        }`}
+                      >
+                        {farmer.role}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-gray-600">{farmer.phoneNumber ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-600">
@@ -253,13 +325,18 @@ export function FarmersPage() {
       {selected && (
         <FarmerDetailModal
           farmer={selected}
+          barangays={barangays}
           onClose={() => setSelected(null)}
           onChanged={load}
+          onDeleted={() => {
+            setSelected(null);
+            void load();
+          }}
         />
       )}
 
       {isCreating && (
-        <CreateFarmerModal
+        <CreateAccountModal
           onClose={() => setIsCreating(false)}
           onCreated={(result) => {
             setIsCreating(false);
@@ -271,7 +348,7 @@ export function FarmersPage() {
 
       {createdResult && (
         <CredentialsModal
-          title="Farmer account created"
+          title={createdResult.farmer.role === 'admin' ? 'Admin account created' : 'Farmer account created'}
           username={createdResult.credentials.username}
           password={createdResult.credentials.password}
           onClose={() => setCreatedResult(null)}
@@ -285,47 +362,147 @@ export function FarmersPage() {
 // Create
 // ============================================================
 
-function CreateFarmerModal({
+function CreateAccountModal({
   onClose,
   onCreated,
 }: {
   onClose: () => void;
   onCreated: (result: CreatedFarmer) => void;
 }) {
-  const [fullName, setFullName] = useState('');
+  const [role, setRole] = useState<AccountRole>('farmer');
+
+  const [firstName, setFirstName] = useState('');
+  const [middleName, setMiddleName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [barangay, setBarangay] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [gender, setGender] = useState<'' | 'male' | 'female' | 'other'>('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+
+  const [avatarPath, setAvatarPath] = useState<string | undefined>();
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+
+  // Address cascade - farmer only. Each level's options load once its
+  // parent is chosen; picking a new parent clears everything below it.
+  const [regions, setRegions] = useState<AddressOption[]>([]);
+  const [provinces, setProvinces] = useState<AddressOption[]>([]);
+  const [cities, setCities] = useState<AddressOption[]>([]);
+  const [barangayOptions, setBarangayOptions] = useState<string[]>([]);
+  const [regionCode, setRegionCode] = useState('');
+  const [provinceCode, setProvinceCode] = useState('');
+  const [cityCode, setCityCode] = useState('');
+  const [barangay, setBarangay] = useState('');
+
   const [plots, setPlots] = useState<PlotDraft[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    addressService
+      .listRegions()
+      .then(setRegions)
+      .catch(() => setRegions([]));
+  }, []);
+
+  useEffect(() => {
+    if (!regionCode) {
+      setProvinces([]);
+      return;
+    }
+    addressService
+      .listProvinces(regionCode)
+      .then(setProvinces)
+      .catch(() => setProvinces([]));
+  }, [regionCode]);
+
+  useEffect(() => {
+    if (!provinceCode) {
+      setCities([]);
+      return;
+    }
+    addressService
+      .listCities(provinceCode)
+      .then(setCities)
+      .catch(() => setCities([]));
+  }, [provinceCode]);
+
+  useEffect(() => {
+    if (!cityCode) {
+      setBarangayOptions([]);
+      return;
+    }
+    addressService
+      .listBarangaysForCity(cityCode)
+      .then(setBarangayOptions)
+      .catch(() => setBarangayOptions([]));
+  }, [cityCode]);
+
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+    setIsUploadingAvatar(true);
+    try {
+      const uploaded = await uploadService.uploadImage(file);
+      setAvatarPath(uploaded.imagePath);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not upload that image.');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  }
+
   async function handleSubmit() {
     setError(null);
-    if (fullName.trim().length < 2) {
-      setError('Enter the farmer’s full name.');
+    if (firstName.trim().length < 1) {
+      setError('Enter a first name.');
+      return;
+    }
+    if (lastName.trim().length < 1) {
+      setError('Enter a last name.');
       return;
     }
     if (!/^(09\d{9}|\+639\d{9})$/.test(phoneNumber.trim())) {
-      setError('Enter a valid mobile number, e.g. 09171234567.');
+      setError('Enter a valid contact number, e.g. 09171234567.');
       return;
     }
-    if (plots.some((plot) => plot.area.trim() !== '' && !(Number(plot.area) > 0))) {
+    if (username.trim().length < 4) {
+      setError('Enter a username of at least 4 characters.');
+      return;
+    }
+    if (password.trim().length < 8) {
+      setError('Enter a password of at least 8 characters.');
+      return;
+    }
+    if (
+      role === 'farmer' &&
+      plots.some((plot) => plot.area.trim() !== '' && !(Number(plot.area) > 0))
+    ) {
       setError('Every plot needs an area greater than zero, or remove the row.');
       return;
     }
 
-    const payloadPlots = plotsPayloadFrom(plots);
+    const payloadPlots = role === 'farmer' ? plotsPayloadFrom(plots) : [];
 
     setIsSubmitting(true);
     try {
-      const result = await farmerService.createFarmer({
-        fullName: fullName.trim(),
+      const result = await farmerService.createAccount({
+        role,
+        firstName: firstName.trim(),
+        middleName: middleName.trim() || undefined,
+        lastName: lastName.trim(),
+        username: username.trim(),
+        password: password.trim(),
         phoneNumber: phoneNumber.trim(),
-        barangay: barangay.trim() || undefined,
-        username: username.trim() || undefined,
-        password: password.trim() || undefined,
+        gender: gender || undefined,
+        dateOfBirth: dateOfBirth || undefined,
+        avatarPath,
+        region: role === 'farmer' ? regions.find((r) => r.code === regionCode)?.name : undefined,
+        province:
+          role === 'farmer' ? provinces.find((p) => p.code === provinceCode)?.name : undefined,
+        municipality: role === 'farmer' ? cities.find((c) => c.code === cityCode)?.name : undefined,
+        barangay: role === 'farmer' ? barangay || undefined : undefined,
         plots: payloadPlots.length > 0 ? payloadPlots : undefined,
       });
       onCreated(result);
@@ -337,37 +514,153 @@ function CreateFarmerModal({
   }
 
   return (
-    <ModalShell title="Add Farmer" onClose={onClose}>
+    <ModalShell title="Create Account" size="lg" onClose={onClose}>
       <div className="space-y-3">
-        <Field label="Full name" value={fullName} onChange={setFullName} placeholder="Juan Dela Cruz" />
-        <Field
-          label="Mobile number"
-          value={phoneNumber}
-          onChange={setPhoneNumber}
-          placeholder="09171234567"
-        />
-        <Field label="Barangay" value={barangay} onChange={setBarangay} placeholder="Balangasan" />
+        <label className="block">
+          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Role</span>
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value as AccountRole)}
+            className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
+          >
+            <option value="farmer">Farmer</option>
+            <option value="admin">Admin</option>
+          </select>
+        </label>
 
-        <PlotsEditor plots={plots} onChange={setPlots} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="First name" value={firstName} onChange={setFirstName} />
+          <Field
+            label="Middle name (optional)"
+            value={middleName}
+            onChange={setMiddleName}
+          />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field
+            label="Last name"
+            value={lastName}
+            onChange={setLastName}
+          />
+          <Field
+            label="Contact number"
+            value={phoneNumber}
+            onChange={setPhoneNumber}
+          />
+        </div>
 
         <div className="grid grid-cols-2 gap-3">
           <Field
-            label="Username (optional)"
+            label="Username"
             value={username}
             onChange={setUsername}
-            placeholder="auto-generated"
           />
           <Field
-            label="Password (optional)"
+            label="Password"
+            type="password"
             value={password}
             onChange={setPassword}
-            placeholder="auto-generated"
           />
         </div>
-        <p className="text-xs text-gray-400">
-          Leave username or password blank to have the system generate them. You will see the
-          credentials once, to hand to the farmer.
-        </p>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block">
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+              Gender
+            </span>
+            <select
+              value={gender}
+              onChange={(e) => setGender(e.target.value as typeof gender)}
+              className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
+            >
+              <option value="">Select gender</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <Field
+            label="Date of birth"
+            type="date"
+            value={dateOfBirth}
+            onChange={setDateOfBirth}
+          />
+        </div>
+
+        <label className="block">
+          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+            Profile image (optional)
+          </span>
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={handleAvatarChange}
+            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-700 focus:border-leaf-500 focus:outline-none"
+          />
+          {isUploadingAvatar && (
+            <span className="mt-1 block text-xs text-gray-400">Uploading…</span>
+          )}
+          {avatarPath && !isUploadingAvatar && (
+            <span className="mt-1 block text-xs text-green-600">Image uploaded.</span>
+          )}
+        </label>
+
+        {role === 'farmer' && (
+          <>
+            <div>
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Address
+              </span>
+              <div className="mt-1.5 grid gap-3 sm:grid-cols-2">
+                <SelectField
+                  label="Region"
+                  value={regionCode}
+                  onChange={(v) => {
+                    setRegionCode(v);
+                    setProvinceCode('');
+                    setCityCode('');
+                    setBarangay('');
+                  }}
+                  options={regions.map((r) => ({ value: r.code, label: r.name }))}
+                  placeholder="Select region"
+                />
+                <SelectField
+                  label="Province"
+                  value={provinceCode}
+                  onChange={(v) => {
+                    setProvinceCode(v);
+                    setCityCode('');
+                    setBarangay('');
+                  }}
+                  options={provinces.map((p) => ({ value: p.code, label: p.name }))}
+                  placeholder="Select province"
+                  disabled={!regionCode}
+                />
+                <SelectField
+                  label="City / Municipality"
+                  value={cityCode}
+                  onChange={(v) => {
+                    setCityCode(v);
+                    setBarangay('');
+                  }}
+                  options={cities.map((c) => ({ value: c.code, label: c.name }))}
+                  placeholder="Select city / municipality"
+                  disabled={!provinceCode}
+                />
+                <SelectField
+                  label="Barangay"
+                  value={barangay}
+                  onChange={setBarangay}
+                  options={barangayOptions.map((b) => ({ value: b, label: b }))}
+                  placeholder="Select barangay"
+                  disabled={!cityCode}
+                />
+              </div>
+            </div>
+
+            <PlotsEditor plots={plots} onChange={setPlots} />
+          </>
+        )}
 
         {error && <p className="text-sm text-red-600">{error}</p>}
       </div>
@@ -382,7 +675,7 @@ function CreateFarmerModal({
         </button>
         <button
           type="button"
-          disabled={isSubmitting}
+          disabled={isSubmitting || isUploadingAvatar}
           onClick={handleSubmit}
           className="flex-1 rounded-lg bg-leaf-600 py-2.5 text-sm font-medium text-white hover:bg-leaf-700 disabled:opacity-60"
         >
@@ -399,29 +692,53 @@ function CreateFarmerModal({
 
 function FarmerDetailModal({
   farmer,
+  barangays,
   onClose,
   onChanged,
+  onDeleted,
 }: {
   farmer: FarmerSummary;
+  barangays: string[];
   onClose: () => void;
   onChanged: () => void;
+  onDeleted: () => void;
 }) {
   const navigate = useNavigate();
   const [current, setCurrent] = useState(farmer);
   const [fullName, setFullName] = useState(farmer.fullName);
   const [phoneNumber, setPhoneNumber] = useState(farmer.phoneNumber ?? '');
   const [barangay, setBarangay] = useState(farmer.barangay ?? '');
+  const [avatarPath, setAvatarPath] = useState(farmer.avatarPath ?? '');
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [plots, setPlots] = useState<PlotDraft[]>(() => draftsFromPlots(farmer.plots));
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [resetPassword, setResetPassword] = useState<string | null>(null);
+  const [askDelete, setAskDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const plotsChanged = !plotsUnchanged(plots, current.plots);
   const dirty =
     fullName.trim() !== current.fullName ||
     phoneNumber.trim() !== (current.phoneNumber ?? '') ||
     barangay.trim() !== (current.barangay ?? '') ||
+    avatarPath !== (current.avatarPath ?? '') ||
     plotsChanged;
+
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+    setIsUploadingAvatar(true);
+    try {
+      const uploaded = await uploadService.uploadImage(file);
+      setAvatarPath(uploaded.imagePath);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not upload that image.');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  }
 
   async function save(extra: Parameters<typeof farmerService.updateFarmer>[1] = {}) {
     setError(null);
@@ -436,6 +753,7 @@ function FarmerDetailModal({
         phoneNumber:
           phoneNumber.trim() !== (current.phoneNumber ?? '') ? phoneNumber.trim() : undefined,
         barangay: barangay.trim() !== (current.barangay ?? '') ? barangay.trim() : undefined,
+        avatarPath: avatarPath !== (current.avatarPath ?? '') ? avatarPath : undefined,
         plots: plotsChanged ? plotsPayloadFrom(plots) : undefined,
         ...extra,
       });
@@ -450,47 +768,119 @@ function FarmerDetailModal({
     }
   }
 
+  async function remove() {
+    setError(null);
+    setIsDeleting(true);
+    try {
+      await farmerService.deleteAccount(current.id);
+      onDeleted();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not delete this account.');
+      setIsDeleting(false);
+    }
+  }
+
   return (
-    <ModalShell title="Farmer Details" onClose={onClose}>
+    <ModalShell
+      title={current.role === 'admin' ? 'Admin Details' : 'Farmer Details'}
+      size="lg"
+      onClose={onClose}
+    >
       <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-leaf-50 text-lg font-bold text-leaf-700">
-          {initialsOf(current.fullName)}
-        </div>
+        <Avatar
+          person={{ fullName: current.fullName, avatarPath: avatarPath || null }}
+          sizeClass="h-12 w-12 text-lg"
+        />
         <div>
           <p className="text-lg font-semibold text-gray-900">{current.fullName}</p>
           <p className="text-sm text-gray-500">@{current.username}</p>
         </div>
-        <span className="ml-auto">
-          <StatusBadge isActive={current.isActive} />
-        </span>
       </div>
 
       <div className="mt-4 space-y-3">
-        <Field label="Full name" value={fullName} onChange={setFullName} />
-        <Field label="Mobile number" value={phoneNumber} onChange={setPhoneNumber} />
-        <Field label="Barangay" value={barangay} onChange={setBarangay} />
-
-        <PlotsEditor plots={plots} onChange={setPlots} />
-        {current.plots.length > 0 && (
-          <p className="text-xs text-gray-400">{summarizeByPurok(current.plots)}</p>
-        )}
-
-        <div className="grid grid-cols-3 gap-3 pt-1 text-sm">
-          <ReadOnly label="Total area" value={formatHectares(current.totalAreaHectares)} />
-          <ReadOnly label="Reports filed" value={String(current.reportCount)} />
-          <ReadOnly label="Joined" value={formatDate(current.createdAt)} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Full name" value={fullName} onChange={setFullName} />
+          <Field label="Mobile number" value={phoneNumber} onChange={setPhoneNumber} />
         </div>
 
-        <button
-          type="button"
-          onClick={() => {
-            onClose();
-            navigate(`/detections?farmerId=${current.id}`);
-          }}
-          className="text-sm font-medium text-leaf-700 hover:underline"
-        >
-          View this farmer’s scans →
-        </button>
+        {current.role === 'farmer' && (
+          <>
+            <BarangayInput value={barangay} onChange={setBarangay} barangays={barangays} />
+
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Profile image
+              </span>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={handleAvatarChange}
+                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-700 focus:border-leaf-500 focus:outline-none"
+              />
+              {isUploadingAvatar && (
+                <span className="mt-1 block text-xs text-gray-400">Uploading…</span>
+              )}
+              {avatarPath && !isUploadingAvatar && avatarPath !== (current.avatarPath ?? '') && (
+                <span className="mt-1 block text-xs text-green-600">
+                  New image uploaded — save to apply.
+                </span>
+              )}
+            </label>
+
+            <PlotsEditor plots={plots} onChange={setPlots} />
+            {current.plots.length > 0 && (
+              <p className="text-xs text-gray-400">{summarizeByPurok(current.plots)}</p>
+            )}
+
+            <div className="grid grid-cols-3 gap-3 pt-1 text-sm">
+              <ReadOnly label="Total area" value={formatHectares(current.totalAreaHectares)} />
+              <ReadOnly label="Reports filed" value={String(current.reportCount)} />
+              <ReadOnly label="Joined" value={formatDate(current.createdAt)} />
+            </div>
+          </>
+        )}
+
+        {current.role === 'admin' && (
+          <>
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Profile image
+              </span>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={handleAvatarChange}
+                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-700 focus:border-leaf-500 focus:outline-none"
+              />
+              {isUploadingAvatar && (
+                <span className="mt-1 block text-xs text-gray-400">Uploading…</span>
+              )}
+              {avatarPath && !isUploadingAvatar && avatarPath !== (current.avatarPath ?? '') && (
+                <span className="mt-1 block text-xs text-green-600">
+                  New image uploaded — save to apply.
+                </span>
+              )}
+            </label>
+
+            <div className="grid grid-cols-2 gap-3 pt-1 text-sm">
+              <ReadOnly label="Role" value="Admin" />
+              <ReadOnly label="Joined" value={formatDate(current.createdAt)} />
+            </div>
+          </>
+        )}
+
+        {current.role === 'farmer' && (
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              navigate(`/detections?farmerId=${current.id}`);
+            }}
+            className="text-sm font-medium text-leaf-700 hover:underline"
+          >
+            View this farmer’s scans →
+          </button>
+        )}
       </div>
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
@@ -498,7 +888,7 @@ function FarmerDetailModal({
       <div className="mt-5 flex flex-wrap gap-2">
         <button
           type="button"
-          disabled={isSaving || !dirty}
+          disabled={isSaving || isUploadingAvatar || !dirty}
           onClick={() => save()}
           className="rounded-lg bg-leaf-600 px-3 py-2 text-sm font-medium text-white hover:bg-leaf-700 disabled:opacity-40"
         >
@@ -518,15 +908,39 @@ function FarmerDetailModal({
           {current.isActive ? 'Deactivate' : 'Reactivate'}
         </button>
 
+        {current.role === 'farmer' && (
+          <button
+            type="button"
+            disabled={isSaving}
+            onClick={() => save({ password: Math.random().toString(36).slice(2, 12) })}
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-40"
+          >
+            Reset password
+          </button>
+        )}
+
         <button
           type="button"
           disabled={isSaving}
-          onClick={() => save({ password: Math.random().toString(36).slice(2, 12) })}
-          className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-40"
+          onClick={() => setAskDelete(true)}
+          className="rounded-lg border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-40"
         >
-          Reset password
+          Delete
         </button>
       </div>
+
+      {askDelete && (
+        <ConfirmDeleteDialog
+          message={
+            current.role === 'farmer'
+              ? 'This permanently deletes the account and everything tied to it - farm plots, scan history, and outbreak reports. There is no undo; consider Deactivate instead if you just want to disable sign-in.'
+              : 'This permanently deletes the admin account. There is no undo.'
+          }
+          isDeleting={isDeleting}
+          onConfirm={remove}
+          onCancel={() => setAskDelete(false)}
+        />
+      )}
 
       {resetPassword && (
         <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
@@ -535,6 +949,52 @@ function FarmerDetailModal({
         </div>
       )}
     </ModalShell>
+  );
+}
+
+/** Pops up over the Farmer/Admin Details modal to confirm a permanent delete. */
+function ConfirmDeleteDialog({
+  message,
+  isDeleting,
+  onConfirm,
+  onCancel,
+}: {
+  message: string;
+  isDeleting: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4"
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-base font-semibold text-gray-900">Confirm delete</h3>
+        <p className="mt-2 text-sm text-gray-600">{message}</p>
+        <div className="mt-4 flex gap-3">
+          <button
+            type="button"
+            disabled={isDeleting}
+            onClick={onCancel}
+            className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={isDeleting}
+            onClick={onConfirm}
+            className="flex-1 rounded-lg bg-red-600 py-2.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
+          >
+            {isDeleting ? 'Deleting…' : 'Confirm delete'}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -591,10 +1051,13 @@ function CredentialsModal({
 
 function ModalShell({
   title,
+  size = 'md',
   onClose,
   children,
 }: {
   title: string;
+  /** 'lg' for a form with several fields side by side; 'md' (default) for a short one. */
+  size?: 'md' | 'lg';
   onClose: () => void;
   children: React.ReactNode;
 }) {
@@ -604,7 +1067,9 @@ function ModalShell({
       onClick={onClose}
     >
       <div
-        className="flex max-h-[86vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        className={`flex max-h-[86vh] w-full flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ${
+          size === 'lg' ? 'max-w-2xl' : 'max-w-md'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-5 py-4">
@@ -629,22 +1094,60 @@ function Field({
   value,
   onChange,
   placeholder,
+  type = 'text',
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
+  type?: 'text' | 'date' | 'password';
 }) {
   return (
     <label className="block">
       <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</span>
       <input
-        type="text"
+        type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
       />
+    </label>
+  );
+}
+
+/** A `<select>` with a leading placeholder option - the cascading Region/Province/City/Barangay picker's shared shape. */
+function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder,
+  disabled,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  placeholder: string;
+  disabled?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</span>
+      <select
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+      >
+        <option value="">{placeholder}</option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
     </label>
   );
 }
