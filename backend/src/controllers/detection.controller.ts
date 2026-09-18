@@ -32,13 +32,27 @@ const RISK_LEVELS: RiskLevel[] = ['none', 'low', 'moderate', 'high'];
 
 /**
  * GET /api/detections?farmerId=&risk=&result=&search=&barangay=&page=&pageSize=
- * CAO admin only. Powers the Detections page and the per-farmer
- * "view this farmer's scans" drill-down.
+ *
+ * CAO admin: powers the Detections page and the per-farmer "view
+ * this farmer's scans" drill-down, with full access to any farmerId.
+ *
+ * Farmer: powers their own Home/History tabs and the CAO report
+ * summary. `farmerId` is forced to their own user id regardless of
+ * what the query string asks for, so a farmer account can never read
+ * another farmer's scans.
  */
 export async function listDetections(req: Request, res: Response): Promise<void> {
-  const farmerIdRaw = Number(req.query.farmerId);
-  const farmerId =
-    Number.isInteger(farmerIdRaw) && farmerIdRaw > 0 ? farmerIdRaw : undefined;
+  if (!req.user) {
+    throw ApiError.unauthorized('Authentication required');
+  }
+
+  const requestedFarmerIdRaw = Number(req.query.farmerId);
+  const requestedFarmerId =
+    Number.isInteger(requestedFarmerIdRaw) && requestedFarmerIdRaw > 0
+      ? requestedFarmerIdRaw
+      : undefined;
+
+  const farmerId = req.user.role === 'farmer' ? req.user.userId : requestedFarmerId;
 
   const riskParam = typeof req.query.risk === 'string' ? req.query.risk : undefined;
   const riskLevel = RISK_LEVELS.includes(riskParam as RiskLevel)

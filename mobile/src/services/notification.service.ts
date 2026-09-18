@@ -42,3 +42,8 @@ export async function markNotificationRead(id: number): Promise<void> {
 export async function markAllNotificationsRead(): Promise<void> {
   await api.post<void>('/notifications/read-all');
 }
+
+/** DELETE /api/notifications - removes every notification in this inbox. */
+export async function clearAllNotifications(): Promise<void> {
+  await api.delete<void>('/notifications');
+}

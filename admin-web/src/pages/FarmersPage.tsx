@@ -193,7 +193,7 @@ export function FarmersPage() {
           onClick={() => setIsCreating(true)}
           className="rounded-lg bg-leaf-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-leaf-700"
         >
-          + Add Farmer
+          + Create User
         </button>
       </div>
 
@@ -217,7 +217,7 @@ export function FarmersPage() {
                 : 'No farmer accounts yet.'}
             </p>
             <p className="mt-1 text-xs text-gray-400">
-              Use “Add Farmer” to create an account and issue credentials.
+              Use “Create User” to create an account and issue credentials.
             </p>
           </div>
         ) : (
@@ -498,11 +498,10 @@ function CreateAccountModal({
         gender: gender || undefined,
         dateOfBirth: dateOfBirth || undefined,
         avatarPath,
-        region: role === 'farmer' ? regions.find((r) => r.code === regionCode)?.name : undefined,
-        province:
-          role === 'farmer' ? provinces.find((p) => p.code === provinceCode)?.name : undefined,
-        municipality: role === 'farmer' ? cities.find((c) => c.code === cityCode)?.name : undefined,
-        barangay: role === 'farmer' ? barangay || undefined : undefined,
+        region: regions.find((r) => r.code === regionCode)?.name,
+        province: provinces.find((p) => p.code === provinceCode)?.name,
+        municipality: cities.find((c) => c.code === cityCode)?.name,
+        barangay: barangay || undefined,
         plots: payloadPlots.length > 0 ? payloadPlots : undefined,
       });
       onCreated(result);
@@ -605,62 +604,58 @@ function CreateAccountModal({
           )}
         </label>
 
-        {role === 'farmer' && (
-          <>
-            <div>
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                Address
-              </span>
-              <div className="mt-1.5 grid gap-3 sm:grid-cols-2">
-                <SelectField
-                  label="Region"
-                  value={regionCode}
-                  onChange={(v) => {
-                    setRegionCode(v);
-                    setProvinceCode('');
-                    setCityCode('');
-                    setBarangay('');
-                  }}
-                  options={regions.map((r) => ({ value: r.code, label: r.name }))}
-                  placeholder="Select region"
-                />
-                <SelectField
-                  label="Province"
-                  value={provinceCode}
-                  onChange={(v) => {
-                    setProvinceCode(v);
-                    setCityCode('');
-                    setBarangay('');
-                  }}
-                  options={provinces.map((p) => ({ value: p.code, label: p.name }))}
-                  placeholder="Select province"
-                  disabled={!regionCode}
-                />
-                <SelectField
-                  label="City / Municipality"
-                  value={cityCode}
-                  onChange={(v) => {
-                    setCityCode(v);
-                    setBarangay('');
-                  }}
-                  options={cities.map((c) => ({ value: c.code, label: c.name }))}
-                  placeholder="Select city / municipality"
-                  disabled={!provinceCode}
-                />
-                <SelectField
-                  label="Barangay"
-                  value={barangay}
-                  onChange={setBarangay}
-                  options={barangayOptions.map((b) => ({ value: b, label: b }))}
-                  placeholder="Select barangay"
-                  disabled={!cityCode}
-                />
-              </div>
-            </div>
+        <div>
+          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+            Address
+          </span>
+          <div className="mt-1.5 grid gap-3 sm:grid-cols-2">
+            <SelectField
+              label="Region"
+              value={regionCode}
+              onChange={(v) => {
+                setRegionCode(v);
+                setProvinceCode('');
+                setCityCode('');
+                setBarangay('');
+              }}
+              options={regions.map((r) => ({ value: r.code, label: r.name }))}
+              placeholder="Select region"
+            />
+            <SelectField
+              label="Province"
+              value={provinceCode}
+              onChange={(v) => {
+                setProvinceCode(v);
+                setCityCode('');
+                setBarangay('');
+              }}
+              options={provinces.map((p) => ({ value: p.code, label: p.name }))}
+              placeholder="Select province"
+              disabled={!regionCode}
+            />
+            <SelectField
+              label="City / Municipality"
+              value={cityCode}
+              onChange={(v) => {
+                setCityCode(v);
+                setBarangay('');
+              }}
+              options={cities.map((c) => ({ value: c.code, label: c.name }))}
+              placeholder="Select city / municipality"
+              disabled={!provinceCode}
+            />
+            <SelectField
+              label="Barangay"
+              value={barangay}
+              onChange={setBarangay}
+              options={barangayOptions.map((b) => ({ value: b, label: b }))}
+              placeholder="Select barangay"
+              disabled={!cityCode}
+            />
+          </div>
+        </div>
 
-            <PlotsEditor plots={plots} onChange={setPlots} />
-          </>
-        )}
+        {role === 'farmer' && <PlotsEditor plots={plots} onChange={setPlots} />}
 
         {error && <p className="text-sm text-red-600">{error}</p>}
       </div>

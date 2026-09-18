@@ -212,9 +212,10 @@ function toSummary(row: FarmerRow, plots: FarmPlot[] = []): FarmerSummary {
 
 // `address` and `barangay` on the farmers table are kept in sync by
 // this module; COALESCE reads whichever a legacy row happens to have.
-// The Users page now covers both roles, so no farmers row at all
-// (an admin account) is expected here - the LEFT JOIN already handles
-// that gracefully, leaving every farmers.* column NULL.
+// createAccount now writes a farmers row for both roles (an admin's
+// row just leaves farm_size_hectares/years_farming NULL), but an
+// admin created before that change has no row at all - the LEFT JOIN
+// handles that gracefully, leaving every farmers.* column NULL.
 const SELECT_FARMER = `
   SELECT
     u.id, u.role, u.full_name, u.username, u.email, u.phone_number,
@@ -326,10 +327,10 @@ function combineName(firstName: string, middleName: string | undefined, lastName
 
 /**
  * The CAO issues a new account - a farmer (with a farm profile) or a
- * fellow admin. Writes `users` (both roles) and, for a farmer, also
- * `farmers` + its plots, in one transaction. Returns the account plus
- * the credentials to hand over (the password is never retrievable
- * again afterwards).
+ * fellow admin. Writes `users` (both roles) and `farmers` (address for
+ * both roles; farm size/years/plots only when a farmer supplies them),
+ * in one transaction. Returns the account plus the credentials to hand
+ * over (the password is never retrievable again afterwards).
  */
 export async function createAccount(input: CreateAccountInput): Promise<CreatedFarmer> {
   const fullName = combineName(input.firstName, input.middleName, input.lastName);
@@ -377,28 +378,30 @@ export async function createAccount(input: CreateAccountInput): Promise<CreatedF
       );
       const newUserId = userResult.insertId;
 
-      if (input.role === 'farmer') {
-        await connection.query<ResultSetHeader>(
-          `INSERT INTO farmers
-             (user_id, region, province, address, barangay, municipality,
-              farm_size_hectares, years_farming)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            newUserId,
-            input.region || null,
-            input.province || null,
-            input.barangay || null,
-            input.barangay || null,
-            input.municipality || null,
-            input.farmSizeHectares ?? null,
-            input.yearsFarming ?? null,
-          ]
-        );
+      // Address applies to both roles now (an admin can have an office
+      // address too); farm_size_hectares/years_farming/plots stay
+      // farmer-only since the Create Account form only offers them
+      // when role is 'farmer', so they come through undefined for an admin.
+      await connection.query<ResultSetHeader>(
+        `INSERT INTO farmers
+           (user_id, region, province, address, barangay, municipality,
+            farm_size_hectares, years_farming)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          newUserId,
+          input.region || null,
+          input.province || null,
+          input.barangay || null,
+          input.barangay || null,
+          input.municipality || null,
+          input.farmSizeHectares ?? null,
+          input.yearsFarming ?? null,
+        ]
+      );
 
-        // Plots, when given, own farm_size_hectares from here on.
-        if (input.plots !== undefined) {
-          await writeFarmerPlots(connection, newUserId, input.plots);
-        }
+      // Plots, when given, own farm_size_hectares from here on.
+      if (input.plots !== undefined) {
+        await writeFarmerPlots(connection, newUserId, input.plots);
       }
 
       await connection.commit();

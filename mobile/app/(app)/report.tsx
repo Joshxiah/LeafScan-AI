@@ -36,9 +36,10 @@ import { useLanguage } from '../../src/context/LanguageContext';
 import { brand, shadows } from '../../src/constants/theme';
 import { StatCard } from '../../src/components/StatCard';
 import EmptyState from '../../src/components/EmptyState';
-import { getScanLog, ScanEntry } from '../../src/services/scanLog';
+import { ScanEntry } from '../../src/services/scanLog';
 import { summariseScans, CLASS_DISPLAY_NAME, CLASS_RISK_LEVEL } from '../../src/data/scanStats';
 import { submitReport } from '../../src/services/report.service';
+import { loadFarmerScans } from '../../src/services/detection.service';
 import { getErrorMessage } from '../../src/services/api';
 
 export default function ReportScreen() {
@@ -54,20 +55,26 @@ export default function ReportScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      if (!user) return;
       let isMounted = true;
-      getScanLog().then((log) => {
+      loadFarmerScans(user.id).then((log) => {
         if (isMounted) setScans(log);
       });
       return () => {
         isMounted = false;
       };
-    }, [])
+    }, [user])
   );
 
   const profile = user?.farmerProfile;
-  const locationLine = profile?.address
-    ? `${profile.address}, ${profile.municipality ?? 'Pagadian City'}`
-    : (profile?.municipality ?? 'Pagadian City');
+  // The CAO-curated barangay wins when it is set; `address` is the
+  // farmer's own free-text fallback for accounts predating it (see
+  // backend/src/models/user.model.ts). No more hardcoded city/province -
+  // an unset farmer really has "Not set" until they fill it in on
+  // Settings, rather than a fake location that isn't theirs.
+  const barangay = profile?.barangay || profile?.address || null;
+  const municipality = profile?.municipality || null;
+  const locationLine = barangay ?? municipality ?? t.report.notSet;
 
   const header = (
     <View className="bg-[#2F6D46] px-5 pb-5 pt-14">
@@ -86,9 +93,11 @@ export default function ReportScreen() {
           {locationLine}
         </Text>
       </View>
-      <Text className="ml-[22px] mt-0.5 text-[12px] text-white/70">
-        {t.report.province}
-      </Text>
+      {barangay && municipality && (
+        <Text className="ml-[22px] mt-0.5 text-[12px] text-white/70">
+          {municipality}
+        </Text>
+      )}
     </View>
   );
 
@@ -142,8 +151,8 @@ export default function ReportScreen() {
 
     try {
       await submitReport({
-        barangay: profile?.address ?? undefined,
-        municipality: profile?.municipality ?? undefined,
+        barangay: barangay ?? undefined,
+        municipality: municipality ?? undefined,
         totalScans: summary.total,
         affectedScans: summary.affected,
         healthyScans: summary.healthy,
@@ -246,7 +255,7 @@ export default function ReportScreen() {
             <View className="flex-row items-center justify-between py-3.5">
               <Text className="text-[13px] text-[#9BAAA1]">{t.report.barangay}</Text>
               <Text className="text-[13px] font-medium text-[#16241B]">
-                {profile?.address ?? profile?.municipality ?? t.report.notSet}
+                {barangay ?? t.report.notSet}
               </Text>
             </View>
           </View>

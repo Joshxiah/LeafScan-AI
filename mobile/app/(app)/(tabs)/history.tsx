@@ -19,9 +19,11 @@ import { SearchInput } from '../../../src/components/SearchInput';
 import { FilterPills } from '../../../src/components/FilterPills';
 import { ScanListItem } from '../../../src/components/ScanListItem';
 import { goToDiagnosis } from '../../../src/navigation/diagnosis';
+import { useAuth } from '../../../src/context/AuthContext';
 import { useLanguage } from '../../../src/context/LanguageContext';
 import { brand } from '../../../src/constants/theme';
-import { getScanLog, ScanEntry } from '../../../src/services/scanLog';
+import { ScanEntry } from '../../../src/services/scanLog';
+import { loadFarmerScans } from '../../../src/services/detection.service';
 import {
   SCAN_BUCKETS,
   ScanBucket,
@@ -35,6 +37,7 @@ type Filter = (typeof FILTERS)[number];
 
 export default function HistoryScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const { t } = useLanguage();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('All');
@@ -42,14 +45,15 @@ export default function HistoryScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      if (!user) return;
       let isMounted = true;
-      getScanLog().then((log) => {
+      loadFarmerScans(user.id).then((log) => {
         if (isMounted) setScans(log);
       });
       return () => {
         isMounted = false;
       };
-    }, [])
+    }, [user])
   );
 
   const filterLabels: Record<Filter, string> = {

@@ -38,6 +38,7 @@ export interface FarmerRow extends RowDataPacket {
   id: number;
   user_id: number;
   address: string | null;
+  barangay: string | null;
   municipality: string | null;
   corn_type: 'white' | 'yellow' | 'both' | null;
   farm_size_hectares: number | null;
@@ -69,6 +70,8 @@ export interface PublicUser {
 /** Farming details attached to a farmer's profile. */
 export interface PublicFarmerProfile {
   address: string | null;
+  /** The CAO-curated barangay (set from the fixed list when an admin creates/edits the account); `address` is the farmer's own free-text fallback. */
+  barangay: string | null;
   municipality: string | null;
   cornType: 'white' | 'yellow' | 'both' | null;
   farmSizeHectares: number | null;
@@ -107,6 +110,7 @@ export function toPublicUser(row: UserRow): PublicUser {
 export function toPublicFarmerProfile(row: FarmerRow): PublicFarmerProfile {
   return {
     address: row.address,
+    barangay: row.barangay,
     municipality: row.municipality,
     cornType: row.corn_type,
     farmSizeHectares: row.farm_size_hectares,

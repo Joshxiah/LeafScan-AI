@@ -27,6 +27,11 @@ export async function markAllRead(): Promise<void> {
   await api.post<void>('/notifications/read-all');
 }
 
+/** DELETE /api/notifications - removes every notification in this inbox. */
+export async function clearAll(): Promise<void> {
+  await api.delete<void>('/notifications');
+}
+
 /**
  * Opens the Server-Sent Events stream. `onEvent` fires for every
  * `notification` event the backend pushes for this user. Returns a

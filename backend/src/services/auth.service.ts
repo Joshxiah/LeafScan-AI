@@ -243,13 +243,28 @@ export async function updateProfile(
       ]);
     }
 
-    if (role === 'farmer' && (input.address !== undefined || input.cornType !== undefined)) {
+    if (
+      role === 'farmer' &&
+      (input.address !== undefined ||
+        input.municipality !== undefined ||
+        input.cornType !== undefined)
+    ) {
       const sets: string[] = [];
       const params: (string | null)[] = [];
 
       if (input.address !== undefined) {
-        sets.push('address = ?');
-        params.push(input.address || null);
+        // Kept in sync with `barangay`, matching how the CAO's own
+        // Create/Edit Farmer form writes both columns together (see
+        // farmer.service.ts) - so a farmer who fixes their own
+        // barangay here also fixes what COALESCE(barangay, address)
+        // reports on the CAO side, not just their own app.
+        sets.push('address = ?', 'barangay = ?');
+        params.push(input.address || null, input.address || null);
+      }
+
+      if (input.municipality !== undefined) {
+        sets.push('municipality = ?');
+        params.push(input.municipality || null);
       }
 
       if (input.cornType !== undefined) {

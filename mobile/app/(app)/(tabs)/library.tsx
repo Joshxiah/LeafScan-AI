@@ -9,11 +9,12 @@
  * The healthy "disease" entry is left out - there is nothing to
  * browse about a leaf with no symptoms.
  *
- * Layout: a sideways card carousel. One disease per card, its
- * reference photo shown whole (contain, never cropped), then the
- * name, a crop tag and a symptom preview separated by hairlines.
- * Swipe left/right to flip through diseases; the dots track which
- * card you are on. Tap a card for the full detail screen.
+ * Layout: a vertical list of cards, one per disease. The reference
+ * photo sits at the top of the card, shown whole (contain, never
+ * cropped, so it is never too large to fit), then the name,
+ * scientific name, a symptom preview and "View details" underneath,
+ * each section separated by a hairline. Tap a card for the full
+ * detail screen.
  *
  * States are explicit: a spinner while loading, a retryable error
  * ONLY when the request actually failed, a "no content yet" state
@@ -21,7 +22,7 @@
  * search that filtered everything out.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -30,9 +31,7 @@ import {
   ScrollView,
   ActivityIndicator,
   RefreshControl,
-  useWindowDimensions,
 } from 'react-native';
-import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -47,10 +46,6 @@ import { diseaseImage } from '../../../src/constants/diseaseImages';
 
 type LoadState = 'loading' | 'error' | 'ready';
 
-/** Gap between cards, and the page inset on each side of the strip. */
-const CARD_GAP = 14;
-const SIDE_INSET = 24;
-
 /** First couple of sentences, so the preview stays short. */
 function symptomPreview(text: string | null): string | null {
   if (!text) return null;
@@ -61,18 +56,10 @@ function symptomPreview(text: string | null): string | null {
 export default function LibraryScreen() {
   const router = useRouter();
   const { t, language } = useLanguage();
-  const { width } = useWindowDimensions();
   const [diseases, setDiseases] = useState<Disease[]>([]);
   const [state, setState] = useState<LoadState>('loading');
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [query, setQuery] = useState('');
-  const [activeIndex, setActiveIndex] = useState(0);
-  const stripRef = useRef<ScrollView>(null);
-
-  // A card fills the screen minus the side insets, with a sliver of
-  // the next card peeking so it reads as "there is more, swipe".
-  const cardWidth = Math.round(width - SIDE_INSET * 2 - 28);
-  const snapInterval = cardWidth + CARD_GAP;
 
   const load = useCallback(async (isRetry = false) => {
     if (isRetry) setState('loading');
@@ -101,20 +88,6 @@ export default function LibraryScreen() {
     if (!cleanQuery) return diseases;
     return diseases.filter((d) => d.displayName.toLowerCase().includes(cleanQuery));
   }, [diseases, query]);
-
-  // A new search resets the strip to the first result.
-  useEffect(() => {
-    setActiveIndex(0);
-    stripRef.current?.scrollTo({ x: 0, animated: false });
-  }, [query]);
-
-  const onStripScroll = useCallback(
-    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const next = Math.round(e.nativeEvent.contentOffset.x / snapInterval);
-      setActiveIndex(next);
-    },
-    [snapInterval],
-  );
 
   return (
     <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={['top']}>
@@ -160,7 +133,7 @@ export default function LibraryScreen() {
         />
       ) : (
         <ScrollView
-          contentContainerClassName="grow justify-center pb-28 pt-4"
+          contentContainerClassName="gap-4 px-6 pb-28 pt-4"
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -170,24 +143,9 @@ export default function LibraryScreen() {
             />
           }
         >
-          <ScrollView
-            ref={stripRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            decelerationRate="fast"
-            snapToInterval={snapInterval}
-            snapToAlignment="start"
-            disableIntervalMomentum
-            scrollEventThrottle={16}
-            onMomentumScrollEnd={onStripScroll}
-            contentContainerStyle={{
-              paddingLeft: SIDE_INSET,
-              paddingRight: SIDE_INSET - CARD_GAP,
-            }}
-          >
-            {filtered.map((disease) => {
-              const preview = symptomPreview(disease.symptoms);
-              return (
+          {filtered.map((disease) => {
+            const preview = symptomPreview(disease.symptoms);
+            return (
               <Pressable
                 key={disease.id}
                 onPress={() =>
@@ -196,11 +154,11 @@ export default function LibraryScreen() {
                     params: { data: JSON.stringify(disease) },
                   })
                 }
-                style={[{ width: cardWidth, marginRight: CARD_GAP }, shadows.card]}
+                style={shadows.card}
                 className="overflow-hidden rounded-3xl border border-[#EEF5EF] bg-white active:bg-[#F5FAF6]"
               >
-                {/* Reference photo - shown whole, never cropped. */}
-                <View className="h-44 w-full items-center justify-center bg-[#E7F4EA]">
+                {/* Reference photo - shown whole, never cropped, so it always fits the card. */}
+                <View className="h-48 w-full items-center justify-center bg-[#E7F4EA]">
                   <Image
                     source={diseaseImage(disease.classLabel)}
                     className="h-full w-full"
@@ -209,19 +167,9 @@ export default function LibraryScreen() {
                 </View>
 
                 <View className="px-4 pb-4 pt-3.5">
-                  <View className="flex-row items-center">
-                    <Text
-                      className="flex-1 text-[16px] font-bold text-[#16241B]"
-                      numberOfLines={1}
-                    >
-                      {disease.displayName}
-                    </Text>
-                    <View className="ml-2 rounded-full bg-[#E7F4EA] px-2.5 py-0.5">
-                      <Text className="text-[10px] font-bold text-[#2F6D46]">
-                        {t.common.corn}
-                      </Text>
-                    </View>
-                  </View>
+                  <Text className="text-[16px] font-bold text-[#16241B]" numberOfLines={1}>
+                    {disease.displayName}
+                  </Text>
 
                   {disease.scientificName ? (
                     <Text className="mt-0.5 text-[11px] italic text-[#9BAAA1]" numberOfLines={1}>
@@ -255,25 +203,8 @@ export default function LibraryScreen() {
                   </View>
                 </View>
               </Pressable>
-              );
-            })}
-          </ScrollView>
-
-          {/* Page dots */}
-          {filtered.length > 1 && (
-            <View className="mt-4 flex-row justify-center gap-1.5">
-              {filtered.map((disease, i) => (
-                <View
-                  key={disease.id}
-                  className="h-1.5 rounded-full"
-                  style={{
-                    width: i === activeIndex ? 18 : 6,
-                    backgroundColor: i === activeIndex ? brand.accent : '#CFE3D6',
-                  }}
-                />
-              ))}
-            </View>
-          )}
+            );
+          })}
         </ScrollView>
       )}
     </SafeAreaView>

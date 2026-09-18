@@ -27,7 +27,8 @@ import { DonutChart } from '../../../src/components/DonutChart';
 import { ScanListItem } from '../../../src/components/ScanListItem';
 import { FilterPills } from '../../../src/components/FilterPills';
 import { goToDiagnosis } from '../../../src/navigation/diagnosis';
-import { getScanLog, ScanEntry } from '../../../src/services/scanLog';
+import { ScanEntry } from '../../../src/services/scanLog';
+import { loadFarmerScans } from '../../../src/services/detection.service';
 import {
   ActivityRange,
   bucketOf,
@@ -50,14 +51,15 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      if (!user) return;
       let isMounted = true;
-      getScanLog().then((log) => {
+      loadFarmerScans(user.id).then((log) => {
         if (isMounted) setScans(log);
       });
       return () => {
         isMounted = false;
       };
-    }, [])
+    }, [user])
   );
 
   const firstName = user?.fullName?.split(' ')[0] ?? 'Farmer';

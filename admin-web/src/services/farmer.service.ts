@@ -67,11 +67,12 @@ export interface CreateAccountPayload {
   /** From uploadImage() in upload.service.ts. */
   avatarPath?: string;
 
-  // Farmer-only - ignored by the backend when role is 'admin'.
   region?: string;
   province?: string;
   municipality?: string;
   barangay?: string;
+
+  // Farmer-only - ignored by the backend when role is 'admin'.
   farmSizeHectares?: number;
   plots?: FarmPlotPayload[];
   yearsFarming?: number;

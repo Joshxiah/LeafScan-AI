@@ -47,6 +47,13 @@ export async function markAllRead(req: Request, res: Response): Promise<void> {
   res.status(200).json({ success: true, message: 'All notifications marked as read' });
 }
 
+/** DELETE /api/notifications - the bell's "clear all". */
+export async function clearAll(req: Request, res: Response): Promise<void> {
+  if (!req.user) throw ApiError.unauthorized('Authentication required');
+  await notificationService.deleteAll(req.user.userId);
+  res.status(200).json({ success: true, message: 'Notifications cleared' });
+}
+
 /**
  * GET /api/notifications/stream?token=...
  * Holds the connection open and pushes a `notification` event

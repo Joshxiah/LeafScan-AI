@@ -30,6 +30,7 @@ interface NotificationsContextValue {
   refresh: () => Promise<void>;
   markRead: (id: number) => Promise<void>;
   markAllRead: () => Promise<void>;
+  clearAll: () => Promise<void>;
 }
 
 const NotificationsContext = createContext<NotificationsContextValue | undefined>(undefined);
@@ -111,9 +112,28 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const clearAll = useCallback(async () => {
+    setNotifications([]);
+    setUnreadCount(0);
+    try {
+      await notificationService.clearAllNotifications();
+    } catch {
+      /* next refresh reconciles */
+    }
+  }, []);
+
   return (
     <NotificationsContext.Provider
-      value={{ notifications, unreadCount, isLoading, loadFailed, refresh, markRead, markAllRead }}
+      value={{
+        notifications,
+        unreadCount,
+        isLoading,
+        loadFailed,
+        refresh,
+        markRead,
+        markAllRead,
+        clearAll,
+      }}
     >
       {children}
     </NotificationsContext.Provider>

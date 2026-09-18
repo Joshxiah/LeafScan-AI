@@ -11,7 +11,9 @@ import { User } from '../types';
 
 export interface UpdateProfilePayload {
   phoneNumber?: string;
+  /** The farmer's barangay, kept in sync with `farmerProfile.barangay` server-side. */
   address?: string;
+  municipality?: string;
   /** A relative path from a prior uploadImage() call, or '' to remove the photo. */
   avatarPath?: string;
 }

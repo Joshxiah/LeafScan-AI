@@ -215,6 +215,11 @@ export interface Translations {
     loadError: string;
     retry: string;
     markAllRead: string;
+    clearAll: string;
+    clearAllTitle: string;
+    clearAllMessage: string;
+    clearAllConfirm: string;
+    clearingAll: string;
     justNow: string;
     minutesAgo: (n: number) => string;
     hoursAgo: (n: number) => string;
@@ -300,7 +305,6 @@ export interface Translations {
   };
 
   report: {
-    province: string;
     totalScan: string;
     cornAffected: string;
     healthy: string;
@@ -332,6 +336,8 @@ export interface Translations {
     editProfile: string;
     phone: string;
     barangay: string;
+    municipality: string;
+    farmArea: string;
     mainCrop: string;
     notSet: string;
     language: string;
@@ -346,6 +352,7 @@ export interface Translations {
     editProfileTitle: string;
     phonePlaceholder: string;
     barangayPlaceholder: string;
+    municipalityPlaceholder: string;
     cornTypeLabel: string;
     cornTypeWhite: string;
     cornTypeYellow: string;
@@ -541,6 +548,11 @@ export const en: Translations = {
     loadError: 'Could not load your notifications. Pull to refresh or try again.',
     retry: 'Try Again',
     markAllRead: 'Mark all read',
+    clearAll: 'Clear all notifications',
+    clearAllTitle: 'Clear all notifications?',
+    clearAllMessage: 'This removes every notification in your inbox. There is no undo.',
+    clearAllConfirm: 'Clear',
+    clearingAll: 'Clearing...',
     justNow: 'just now',
     minutesAgo: (n) => `${n}m ago`,
     hoursAgo: (n) => `${n}h ago`,
@@ -632,7 +644,6 @@ export const en: Translations = {
   },
 
   report: {
-    province: 'Zamboanga Del Sur',
     totalScan: 'Total Scan',
     cornAffected: 'Corn Affected',
     healthy: 'Healthy',
@@ -664,6 +675,8 @@ export const en: Translations = {
     editProfile: 'Edit',
     phone: 'Phone',
     barangay: 'Barangay',
+    municipality: 'Municipality',
+    farmArea: 'Farm Area',
     mainCrop: 'Main Crop',
     notSet: 'Not set',
     language: 'LANGUAGE',
@@ -677,6 +690,7 @@ export const en: Translations = {
     editProfileTitle: 'Edit Profile',
     phonePlaceholder: 'Mobile number',
     barangayPlaceholder: 'Barangay',
+    municipalityPlaceholder: 'Municipality / City',
     cornTypeLabel: 'Corn Type',
     cornTypeWhite: 'White Corn',
     cornTypeYellow: 'Yellow Corn',
@@ -892,6 +906,11 @@ export const ceb: Translations = {
     loadError: 'Wala ma-load ang imong mga notipikasyon. I-refresh o sulayi pag-usab.',
     retry: 'Sulayi Pag-usab',
     markAllRead: 'Markahi tanan nga nabasa',
+    clearAll: 'Kuhaa tanan nga notipikasyon',
+    clearAllTitle: 'Kuhaon ba ang tanan nga notipikasyon?',
+    clearAllMessage: 'Makuha ang tanan nimo nga notipikasyon. Dili na kini mabawi.',
+    clearAllConfirm: 'Kuhaa',
+    clearingAll: 'Gikuha...',
     justNow: 'karon lang',
     minutesAgo: (n) => `${n}m ang milabay`,
     hoursAgo: (n) => `${n}h ang milabay`,
@@ -983,7 +1002,6 @@ export const ceb: Translations = {
   },
 
   report: {
-    province: 'Zamboanga Del Sur',
     totalScan: 'Total nga Scan',
     cornAffected: 'Naapektuhang Mais',
     healthy: 'Himsog',
@@ -1015,6 +1033,8 @@ export const ceb: Translations = {
     editProfile: 'I-edit',
     phone: 'Telepono',
     barangay: 'Barangay',
+    municipality: 'Munisipyo',
+    farmArea: 'Sukod sa Uma',
     mainCrop: 'Punoan nga Tanom',
     notSet: 'Wala pa gibutang',
     language: 'PINULONGAN',
@@ -1028,6 +1048,7 @@ export const ceb: Translations = {
     editProfileTitle: 'I-edit ang Profile',
     phonePlaceholder: 'Numero sa selpon',
     barangayPlaceholder: 'Barangay',
+    municipalityPlaceholder: 'Munisipyo / Siyudad',
     cornTypeLabel: 'Klase sa Mais',
     cornTypeWhite: 'Puti nga Mais',
     cornTypeYellow: 'Dalag nga Mais',

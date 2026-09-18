@@ -35,6 +35,7 @@ interface NotificationsContextValue {
   reload: () => Promise<void>;
   markRead: (id: number) => Promise<void>;
   markAllRead: () => Promise<void>;
+  clearAll: () => Promise<void>;
   /** Optimistically drop one from the reports-unread badge when a report is opened. */
   noteReportOpened: () => void;
 }
@@ -118,6 +119,16 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     }
   }, [reload]);
 
+  const clearAll = useCallback(async () => {
+    setNotifications([]);
+    setUnreadCount(0);
+    try {
+      await notificationService.clearAll();
+    } finally {
+      void reload();
+    }
+  }, [reload]);
+
   const noteReportOpened = useCallback(() => {
     setReportsUnreadCount((c) => Math.max(0, c - 1));
   }, []);
@@ -132,6 +143,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         reload,
         markRead,
         markAllRead,
+        clearAll,
         noteReportOpened,
       }}
     >

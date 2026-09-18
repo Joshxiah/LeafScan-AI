@@ -37,7 +37,7 @@ import { withAuthToken } from '../../src/utils/media';
 export default function PreviewScreen() {
   const router = useRouter();
   const { t } = useLanguage();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
 
   // Values passed through the URL by /scan or /camera.
   const { imageUri, source } = useLocalSearchParams<{
@@ -103,15 +103,20 @@ export default function PreviewScreen() {
       }
     }
 
-    const scan = await addScan({
-      classLabel,
-      confidence,
-      scannedAt: new Date(),
-      // Keep the uploaded photo with the scan so it can be attached to
-      // a CAO report later for visual verification.
-      imagePath: uploadResult?.imagePath,
-      imageUrl: uploadResult?.imageUrl,
-    });
+    // Also written to the on-device log (scoped to this farmer) as an
+    // instant fallback for Home/History if the backend can't be
+    // reached right after - see loadFarmerScans() in detection.service.ts.
+    const scan = user
+      ? await addScan(user.id, {
+          classLabel,
+          confidence,
+          scannedAt: new Date(),
+          // Keep the uploaded photo with the scan so it can be attached to
+          // a CAO report later for visual verification.
+          imagePath: uploadResult?.imagePath,
+          imageUrl: uploadResult?.imageUrl,
+        })
+      : { id: `${Date.now()}`, classLabel, confidence, scannedAt: new Date() };
     goToDiagnosis(router, scan, { replace: true });
   }
 

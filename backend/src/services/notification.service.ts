@@ -179,6 +179,11 @@ export async function markAllRead(userId: number): Promise<void> {
   );
 }
 
+/** Deletes every notification this user holds - the bell's "clear all". */
+export async function deleteAll(userId: number): Promise<void> {
+  await pool.query(`DELETE FROM notifications WHERE user_id = ?`, [userId]);
+}
+
 /**
  * Marks every unread notification this user holds for one report as
  * read. Called when the CAO opens or acts on that report, so the

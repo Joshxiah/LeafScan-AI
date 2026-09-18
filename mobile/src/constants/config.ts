@@ -41,7 +41,7 @@ import Constants from 'expo-constants';
 // Find it with `ipconfig` (Windows) / `ifconfig` (macOS/Linux) -
 // the "IPv4 Address" of the Wi-Fi adapter, e.g. 192.168.x.x.
 // ----------------------------------------------------------
-const DEV_MACHINE_IP = '192.168.1.12';
+const DEV_MACHINE_IP = '192.168.1.5';
 
 /** Where the real backend listens. Used directly only in production builds. */
 const BACKEND_PORT = 4000;

@@ -20,5 +20,6 @@ router.get('/', authenticate, notificationController.list);
 router.get('/unread-count', authenticate, notificationController.unreadCount);
 router.post('/read-all', authenticate, notificationController.markAllRead);
 router.patch('/:id/read', authenticate, notificationController.markRead);
+router.delete('/', authenticate, notificationController.clearAll);
 
 export default router;

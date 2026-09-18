@@ -9,7 +9,7 @@
  * tapped; pull down to refresh.
  */
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import {
   ScrollView,
   RefreshControl,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -51,13 +52,27 @@ export default function NotificationsScreen() {
     refresh,
     markRead,
     markAllRead,
+    clearAll,
   } = useNotifications();
+
+  const [confirmClear, setConfirmClear] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
       void refresh();
     }, [refresh])
   );
+
+  async function handleConfirmClear() {
+    setIsClearing(true);
+    try {
+      await clearAll();
+    } finally {
+      setIsClearing(false);
+      setConfirmClear(false);
+    }
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={['top', 'bottom']}>
@@ -73,15 +88,26 @@ export default function NotificationsScreen() {
         <Text className="flex-1 text-center text-[16px] font-bold text-[#16241B]">
           {t.notifications.title}
         </Text>
-        {unreadCount > 0 ? (
-          <Pressable onPress={() => void markAllRead()} hitSlop={8} className="px-1">
-            <Text className="text-[12px] font-bold text-[#2F6D46]">
-              {t.notifications.markAllRead}
-            </Text>
-          </Pressable>
-        ) : (
-          <View className="w-9" />
-        )}
+        <View className="flex-row items-center gap-3">
+          {unreadCount > 0 && (
+            <Pressable onPress={() => void markAllRead()} hitSlop={8}>
+              <Text className="text-[12px] font-bold text-[#2F6D46]">
+                {t.notifications.markAllRead}
+              </Text>
+            </Pressable>
+          )}
+          {notifications.length > 0 && (
+            <Pressable
+              onPress={() => setConfirmClear(true)}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t.notifications.clearAll}
+            >
+              <Ionicons name="trash-outline" size={18} color={brand.faint} />
+            </Pressable>
+          )}
+          {unreadCount === 0 && notifications.length === 0 && <View className="w-9" />}
+        </View>
       </View>
 
       {loadFailed && notifications.length === 0 ? (
@@ -128,6 +154,49 @@ export default function NotificationsScreen() {
           </View>
         </ScrollView>
       )}
+
+      {/* ---------- Clear all confirmation ---------- */}
+      <Modal
+        visible={confirmClear}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConfirmClear(false)}
+      >
+        <View className="flex-1 items-center justify-center bg-black/40 px-8">
+          <View className="w-full rounded-2xl bg-white p-6">
+            <Text className="text-center text-lg font-extrabold text-[#16241B]">
+              {t.notifications.clearAllTitle}
+            </Text>
+            <Text className="mt-2 text-center text-[13px] leading-5 text-[#6C8073]">
+              {t.notifications.clearAllMessage}
+            </Text>
+
+            <View className="mt-5 flex-row gap-3">
+              <Pressable
+                onPress={() => setConfirmClear(false)}
+                disabled={isClearing}
+                className="h-11 flex-1 items-center justify-center rounded-full border border-[#DFEDE3] bg-white active:bg-[#F5FAF6]"
+              >
+                <Text className="text-[14px] font-semibold text-[#6C8073]">
+                  {t.common.cancel}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => void handleConfirmClear()}
+                disabled={isClearing}
+                className="h-11 flex-1 flex-row items-center justify-center rounded-full bg-[#D64545] active:opacity-90 disabled:opacity-70"
+              >
+                {isClearing && (
+                  <ActivityIndicator size="small" color="#ffffff" className="mr-2" />
+                )}
+                <Text className="text-[14px] font-bold text-white">
+                  {isClearing ? t.notifications.clearingAll : t.notifications.clearAllConfirm}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

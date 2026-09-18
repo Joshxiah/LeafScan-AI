@@ -94,8 +94,8 @@ export const loginSchema = z.object({
  * Editing an existing profile (Settings screen). Every field is
  * optional - a request only sends what actually changed - and an
  * empty string clears a text field rather than being ignored.
- * cornType/address only apply to farmer accounts; the service
- * quietly ignores them for an admin.
+ * cornType/address/municipality only apply to farmer accounts; the
+ * service quietly ignores them for an admin.
  */
 export const updateProfileSchema = z.object({
   /** CAO staff edit this from the admin Profile page; farmers do not. */
@@ -107,6 +107,7 @@ export const updateProfileSchema = z.object({
     .optional(),
   phoneNumber: phoneRule.optional(),
   address: z.string().trim().max(255).optional().or(z.literal('')),
+  municipality: z.string().trim().max(100).optional().or(z.literal('')),
   cornType: z.enum(['white', 'yellow', 'both']).optional(),
   /** Relative path from a prior POST /api/uploads, or '' to remove the photo. */
   avatarPath: z.string().trim().max(255).optional().or(z.literal('')),
@@ -251,8 +252,8 @@ export const farmPlotSchema = z.object({
  * text, so they are plain trimmed strings rather than the closed
  * `barangayRule` enum used elsewhere - the picker itself is what
  * keeps them consistent, and it covers far more than this app's
- * usual Pagadian-City-only barangay list. Only meaningful when role
- * is 'farmer'; ignored for 'admin'.
+ * usual Pagadian-City-only barangay list. Meaningful for both roles;
+ * farmSizeHectares/plots/yearsFarming are farmer-only.
  */
 export const createAccountSchema = z.object({
   role: z.enum(['farmer', 'admin']).default('farmer'),

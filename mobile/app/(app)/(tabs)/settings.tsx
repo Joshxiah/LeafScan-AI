@@ -64,6 +64,7 @@ export default function SettingsScreen() {
   const [editVisible, setEditVisible] = useState(false);
   const [phone, setPhone] = useState('');
   const [barangay, setBarangay] = useState('');
+  const [municipality, setMunicipality] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -79,6 +80,15 @@ export default function SettingsScreen() {
   const initial = (user?.fullName?.charAt(0) ?? '?').toUpperCase();
   const avatarUri = mediaUrl(user?.avatarPath, token);
 
+  // The CAO-curated barangay wins when set; `address` is the
+  // farmer's own free-text fallback for accounts predating it - see
+  // backend/src/models/user.model.ts.
+  const profile = user?.farmerProfile;
+  const barangayLabel = profile?.barangay || profile?.address || null;
+  const municipalityLabel = profile?.municipality || null;
+  const farmAreaLabel =
+    profile?.farmSizeHectares != null ? `${profile.farmSizeHectares} ha` : null;
+
   async function handleLogout() {
     setConfirmVisible(false);
     await logout();
@@ -89,7 +99,8 @@ export default function SettingsScreen() {
   function openEdit() {
     setEditError(null);
     setPhone(user?.phoneNumber ?? '');
-    setBarangay(user?.farmerProfile?.address ?? '');
+    setBarangay(barangayLabel ?? '');
+    setMunicipality(municipalityLabel ?? '');
     setEditVisible(true);
   }
 
@@ -107,6 +118,7 @@ export default function SettingsScreen() {
       await updateProfile({
         phoneNumber: cleanPhone,
         address: barangay.trim(),
+        municipality: municipality.trim(),
       });
       await refreshUser();
       setEditVisible(false);
@@ -299,7 +311,15 @@ export default function SettingsScreen() {
           />
           <InfoRow
             label={t.settings.barangay}
-            value={user?.farmerProfile?.address ?? t.settings.notSet}
+            value={barangayLabel ?? t.settings.notSet}
+          />
+          <InfoRow
+            label={t.settings.municipality}
+            value={municipalityLabel ?? t.settings.notSet}
+          />
+          <InfoRow
+            label={t.settings.farmArea}
+            value={farmAreaLabel ?? t.settings.notSet}
             isLast
           />
         </View>
@@ -443,6 +463,13 @@ export default function SettingsScreen() {
                 placeholder={t.settings.barangayPlaceholder}
                 value={barangay}
                 onChangeText={setBarangay}
+                autoCapitalize="words"
+              />
+              <FieldInput
+                icon="map-outline"
+                placeholder={t.settings.municipalityPlaceholder}
+                value={municipality}
+                onChangeText={setMunicipality}
                 autoCapitalize="words"
               />
             </View>

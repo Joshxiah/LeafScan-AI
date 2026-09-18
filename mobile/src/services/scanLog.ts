@@ -1,24 +1,26 @@
 /**
- * The farmer's real, on-device scan history.
+ * The farmer's on-device scan history - now only a fallback.
  *
- * Every scan they actually complete (see the "View Diagnosis" step
- * in app/(app)/preview.tsx) is appended here via AsyncStorage. This
- * is what Home, History and the CAO report read - a farmer who has
- * not scanned anything yet sees zero everywhere, honestly.
- *
- * Every completed scan is ALSO posted to the backend now
- * (src/services/detection.service.ts -> POST /api/detections), so
- * the CAO's Detections page and dashboard match what the farmer
- * sees. This local log stays the source for Home / History / the
- * report summary; once those screens read `GET /api/detections`
- * instead (Phase 13), this file goes away. Every screen that reads
- * getScanLog() is already shaped for that swap.
+ * Home, History and the CAO report all read `GET /api/detections`
+ * through loadFarmerScans() in detection.service.ts, which is the
+ * same table the CAO's own dashboard reads. This file only fills in
+ * when that request fails (no connection), which is also why every
+ * key here is scoped to a userId: an earlier version kept ONE global
+ * AsyncStorage key for every account, so switching farmers on the
+ * same phone (or a shared demo device) leaked the previous farmer's
+ * scans into "Recent Scans" and inflated the CAO report's totals.
+ * Scoping by userId means a farmer can only ever fall back to their
+ * own device history.
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ScanClassLabel } from '../data/scanStats';
 
-const STORAGE_KEY = 'leafscan_scan_log';
+const STORAGE_KEY_PREFIX = 'leafscan_scan_log';
+
+function storageKeyFor(userId: number): string {
+  return `${STORAGE_KEY_PREFIX}_${userId}`;
+}
 
 /** Oldest entries are dropped past this, so on-device storage cannot grow forever. */
 const MAX_ENTRIES = 200;
@@ -44,10 +46,10 @@ interface StoredScanEntry {
   imageUrl?: string;
 }
 
-/** Reads every logged scan, most recent first. Empty until the farmer scans something. */
-export async function getScanLog(): Promise<ScanEntry[]> {
+/** Reads this farmer's logged scans, most recent first. Empty until they scan something on this device. */
+export async function getScanLog(userId: number): Promise<ScanEntry[]> {
   try {
-    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    const raw = await AsyncStorage.getItem(storageKeyFor(userId));
     if (!raw) return [];
 
     const stored = JSON.parse(raw) as StoredScanEntry[];
@@ -59,11 +61,14 @@ export async function getScanLog(): Promise<ScanEntry[]> {
 }
 
 /** Appends one completed scan and returns it. Fails quietly - a storage error should not block the app. */
-export async function addScan(entry: Omit<ScanEntry, 'id'>): Promise<ScanEntry> {
+export async function addScan(
+  userId: number,
+  entry: Omit<ScanEntry, 'id'>
+): Promise<ScanEntry> {
   const newEntry: ScanEntry = { ...entry, id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}` };
 
   try {
-    const existing = await getScanLog();
+    const existing = await getScanLog(userId);
     const next = [newEntry, ...existing].slice(0, MAX_ENTRIES);
 
     const toStore: StoredScanEntry[] = next.map((scan) => ({
@@ -71,7 +76,7 @@ export async function addScan(entry: Omit<ScanEntry, 'id'>): Promise<ScanEntry> 
       scannedAt: scan.scannedAt.toISOString(),
     }));
 
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
+    await AsyncStorage.setItem(storageKeyFor(userId), JSON.stringify(toStore));
   } catch (error) {
     console.error('[scanLog] Failed to save the scan:', error);
   }
