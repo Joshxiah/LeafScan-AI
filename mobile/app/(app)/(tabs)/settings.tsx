@@ -527,7 +527,7 @@ export default function SettingsScreen() {
                 placeholder={t.settings.currentPasswordPlaceholder}
                 value={currentPw}
                 onChangeText={setCurrentPw}
-                secureTextEntry
+                isPassword
                 autoCapitalize="none"
               />
               <FieldInput
@@ -535,7 +535,7 @@ export default function SettingsScreen() {
                 placeholder={t.settings.newPasswordPlaceholder}
                 value={newPw}
                 onChangeText={setNewPw}
-                secureTextEntry
+                isPassword
                 autoCapitalize="none"
               />
               <FieldInput
@@ -543,7 +543,7 @@ export default function SettingsScreen() {
                 placeholder={t.settings.confirmPasswordPlaceholder}
                 value={confirmPw}
                 onChangeText={setConfirmPw}
-                secureTextEntry
+                isPassword
                 autoCapitalize="none"
               />
             </View>
@@ -692,19 +692,34 @@ function MenuAction({
 
 function FieldInput({
   icon,
+  isPassword = false,
+  secureTextEntry,
   ...inputProps
 }: {
   icon: IoniconName;
+  isPassword?: boolean;
 } & React.ComponentProps<typeof TextInput>) {
+  const [hidden, setHidden] = useState(isPassword);
+
   return (
     <View className="h-12 flex-row items-center rounded-full border border-[#DFEDE3] bg-white px-4">
       <Ionicons name={icon} size={16} color={brand.muted} />
       <TextInput
         {...inputProps}
+        secureTextEntry={isPassword ? hidden : secureTextEntry}
         placeholderTextColor={brand.placeholder}
         className="ml-2.5 flex-1 text-[14px] text-[#16241B]"
         style={{ paddingVertical: 0 }}
       />
+      {isPassword && (
+        <Pressable onPress={() => setHidden((v) => !v)} hitSlop={10}>
+          <Ionicons
+            name={hidden ? 'eye-outline' : 'eye-off-outline'}
+            size={16}
+            color={brand.muted}
+          />
+        </Pressable>
+      )}
     </View>
   );
 }

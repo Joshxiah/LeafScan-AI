@@ -12,6 +12,7 @@ import { useState } from 'react';
 import {
   View,
   Text,
+  Image,
   Pressable,
   ScrollView,
   KeyboardAvoidingView,
@@ -89,9 +90,11 @@ export default function LoginScreen() {
         >
           {/* ---------- Brand mark ---------- */}
           <View className="mb-7 items-center">
-            <View className="h-16 w-16 items-center justify-center rounded-2xl bg-[#2F6D46]" style={shadows.card}>
-              <Ionicons name="leaf" size={30} color="#ffffff" />
-            </View>
+            <Image
+              source={require('../../assets/images/logo.png')}
+              style={{ width: 80, height: 80 }}
+              resizeMode="contain"
+            />
 
             <Text className="mt-3.5 text-2xl font-extrabold text-[#16241B]">
               {t.login.welcomeBack}

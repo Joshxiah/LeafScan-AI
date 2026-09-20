@@ -8,16 +8,16 @@
  */
 
 import { useState, type FormEvent } from 'react';
-import { useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 import { useAuth } from '../context/AuthContext';
 import { ApiError } from '../services/api';
-import { LeafMark } from '../components/LeafMark';
+import logo from '../assets/logo.png';
 
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isAuthenticated, isLoading } = useAuth();
+  const { login } = useAuth();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -25,10 +25,9 @@ export function LoginPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Already signed in? Skip the form.
-  if (!isLoading && isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
-  }
+  // The site always lands here on open (see SplashPage) - even with a
+  // saved session, the admin must explicitly sign in; we never
+  // auto-skip to the dashboard.
 
   async function handleSubmit(event: FormEvent) {
     // Without this, the browser reloads the whole page on submit
@@ -73,9 +72,7 @@ export function LoginPage() {
     <div className="flex min-h-screen">
       {/* ---------- Left: branding ---------- */}
       <div className="hidden flex-1 flex-col justify-center bg-leaf-800 px-16 lg:flex">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white">
-          <LeafMark className="h-9 w-9 text-leaf-600" />
-        </div>
+        <img src={logo} alt="LeafScan AI" className="h-16 w-16 object-contain" />
 
         <h1 className="mt-8 text-4xl font-bold text-white">LeafScan AI</h1>
 
@@ -100,9 +97,7 @@ export function LoginPage() {
         <div className="w-full max-w-sm">
           {/* Small-screen logo, since the left panel is hidden */}
           <div className="mb-8 flex items-center gap-3 lg:hidden">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-leaf-600">
-              <LeafMark className="h-6 w-6 text-white" />
-            </div>
+            <img src={logo} alt="LeafScan AI" className="h-11 w-11 object-contain" />
             <div>
               <p className="text-base font-bold text-leaf-800">LeafScan AI</p>
               <p className="text-xs text-gray-500">Admin Platform</p>

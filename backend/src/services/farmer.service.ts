@@ -465,6 +465,14 @@ export async function updateFarmer(id: number, input: UpdateFarmerInput): Promis
         userSets.push('avatar_path = ?');
         userParams.push(input.avatarPath || null);
       }
+      if (input.gender !== undefined) {
+        userSets.push('gender = ?');
+        userParams.push(input.gender || null);
+      }
+      if (input.dateOfBirth !== undefined) {
+        userSets.push('date_of_birth = ?');
+        userParams.push(input.dateOfBirth || null);
+      }
       if (input.isActive !== undefined) {
         userSets.push('is_active = ?');
         userParams.push(input.isActive ? 1 : 0);
@@ -486,6 +494,18 @@ export async function updateFarmer(id: number, input: UpdateFarmerInput): Promis
 
       const farmerSets: string[] = [];
       const farmerParams: (string | number | null)[] = [];
+      if (input.region !== undefined) {
+        farmerSets.push('region = ?');
+        farmerParams.push(input.region || null);
+      }
+      if (input.province !== undefined) {
+        farmerSets.push('province = ?');
+        farmerParams.push(input.province || null);
+      }
+      if (input.municipality !== undefined) {
+        farmerSets.push('municipality = ?');
+        farmerParams.push(input.municipality || null);
+      }
       if (input.barangay !== undefined) {
         farmerSets.push('address = ?', 'barangay = ?');
         farmerParams.push(input.barangay || null, input.barangay || null);

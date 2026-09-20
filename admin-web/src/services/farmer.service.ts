@@ -86,6 +86,12 @@ export async function createAccount(payload: CreateAccountPayload): Promise<Crea
 export interface UpdateFarmerPayload {
   fullName?: string;
   phoneNumber?: string;
+  gender?: 'male' | 'female' | 'other';
+  /** YYYY-MM-DD */
+  dateOfBirth?: string;
+  region?: string;
+  province?: string;
+  municipality?: string;
   barangay?: string;
   /** From uploadImage() in upload.service.ts, or '' to remove the photo. */
   avatarPath?: string;

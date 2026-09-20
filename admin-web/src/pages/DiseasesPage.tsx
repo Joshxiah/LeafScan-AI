@@ -8,6 +8,10 @@
  * CAO can edit each one's name, description, symptoms and default
  * risk level here (they are stored as data for exactly that reason).
  * Treatment recommendations are managed on the Recommendations page.
+ *
+ * Tapping "Diseases" shows the classes first, as a compact grid;
+ * picking one then shows only that disease's full detail, mirroring
+ * the same select-then-drill-in flow as the Recommendations page.
  */
 
 import { useEffect, useState } from 'react';
@@ -29,7 +33,8 @@ const RISK_LEVELS: RiskLevel[] = ['none', 'low', 'moderate', 'high'];
 export function DiseasesPage() {
   const [diseases, setDiseases] = useState<DiseaseInfo[] | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -39,11 +44,8 @@ export function DiseasesPage() {
         if (!isMounted) return;
         setDiseases(data);
         const hash = window.location.hash.slice(1);
-        if (hash) {
-          requestAnimationFrame(() => {
-            document.getElementById(hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          });
-        }
+        const linked = hash ? data.find((d) => d.classLabel === hash) : undefined;
+        if (linked) setSelectedId(linked.id);
       })
       .catch((error) => {
         if (isMounted) {
@@ -57,46 +59,104 @@ export function DiseasesPage() {
     };
   }, []);
 
+  const selectedDisease = diseases?.find((d) => d.id === selectedId) ?? null;
+
   function applyUpdate(updated: DiseaseInfo) {
     setDiseases((list) =>
       list ? list.map((d) => (d.id === updated.id ? updated : d)) : list
     );
-    setEditingId(null);
+    setIsEditing(false);
   }
 
   return (
     <AdminLayout title="Diseases">
+      {selectedDisease ? (
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedId(null);
+            setIsEditing(false);
+          }}
+          className="text-sm font-medium text-leaf-700 hover:underline"
+        >
+          ← Back to diseases
+        </button>
+      ) : (
+        <p className="text-sm text-gray-500">Select a disease to view its details.</p>
+      )}
+
       {errorMessage && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
           <p className="text-sm text-red-700">{errorMessage}</p>
         </div>
       )}
 
       {!diseases ? (
-        <div className="flex h-64 items-center justify-center">
+        <div className="mt-4 flex h-64 items-center justify-center">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-leaf-200 border-t-leaf-600" />
         </div>
+      ) : !selectedDisease ? (
+        <DiseaseSelector diseases={diseases} onSelect={setSelectedId} />
       ) : (
-        <div className="space-y-4">
-          {diseases.map((disease) =>
-            editingId === disease.id ? (
-              <DiseaseEditCard
-                key={disease.id}
-                disease={disease}
-                onCancel={() => setEditingId(null)}
-                onSaved={applyUpdate}
-              />
-            ) : (
-              <DiseaseCard
-                key={disease.id}
-                disease={disease}
-                onEdit={() => setEditingId(disease.id)}
-              />
-            )
+        <div className="mt-4">
+          {isEditing ? (
+            <DiseaseEditCard
+              disease={selectedDisease}
+              onCancel={() => setIsEditing(false)}
+              onSaved={applyUpdate}
+            />
+          ) : (
+            <DiseaseCard disease={selectedDisease} onEdit={() => setIsEditing(true)} />
           )}
         </div>
       )}
     </AdminLayout>
+  );
+}
+
+function DiseaseSelector({
+  diseases,
+  onSelect,
+}: {
+  diseases: DiseaseInfo[];
+  onSelect: (id: number) => void;
+}) {
+  if (diseases.length === 0) {
+    return (
+      <div className="mt-4 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-16 text-center">
+        <p className="text-sm text-gray-500">No diseases in the library yet.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-4 grid gap-4 sm:grid-cols-3">
+      {diseases.map((disease) => (
+        <button
+          key={disease.id}
+          type="button"
+          onClick={() => onSelect(disease.id)}
+          className="rounded-xl border border-gray-200 bg-white p-5 text-left transition-colors hover:border-leaf-300 hover:bg-leaf-50"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-base font-semibold text-gray-900">{disease.displayName}</h3>
+            <span
+              className={`rounded px-2 py-0.5 text-xs font-medium capitalize ${
+                RISK_BADGE[disease.defaultRiskLevel]
+              }`}
+            >
+              {disease.defaultRiskLevel} risk
+            </span>
+          </div>
+          {disease.scientificName && (
+            <p className="mt-0.5 text-xs italic text-gray-500">{disease.scientificName}</p>
+          )}
+          <p className="mt-3 text-xs font-medium text-leaf-700">
+            {disease.treatments.length} treatment{disease.treatments.length === 1 ? '' : 's'} →
+          </p>
+        </button>
+      ))}
+    </div>
   );
 }
 

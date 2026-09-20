@@ -463,12 +463,16 @@ function ReportDetailModal({
         message.trim() || undefined,
         agriculturistRelevant ? agriculturistId : undefined
       );
+      onChanged();
+      if (nextStatus === 'resolved') {
+        onClose();
+        return;
+      }
       const refreshed = await reportService.getReport(reportId);
       setReport(refreshed);
       setMessage('');
       setNextStatus(defaultNextStatus(refreshed.status));
       setAgriculturistId(refreshed.assignedAgriculturistId ?? null);
-      onChanged();
     } catch (error) {
       setErrorMessage(
         error instanceof ApiError ? error.message : 'Could not update this report.'
@@ -740,7 +744,7 @@ function ReportDetailModal({
                   onClick={handleUpdate}
                   className="w-full rounded-lg bg-leaf-600 py-2.5 text-sm font-semibold text-white hover:bg-leaf-700 disabled:opacity-60"
                 >
-                  {isUpdating ? 'Updating…' : 'Update Report'}
+                  {isUpdating ? 'Updating…' : nextStatus === 'resolved' ? 'Done' : 'Update Report'}
                 </button>
               </div>
 

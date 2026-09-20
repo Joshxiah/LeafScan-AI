@@ -15,7 +15,12 @@
  *
  *   - Phone / emulator (dev) -> Metro host + Metro port  (proxied)
  *   - Web (dev)              -> same page host + Metro port (proxied)
- *   - Production build        -> port 4000 on the resolved host
+ *   - Production build        -> port 4000 on the resolved host,
+ *     PLAIN HTTP - which Android blocks by default in a release
+ *     build unless `usesCleartextTraffic` is enabled (see the
+ *     expo-build-properties entry in app.json). A production build
+ *     also skips the Metro proxy entirely, so port 4000 must be
+ *     reachable from the phone directly - see the firewall note above.
  *
  * Expo already knows the bundler's address (it is in the QR-code
  * URL); we reuse it. If that lookup fails, the app falls back to
@@ -41,7 +46,7 @@ import Constants from 'expo-constants';
 // Find it with `ipconfig` (Windows) / `ifconfig` (macOS/Linux) -
 // the "IPv4 Address" of the Wi-Fi adapter, e.g. 192.168.x.x.
 // ----------------------------------------------------------
-const DEV_MACHINE_IP = '192.168.1.5';
+const DEV_MACHINE_IP = '192.168.1.11';
 
 /** Where the real backend listens. Used directly only in production builds. */
 const BACKEND_PORT = 4000;

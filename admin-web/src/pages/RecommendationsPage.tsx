@@ -305,7 +305,7 @@ function RecommendationCard({
             type="button"
             disabled={busy}
             onClick={() => setAskDelete(true)}
-            className="rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-40"
+            className="rounded-lg border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-40"
           >
             Delete
           </button>

@@ -57,6 +57,14 @@
         {
           "photosPermission": "LeafScan AI needs access to your photos so you can select an existing corn leaf image."
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
       ]
     ],
     "experiments": {

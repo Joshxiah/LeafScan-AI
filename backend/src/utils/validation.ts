@@ -301,11 +301,25 @@ export const createAccountSchema = z.object({
   yearsFarming: z.number().int().nonnegative().max(120).optional(),
 });
 
-/** The CAO editing a farmer account (activate / deactivate / fix details). */
+/** The CAO editing a farmer or admin account (activate / deactivate / fix details). */
 export const updateFarmerSchema = z.object({
   fullName: z.string().trim().min(2).max(150).optional(),
   phoneNumber: phoneRule.optional(),
-  barangay: barangayRule,
+  gender: z.enum(['male', 'female', 'other']).optional(),
+  dateOfBirth: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
+    .optional()
+    .or(z.literal('')),
+  // Same shape as createAccountSchema's address fields below - free
+  // text from the Region/Province/City/Barangay cascade, which spans
+  // the whole country, not just the fixed Pagadian-City `barangayRule`
+  // enum used by the older agriculturist forms.
+  region: z.string().trim().max(100).optional().or(z.literal('')),
+  province: z.string().trim().max(100).optional().or(z.literal('')),
+  municipality: z.string().trim().max(100).optional().or(z.literal('')),
+  barangay: z.string().trim().max(150).optional().or(z.literal('')),
   /** Relative path from a prior POST /api/uploads, or '' to remove the photo. */
   avatarPath: z.string().trim().max(255).optional().or(z.literal('')),
   farmSizeHectares: z.number().positive().max(9999).optional(),

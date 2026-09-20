@@ -8,7 +8,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../../context/AuthContext';
-import { LeafMark } from '../LeafMark';
+import logo from '../../assets/logo.png';
 
 interface NavItem {
   label: string;
@@ -38,10 +38,8 @@ export function Sidebar({ unreadReports }: { unreadReports?: number }) {
   return (
     <aside className="flex w-64 shrink-0 flex-col bg-leaf-800">
       {/* ---------- Brand ---------- */}
-      <div className="flex items-center gap-3 border-b border-leaf-700 px-5 py-5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white">
-          <LeafMark className="h-6 w-6 text-leaf-600" />
-        </div>
+      <div className="flex items-center gap-4 border-b border-leaf-700 px-5 py-5">
+        <img src={logo} alt="LeafScan AI" className="h-10 w-10 shrink-0 object-contain" />
 
         <div>
           <p className="text-base font-bold text-white">LeafScan AI</p>

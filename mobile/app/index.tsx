@@ -11,10 +11,9 @@
  */
 
 import { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
+import { View, Text, Image, ActivityIndicator } from 'react-native';
 import { Redirect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '../src/context/AuthContext';
 import { useLanguage } from '../src/context/LanguageContext';
@@ -44,12 +43,11 @@ export default function SplashScreen() {
     <View className="flex-1 items-center justify-center bg-[#2F6D46] px-8">
       <StatusBar style="light" />
 
-      <View
-        className="h-20 w-20 items-center justify-center rounded-3xl"
-        style={{ backgroundColor: 'rgba(255,255,255,0.16)' }}
-      >
-        <Ionicons name="leaf" size={40} color="#ffffff" />
-      </View>
+      <Image
+        source={require('../assets/images/logo.png')}
+        style={{ width: 96, height: 96 }}
+        resizeMode="contain"
+      />
 
       <Text className="mt-5 text-2xl font-extrabold tracking-wide text-white">
         LeafScan AI

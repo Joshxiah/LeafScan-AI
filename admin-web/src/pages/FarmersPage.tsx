@@ -13,10 +13,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { AdminLayout } from '../components/layout/AdminLayout';
-import { BarangayInput } from '../components/BarangayInput';
+import { AddressCascade, EMPTY_ADDRESS } from '../components/AddressCascade';
+import type { AddressNames } from '../components/AddressCascade';
 import { ApiError } from '../services/api';
-import * as addressService from '../services/address.service';
-import type { AddressOption } from '../services/address.service';
 import * as farmerService from '../services/farmer.service';
 import type { FarmPlotPayload } from '../services/farmer.service';
 import * as uploadService from '../services/upload.service';
@@ -228,6 +227,7 @@ export function FarmersPage() {
                   <th className="px-4 py-3 font-medium">Farmer</th>
                   <th className="px-4 py-3 font-medium">Role</th>
                   <th className="px-4 py-3 font-medium">Phone</th>
+                  <th className="px-4 py-3 font-medium">Gender</th>
                   <th className="px-4 py-3 font-medium">Barangay</th>
                   <th className="px-4 py-3 font-medium">Area</th>
                   <th className="px-4 py-3 font-medium">Reports</th>
@@ -263,6 +263,7 @@ export function FarmersPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-gray-600">{farmer.phoneNumber ?? '—'}</td>
+                    <td className="px-4 py-3 capitalize text-gray-600">{farmer.gender ?? '—'}</td>
                     <td className="px-4 py-3 text-gray-600">
                       {farmer.barangay ?? '—'}
                       {farmer.municipality ? `, ${farmer.municipality}` : ''}
@@ -325,7 +326,6 @@ export function FarmersPage() {
       {selected && (
         <FarmerDetailModal
           farmer={selected}
-          barangays={barangays}
           onClose={() => setSelected(null)}
           onChanged={load}
           onDeleted={() => {
@@ -383,60 +383,11 @@ function CreateAccountModal({
   const [avatarPath, setAvatarPath] = useState<string | undefined>();
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
-  // Address cascade - farmer only. Each level's options load once its
-  // parent is chosen; picking a new parent clears everything below it.
-  const [regions, setRegions] = useState<AddressOption[]>([]);
-  const [provinces, setProvinces] = useState<AddressOption[]>([]);
-  const [cities, setCities] = useState<AddressOption[]>([]);
-  const [barangayOptions, setBarangayOptions] = useState<string[]>([]);
-  const [regionCode, setRegionCode] = useState('');
-  const [provinceCode, setProvinceCode] = useState('');
-  const [cityCode, setCityCode] = useState('');
-  const [barangay, setBarangay] = useState('');
+  const [address, setAddress] = useState<AddressNames>(EMPTY_ADDRESS);
 
   const [plots, setPlots] = useState<PlotDraft[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    addressService
-      .listRegions()
-      .then(setRegions)
-      .catch(() => setRegions([]));
-  }, []);
-
-  useEffect(() => {
-    if (!regionCode) {
-      setProvinces([]);
-      return;
-    }
-    addressService
-      .listProvinces(regionCode)
-      .then(setProvinces)
-      .catch(() => setProvinces([]));
-  }, [regionCode]);
-
-  useEffect(() => {
-    if (!provinceCode) {
-      setCities([]);
-      return;
-    }
-    addressService
-      .listCities(provinceCode)
-      .then(setCities)
-      .catch(() => setCities([]));
-  }, [provinceCode]);
-
-  useEffect(() => {
-    if (!cityCode) {
-      setBarangayOptions([]);
-      return;
-    }
-    addressService
-      .listBarangaysForCity(cityCode)
-      .then(setBarangayOptions)
-      .catch(() => setBarangayOptions([]));
-  }, [cityCode]);
 
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -475,6 +426,30 @@ function CreateAccountModal({
       setError('Enter a password of at least 8 characters.');
       return;
     }
+    if (!gender) {
+      setError('Select a gender.');
+      return;
+    }
+    if (!dateOfBirth) {
+      setError('Enter a date of birth.');
+      return;
+    }
+    if (!address.region) {
+      setError('Select a region.');
+      return;
+    }
+    if (!address.province) {
+      setError('Select a province.');
+      return;
+    }
+    if (!address.municipality) {
+      setError('Select a city / municipality.');
+      return;
+    }
+    if (!address.barangay) {
+      setError('Select a barangay.');
+      return;
+    }
     if (
       role === 'farmer' &&
       plots.some((plot) => plot.area.trim() !== '' && !(Number(plot.area) > 0))
@@ -498,10 +473,10 @@ function CreateAccountModal({
         gender: gender || undefined,
         dateOfBirth: dateOfBirth || undefined,
         avatarPath,
-        region: regions.find((r) => r.code === regionCode)?.name,
-        province: provinces.find((p) => p.code === provinceCode)?.name,
-        municipality: cities.find((c) => c.code === cityCode)?.name,
-        barangay: barangay || undefined,
+        region: address.region || undefined,
+        province: address.province || undefined,
+        municipality: address.municipality || undefined,
+        barangay: address.barangay || undefined,
         plots: payloadPlots.length > 0 ? payloadPlots : undefined,
       });
       onCreated(result);
@@ -608,50 +583,8 @@ function CreateAccountModal({
           <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
             Address
           </span>
-          <div className="mt-1.5 grid gap-3 sm:grid-cols-2">
-            <SelectField
-              label="Region"
-              value={regionCode}
-              onChange={(v) => {
-                setRegionCode(v);
-                setProvinceCode('');
-                setCityCode('');
-                setBarangay('');
-              }}
-              options={regions.map((r) => ({ value: r.code, label: r.name }))}
-              placeholder="Select region"
-            />
-            <SelectField
-              label="Province"
-              value={provinceCode}
-              onChange={(v) => {
-                setProvinceCode(v);
-                setCityCode('');
-                setBarangay('');
-              }}
-              options={provinces.map((p) => ({ value: p.code, label: p.name }))}
-              placeholder="Select province"
-              disabled={!regionCode}
-            />
-            <SelectField
-              label="City / Municipality"
-              value={cityCode}
-              onChange={(v) => {
-                setCityCode(v);
-                setBarangay('');
-              }}
-              options={cities.map((c) => ({ value: c.code, label: c.name }))}
-              placeholder="Select city / municipality"
-              disabled={!provinceCode}
-            />
-            <SelectField
-              label="Barangay"
-              value={barangay}
-              onChange={setBarangay}
-              options={barangayOptions.map((b) => ({ value: b, label: b }))}
-              placeholder="Select barangay"
-              disabled={!cityCode}
-            />
+          <div className="mt-1.5">
+            <AddressCascade initial={EMPTY_ADDRESS} onChange={setAddress} />
           </div>
         </div>
 
@@ -687,13 +620,11 @@ function CreateAccountModal({
 
 function FarmerDetailModal({
   farmer,
-  barangays,
   onClose,
   onChanged,
   onDeleted,
 }: {
   farmer: FarmerSummary;
-  barangays: string[];
   onClose: () => void;
   onChanged: () => void;
   onDeleted: () => void;
@@ -702,7 +633,17 @@ function FarmerDetailModal({
   const [current, setCurrent] = useState(farmer);
   const [fullName, setFullName] = useState(farmer.fullName);
   const [phoneNumber, setPhoneNumber] = useState(farmer.phoneNumber ?? '');
-  const [barangay, setBarangay] = useState(farmer.barangay ?? '');
+  const [gender, setGender] = useState<'' | 'male' | 'female' | 'other'>(
+    (farmer.gender as '' | 'male' | 'female' | 'other' | null) ?? ''
+  );
+  const [dateOfBirth, setDateOfBirth] = useState(farmer.dateOfBirth ?? '');
+  const [addressTouched, setAddressTouched] = useState(false);
+  const [address, setAddress] = useState<AddressNames>({
+    region: farmer.region ?? '',
+    province: farmer.province ?? '',
+    municipality: farmer.municipality ?? '',
+    barangay: farmer.barangay ?? '',
+  });
   const [avatarPath, setAvatarPath] = useState(farmer.avatarPath ?? '');
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [plots, setPlots] = useState<PlotDraft[]>(() => draftsFromPlots(farmer.plots));
@@ -712,11 +653,18 @@ function FarmerDetailModal({
   const [askDelete, setAskDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Gender has no "clear" value in the API (it is a plain enum, not
+  // nullable-via-empty-string like the other fields here) - only a
+  // genuine pick counts as a change the Save button will act on.
+  const genderChanged =
+    gender !== '' && gender !== ((current.gender as typeof gender) ?? '');
   const plotsChanged = !plotsUnchanged(plots, current.plots);
   const dirty =
     fullName.trim() !== current.fullName ||
     phoneNumber.trim() !== (current.phoneNumber ?? '') ||
-    barangay.trim() !== (current.barangay ?? '') ||
+    genderChanged ||
+    dateOfBirth !== (current.dateOfBirth ?? '') ||
+    addressTouched ||
     avatarPath !== (current.avatarPath ?? '') ||
     plotsChanged;
 
@@ -735,11 +683,13 @@ function FarmerDetailModal({
     }
   }
 
-  async function save(extra: Parameters<typeof farmerService.updateFarmer>[1] = {}) {
+  async function save(
+    extra: Parameters<typeof farmerService.updateFarmer>[1] = {}
+  ): Promise<boolean> {
     setError(null);
     if (plotsChanged && plots.some((plot) => plot.area.trim() !== '' && !(Number(plot.area) > 0))) {
       setError('Every plot needs an area greater than zero, or remove the row.');
-      return;
+      return false;
     }
     setIsSaving(true);
     try {
@@ -747,17 +697,36 @@ function FarmerDetailModal({
         fullName: fullName.trim() !== current.fullName ? fullName.trim() : undefined,
         phoneNumber:
           phoneNumber.trim() !== (current.phoneNumber ?? '') ? phoneNumber.trim() : undefined,
-        barangay: barangay.trim() !== (current.barangay ?? '') ? barangay.trim() : undefined,
+        gender: genderChanged ? (gender || undefined) : undefined,
+        dateOfBirth:
+          dateOfBirth !== (current.dateOfBirth ?? '') ? dateOfBirth || undefined : undefined,
+        ...(addressTouched
+          ? {
+              region: address.region || undefined,
+              province: address.province || undefined,
+              municipality: address.municipality || undefined,
+              barangay: address.barangay || undefined,
+            }
+          : {}),
         avatarPath: avatarPath !== (current.avatarPath ?? '') ? avatarPath : undefined,
         plots: plotsChanged ? plotsPayloadFrom(plots) : undefined,
         ...extra,
       });
       setCurrent(result.farmer);
       setPlots(draftsFromPlots(result.farmer.plots));
+      setAddress({
+        region: result.farmer.region ?? '',
+        province: result.farmer.province ?? '',
+        municipality: result.farmer.municipality ?? '',
+        barangay: result.farmer.barangay ?? '',
+      });
+      setAddressTouched(false);
       if (result.newPassword) setResetPassword(result.newPassword);
       onChanged();
+      return true;
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not update this account.');
+      return false;
     } finally {
       setIsSaving(false);
     }
@@ -798,30 +767,67 @@ function FarmerDetailModal({
           <Field label="Mobile number" value={phoneNumber} onChange={setPhoneNumber} />
         </div>
 
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block">
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+              Gender
+            </span>
+            <select
+              value={gender}
+              onChange={(e) => setGender(e.target.value as typeof gender)}
+              className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
+            >
+              <option value="">Select gender</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+          <Field
+            label="Date of birth"
+            type="date"
+            value={dateOfBirth}
+            onChange={setDateOfBirth}
+          />
+        </div>
+
+        <label className="block">
+          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+            Profile image
+          </span>
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={handleAvatarChange}
+            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-700 focus:border-leaf-500 focus:outline-none"
+          />
+          {isUploadingAvatar && (
+            <span className="mt-1 block text-xs text-gray-400">Uploading…</span>
+          )}
+          {avatarPath && !isUploadingAvatar && avatarPath !== (current.avatarPath ?? '') && (
+            <span className="mt-1 block text-xs text-green-600">
+              New image uploaded — save to apply.
+            </span>
+          )}
+        </label>
+
+        <div>
+          <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+            Address
+          </span>
+          <div className="mt-1.5">
+            <AddressCascade
+              initial={address}
+              onChange={(next) => {
+                setAddress(next);
+                setAddressTouched(true);
+              }}
+            />
+          </div>
+        </div>
+
         {current.role === 'farmer' && (
           <>
-            <BarangayInput value={barangay} onChange={setBarangay} barangays={barangays} />
-
-            <label className="block">
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                Profile image
-              </span>
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                onChange={handleAvatarChange}
-                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-700 focus:border-leaf-500 focus:outline-none"
-              />
-              {isUploadingAvatar && (
-                <span className="mt-1 block text-xs text-gray-400">Uploading…</span>
-              )}
-              {avatarPath && !isUploadingAvatar && avatarPath !== (current.avatarPath ?? '') && (
-                <span className="mt-1 block text-xs text-green-600">
-                  New image uploaded — save to apply.
-                </span>
-              )}
-            </label>
-
             <PlotsEditor plots={plots} onChange={setPlots} />
             {current.plots.length > 0 && (
               <p className="text-xs text-gray-400">{summarizeByPurok(current.plots)}</p>
@@ -836,32 +842,10 @@ function FarmerDetailModal({
         )}
 
         {current.role === 'admin' && (
-          <>
-            <label className="block">
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                Profile image
-              </span>
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                onChange={handleAvatarChange}
-                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-700 focus:border-leaf-500 focus:outline-none"
-              />
-              {isUploadingAvatar && (
-                <span className="mt-1 block text-xs text-gray-400">Uploading…</span>
-              )}
-              {avatarPath && !isUploadingAvatar && avatarPath !== (current.avatarPath ?? '') && (
-                <span className="mt-1 block text-xs text-green-600">
-                  New image uploaded — save to apply.
-                </span>
-              )}
-            </label>
-
-            <div className="grid grid-cols-2 gap-3 pt-1 text-sm">
-              <ReadOnly label="Role" value="Admin" />
-              <ReadOnly label="Joined" value={formatDate(current.createdAt)} />
-            </div>
-          </>
+          <div className="grid grid-cols-2 gap-3 pt-1 text-sm">
+            <ReadOnly label="Role" value="Admin" />
+            <ReadOnly label="Joined" value={formatDate(current.createdAt)} />
+          </div>
         )}
 
         {current.role === 'farmer' && (
@@ -884,7 +868,10 @@ function FarmerDetailModal({
         <button
           type="button"
           disabled={isSaving || isUploadingAvatar || !dirty}
-          onClick={() => save()}
+          onClick={async () => {
+            const ok = await save();
+            if (ok) onClose();
+          }}
           className="rounded-lg bg-leaf-600 px-3 py-2 text-sm font-medium text-white hover:bg-leaf-700 disabled:opacity-40"
         >
           {isSaving ? 'Saving…' : 'Save changes'}
@@ -1107,42 +1094,6 @@ function Field({
         placeholder={placeholder}
         className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
       />
-    </label>
-  );
-}
-
-/** A `<select>` with a leading placeholder option - the cascading Region/Province/City/Barangay picker's shared shape. */
-function SelectField({
-  label,
-  value,
-  onChange,
-  options,
-  placeholder,
-  disabled,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-  placeholder: string;
-  disabled?: boolean;
-}) {
-  return (
-    <label className="block">
-      <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</span>
-      <select
-        value={value}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-1 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
-      >
-        <option value="">{placeholder}</option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
     </label>
   );
 }

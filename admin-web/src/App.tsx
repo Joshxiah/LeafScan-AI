@@ -10,11 +10,12 @@
  * sidebar links are placeholders until their phases.
  */
 
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 import { AuthProvider } from './context/AuthContext';
 import { NotificationsProvider } from './context/NotificationsContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { SplashPage } from './pages/SplashPage';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ReportsPage } from './pages/ReportsPage';
@@ -105,10 +106,11 @@ function App() {
             }
           />
 
-          {/* Anything else goes to the dashboard, which itself
-              bounces to /login when there is no session. */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          {/* Opening the site (or hitting an unknown path) always shows
+              the splash, then goes to /login - never straight to the
+              dashboard, even with a saved session. */}
+          <Route path="/" element={<SplashPage />} />
+          <Route path="*" element={<SplashPage />} />
         </Routes>
         </NotificationsProvider>
       </AuthProvider>
