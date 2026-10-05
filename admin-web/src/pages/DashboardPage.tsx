@@ -17,7 +17,6 @@ import { Link } from 'react-router-dom';
 import { AdminLayout } from '../components/layout/AdminLayout';
 import { StatCard } from '../components/StatCard';
 import { ScanTrendChart } from '../components/charts/ScanTrendChart';
-import { DiseaseBreakdownChart } from '../components/charts/DiseaseBreakdownChart';
 import { BarangayRiskChart } from '../components/charts/BarangayRiskChart';
 import { FarmersByBarangayChart } from '../components/charts/FarmersByBarangayChart';
 import { api, ApiError } from '../services/api';
@@ -279,194 +278,6 @@ export function DashboardPage() {
             </Link>
           </div>
 
-          {/* ---------- Scan activity trend ---------- */}
-          <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
-            <h2 className="text-sm font-semibold text-gray-900">Scan Activity</h2>
-            <p className="mt-0.5 text-xs text-gray-400">Scans recorded per day, last 14 days</p>
-
-            <div className="mt-4">
-              <ScanTrendChart data={statistics.scanTrend} />
-            </div>
-          </section>
-
-          {/* ---------- Registered Farmers by Barangay ---------- */}
-          <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-sm font-semibold text-gray-900">
-                  Registered Farmers by Barangay
-                </h2>
-                <p className="mt-0.5 text-xs text-gray-400">
-                  Number of registered farmers across each barangay
-                </p>
-              </div>
-
-              <p className="text-sm text-gray-500">
-                Total Registered Farmers:{' '}
-                <span className="font-semibold text-gray-900">
-                  {statistics.totalFarmers.toLocaleString()}
-                </span>
-              </p>
-            </div>
-
-            {farmersByBarangayError && (
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
-                <p className="text-sm text-red-700">{farmersByBarangayError}</p>
-                <button
-                  type="button"
-                  onClick={() => setFarmersByBarangayReloadKey((key) => key + 1)}
-                  className="shrink-0 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
-                >
-                  Retry
-                </button>
-              </div>
-            )}
-
-            {isFarmersByBarangayLoading ? (
-              <div className="flex h-64 items-center justify-center">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-leaf-200 border-t-leaf-600" />
-              </div>
-            ) : farmersByBarangayError ? null : farmersByBarangay && farmersByBarangay.length > 0 ? (
-              <div className="mt-4">
-                <FarmersByBarangayChart data={farmersByBarangay} />
-              </div>
-            ) : (
-              <div className="mt-4 rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-10 text-center">
-                <p className="text-sm text-gray-500">No registered farmers yet.</p>
-                <p className="mt-1 text-xs text-gray-400">
-                  Farmers will appear here once the CAO adds them under Farmer Management.
-                </p>
-              </div>
-            )}
-          </section>
-
-          <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-            {/* ---------- Disease breakdown ---------- */}
-            <section className="rounded-xl border border-gray-200 bg-white p-5 lg:col-span-1">
-              <h2 className="text-sm font-semibold text-gray-900">
-                Scans by Disease Class
-              </h2>
-              <p className="mt-0.5 text-xs text-gray-400">
-                Coloured by risk level, not just category
-              </p>
-
-              <div className="mt-4">
-                <DiseaseBreakdownChart data={statistics.diseaseBreakdown} />
-              </div>
-            </section>
-
-            {/* ---------- Recent detections ---------- */}
-            <section className="rounded-xl border border-gray-200 bg-white p-5 lg:col-span-2">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-sm font-semibold text-gray-900">Recent Detections</h2>
-                  <p className="mt-0.5 text-xs text-gray-400">
-                    The ten most recent leaf scans matching these filters
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <select
-                    value={recentBarangay}
-                    onChange={(e) => setRecentBarangay(e.target.value)}
-                    className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:border-leaf-500 focus:outline-none"
-                  >
-                    <option value="all">All barangays</option>
-                    {barangayOptions.map((barangay) => (
-                      <option key={barangay} value={barangay}>
-                        {barangay}
-                      </option>
-                    ))}
-                  </select>
-
-                  <select
-                    value={recentRisk}
-                    onChange={(e) => setRecentRisk(e.target.value as RiskLevel | 'all')}
-                    className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:border-leaf-500 focus:outline-none"
-                  >
-                    {RISK_FILTERS.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {recentError && (
-                <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
-                  <p className="text-sm text-red-700">{recentError}</p>
-                </div>
-              )}
-
-              {isRecentLoading ? (
-                <div className="flex h-40 items-center justify-center">
-                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-leaf-200 border-t-leaf-600" />
-                </div>
-              ) : !recentDetections || recentDetections.length === 0 ? (
-                <div className="mt-6 rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-10 text-center">
-                  <p className="text-sm text-gray-500">
-                    {recentRisk === 'all' && recentBarangay === 'all'
-                      ? 'No scans have been recorded yet.'
-                      : 'No scans match these filters.'}
-                  </p>
-                  <p className="mt-1 text-xs text-gray-400">
-                    Detections will appear here once farmers begin scanning
-                    corn leaves with the mobile app.
-                  </p>
-                </div>
-              ) : (
-                <div className="mt-4 overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead>
-                      <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-400">
-                        <th className="py-2 pr-4 font-medium">Farmer</th>
-                        <th className="py-2 pr-4 font-medium">Barangay</th>
-                        <th className="py-2 pr-4 font-medium">Result</th>
-                        <th className="py-2 pr-4 font-medium">Confidence</th>
-                        <th className="py-2 pr-4 font-medium">Risk</th>
-                        <th className="py-2 font-medium">Date</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recentDetections.map((d) => (
-                        <tr
-                          key={d.id}
-                          className="border-b border-gray-100 last:border-0"
-                        >
-                          <td className="py-2.5 pr-4 text-gray-900">
-                            {d.farmerName}
-                          </td>
-                          <td className="py-2.5 pr-4 text-gray-600">{d.barangay}</td>
-                          <td className="py-2.5 pr-4 text-gray-700">
-                            {d.diseaseName ?? d.predictedClass}
-                          </td>
-                          <td className="py-2.5 pr-4 text-gray-700">
-                            {d.confidenceScore.toFixed(1)}%
-                          </td>
-                          <td className="py-2.5 pr-4">
-                            <span
-                              className={`rounded px-2 py-0.5 text-xs font-medium capitalize ${RISK_BADGE[d.riskLevel]}`}
-                            >
-                              {d.riskLevel}
-                            </span>
-                          </td>
-                          <td className="py-2.5 text-gray-500">
-                            {new Date(d.detectedAt).toLocaleDateString('en-PH', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                            })}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-          </div>
-
           {/* ---------- Scans by Barangay ---------- */}
           <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -568,6 +379,178 @@ export function DashboardPage() {
               <p className="mt-4 text-sm text-gray-500">
                 No scans recorded for this filter yet.
               </p>
+            )}
+          </section>
+
+          {/* ---------- Scan activity trend ---------- */}
+          <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
+            <h2 className="text-sm font-semibold text-gray-900">Scan Activity</h2>
+            <p className="mt-0.5 text-xs text-gray-400">Scans recorded per day, last 14 days</p>
+
+            <div className="mt-4">
+              <ScanTrendChart data={statistics.scanTrend} />
+            </div>
+          </section>
+
+          {/* ---------- Registered Farmers by Barangay ---------- */}
+          <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900">
+                  Registered Farmers by Barangay
+                </h2>
+                <p className="mt-0.5 text-xs text-gray-400">
+                  Number of registered farmers across each barangay
+                </p>
+              </div>
+
+              <p className="text-sm text-gray-500">
+                Total Registered Farmers:{' '}
+                <span className="font-semibold text-gray-900">
+                  {statistics.totalFarmers.toLocaleString()}
+                </span>
+              </p>
+            </div>
+
+            {farmersByBarangayError && (
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+                <p className="text-sm text-red-700">{farmersByBarangayError}</p>
+                <button
+                  type="button"
+                  onClick={() => setFarmersByBarangayReloadKey((key) => key + 1)}
+                  className="shrink-0 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {isFarmersByBarangayLoading ? (
+              <div className="flex h-64 items-center justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-leaf-200 border-t-leaf-600" />
+              </div>
+            ) : farmersByBarangayError ? null : farmersByBarangay && farmersByBarangay.length > 0 ? (
+              <div className="mt-4">
+                <FarmersByBarangayChart data={farmersByBarangay} />
+              </div>
+            ) : (
+              <div className="mt-4 rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-10 text-center">
+                <p className="text-sm text-gray-500">No registered farmers yet.</p>
+                <p className="mt-1 text-xs text-gray-400">
+                  Farmers will appear here once the CAO adds them under Farmer Management.
+                </p>
+              </div>
+            )}
+          </section>
+
+          {/* ---------- Recent detections ---------- */}
+          <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900">Recent Detections</h2>
+                <p className="mt-0.5 text-xs text-gray-400">
+                  The ten most recent leaf scans matching these filters
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={recentBarangay}
+                  onChange={(e) => setRecentBarangay(e.target.value)}
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:border-leaf-500 focus:outline-none"
+                >
+                  <option value="all">All barangays</option>
+                  {barangayOptions.map((barangay) => (
+                    <option key={barangay} value={barangay}>
+                      {barangay}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={recentRisk}
+                  onChange={(e) => setRecentRisk(e.target.value as RiskLevel | 'all')}
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:border-leaf-500 focus:outline-none"
+                >
+                  {RISK_FILTERS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {recentError && (
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+                <p className="text-sm text-red-700">{recentError}</p>
+              </div>
+            )}
+
+            {isRecentLoading ? (
+              <div className="flex h-40 items-center justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-leaf-200 border-t-leaf-600" />
+              </div>
+            ) : !recentDetections || recentDetections.length === 0 ? (
+              <div className="mt-6 rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-10 text-center">
+                <p className="text-sm text-gray-500">
+                  {recentRisk === 'all' && recentBarangay === 'all'
+                    ? 'No scans have been recorded yet.'
+                    : 'No scans match these filters.'}
+                </p>
+                <p className="mt-1 text-xs text-gray-400">
+                  Detections will appear here once farmers begin scanning
+                  corn leaves with the mobile app.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-400">
+                      <th className="py-2 pr-4 font-medium">Farmer</th>
+                      <th className="py-2 pr-4 font-medium">Barangay</th>
+                      <th className="py-2 pr-4 font-medium">Result</th>
+                      <th className="py-2 pr-4 font-medium">Confidence</th>
+                      <th className="py-2 pr-4 font-medium">Risk</th>
+                      <th className="py-2 font-medium">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentDetections.map((d) => (
+                      <tr
+                        key={d.id}
+                        className="border-b border-gray-100 last:border-0"
+                      >
+                        <td className="py-2.5 pr-4 text-gray-900">
+                          {d.farmerName}
+                        </td>
+                        <td className="py-2.5 pr-4 text-gray-600">{d.barangay}</td>
+                        <td className="py-2.5 pr-4 text-gray-700">
+                          {d.diseaseName ?? d.predictedClass}
+                        </td>
+                        <td className="py-2.5 pr-4 text-gray-700">
+                          {d.confidenceScore.toFixed(1)}%
+                        </td>
+                        <td className="py-2.5 pr-4">
+                          <span
+                            className={`rounded px-2 py-0.5 text-xs font-medium capitalize ${RISK_BADGE[d.riskLevel]}`}
+                          >
+                            {d.riskLevel}
+                          </span>
+                        </td>
+                        <td className="py-2.5 text-gray-500">
+                          {new Date(d.detectedAt).toLocaleDateString('en-PH', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </section>
         </>
