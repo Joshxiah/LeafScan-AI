@@ -66,9 +66,15 @@ export const env = {
   },
 
   // ---------- Authentication (used in Phase 5) ----------
+  // Two token lifetimes, picked by the "Remember me" box at login:
+  //   - expiresIn:         box UNCHECKED - a short session token
+  //   - rememberExpiresIn: box CHECKED - a long token the phone keeps,
+  //     so a farmer can stay signed in and use the app offline for
+  //     weeks between trips into signal range.
   jwt: {
     secret: requireEnv('JWT_SECRET'),
-    expiresIn: optionalEnv('JWT_EXPIRES_IN', '7d'),
+    expiresIn: optionalEnv('JWT_EXPIRES_IN', '1d'),
+    rememberExpiresIn: optionalEnv('JWT_REMEMBER_EXPIRES_IN', '90d'),
   },
 
   // ---------- Outgoing SMS (password reset) ----------

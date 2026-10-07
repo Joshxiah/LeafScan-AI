@@ -13,39 +13,45 @@ import {
   useEffect,
   useState,
   useCallback,
+  useRef,
   ReactNode,
 } from 'react';
 
 import * as authService from '../services/auth.service';
 import { ApiError } from '../services/api';
-import { saveToken, getToken, deleteToken } from '../services/storage';
+import {
+  saveToken,
+  getToken,
+  deleteToken,
+  saveCachedUser,
+  getCachedUser,
+  deleteCachedUser,
+} from '../services/storage';
 import { User, LoginPayload, RegisterPayload } from '../types';
 
 /**
- * True only when the backend could not be reached at all (offline,
- * server not running, timed out) - the case the offline demo mode
- * exists for.
+ * HOW SIGN-IN WORKS (offline-first)
  *
- * A real response from a reachable backend - wrong password, a
- * duplicate username, a validation error - must NOT count, or the
- * app silently swaps in a fake "demo-session-token" that isn't a
- * real JWT. The farmer would look logged in, but every later
- * authenticated call (refreshing the profile, saving edits,
- * uploading a photo) would be rejected by the server with "Invalid
- * authentication token".
+ * - The FIRST login always needs the server: accounts are issued by
+ *   the CAO, so the phone cannot check a password it has never seen.
+ * - "Remember me" CHECKED: the server issues a long-lived token
+ *   (90 days by default). The token and the farmer's profile are
+ *   kept on the phone, so the app opens straight to Home - with or
+ *   without internet - until the farmer logs out.
+ * - "Remember me" UNCHECKED: a short token kept in memory only. The
+ *   farmer is signed out when the app is closed (shared phones).
+ * - The app signs a farmer out ONLY when the server actually rejects
+ *   the token (expired, deactivated account). Having no connection
+ *   is never a reason to sign out.
  */
-function isBackendUnreachable(error: unknown): boolean {
-  return error instanceof ApiError && (error.status === 0 || error.status === 408);
-}
 
 /**
- * The offline demo session only ever makes sense while building or
- * demoing the app with no backend running. `__DEV__` is false in
- * any build a real farmer would install, so a production build
- * never silently logs someone into a fake local session just
- * because their Wi-Fi hiccuped.
+ * True when the server answered and refused the session - as opposed
+ * to the server simply being unreachable (status 0 / 408).
  */
-const DEMO_MODE_ENABLED = __DEV__;
+function isSessionRejected(error: unknown): boolean {
+  return error instanceof ApiError && (error.status === 401 || error.status === 403);
+}
 
 interface AuthContextValue {
   /** The logged-in user, or null when logged out. */
@@ -76,85 +82,67 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-/**
- * Builds a local-only user so the app is fully usable in Expo Go
- * even when the backend or database is not running. This is the
- * fallback path; a real login replaces it with server data.
- */
-function createDemoUser(
-  fullName: string,
-  username: string,
-  extra: { phoneNumber?: string; address?: string } = {}
-): User {
-  const cleanUsername = username.trim().toLowerCase() || 'farmer';
-
-  return {
-    id: Date.now(),
-    fullName: fullName.trim() || cleanUsername,
-    username: cleanUsername,
-    email: null,
-    phoneNumber: extra.phoneNumber?.trim() || null,
-    avatarPath: null,
-    role: 'farmer',
-    isActive: true,
-    createdAt: new Date().toISOString(),
-    farmerProfile: extra.address?.trim()
-      ? {
-          barangay: null,
-          municipality: 'Pagadian City',
-          address: extra.address.trim(),
-          cornType: null,
-          farmSizeHectares: null,
-          yearsFarming: null,
-        }
-      : null,
-  };
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  /** Whether this session was a "Remember me" login (profile cached on the phone). */
+  const rememberedRef = useRef(false);
+
+  const clearSession = useCallback(async () => {
+    rememberedRef.current = false;
+    await deleteToken();
+    await deleteCachedUser();
+    setToken(null);
+    setUser(null);
+  }, []);
+
   /**
    * Runs once when the app starts.
    *
-   * If a token was saved from a previous session, we ask the
-   * backend whether it is still valid. We do not simply trust it,
-   * because it may have expired or the account may be deactivated.
+   * A remembered session opens immediately from the phone's cached
+   * profile, so it works offline. The server is then asked in the
+   * background whether the token is still valid: if it says no, the
+   * farmer is signed out; if it cannot be reached, nothing changes.
    */
   useEffect(() => {
     let isMounted = true;
 
     async function restoreSession() {
-      try {
-        const savedToken = await getToken();
+      const savedToken = await getToken();
 
-        if (!savedToken) {
-          if (isMounted) {
-            setIsLoading(false);
-          }
-          return;
-        }
+      if (!savedToken) {
+        if (isMounted) setIsLoading(false);
+        return;
+      }
 
-        const currentUser = await authService.getCurrentUser();
+      rememberedRef.current = true;
+      const cachedUser = await getCachedUser<User>();
 
-        if (isMounted) {
-          setToken(savedToken);
-          setUser(currentUser);
-        }
-      } catch (error) {
-        // Token invalid, expired, or the server is unreachable.
-        // Clear it so the user starts clean.
-        console.log('[auth] Could not restore session:', error);
-        await deleteToken();
-        if (isMounted) {
-          setToken(null);
-        }
-      } finally {
-        if (isMounted) {
+      if (isMounted) {
+        setToken(savedToken);
+        if (cachedUser) {
+          setUser(cachedUser);
+          // Show Home right away; the check below runs in the background.
           setIsLoading(false);
         }
+      }
+
+      try {
+        const currentUser = await authService.getCurrentUser();
+        await saveCachedUser(currentUser);
+        if (isMounted) setUser(currentUser);
+      } catch (error) {
+        if (isSessionRejected(error)) {
+          console.log('[auth] Saved session was rejected by the server:', error);
+          await clearSession();
+        } else {
+          // Offline / server down: keep the remembered session.
+          console.log('[auth] Server unreachable - staying signed in offline:', error);
+        }
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
     }
 
@@ -163,88 +151,71 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [clearSession]);
 
   const login = useCallback(async (payload: LoginPayload) => {
     const username = (payload.username ?? payload.email ?? '').trim();
+    const rememberMe = payload.rememberMe ?? false;
 
-    try {
-      const result = await authService.login({
-        username: username.toLowerCase(),
-        password: payload.password,
-      });
+    const result = await authService.login({
+      username: username.toLowerCase(),
+      password: payload.password,
+      rememberMe,
+    });
 
-      await saveToken(result.token);
-      setToken(result.token);
-      setUser(result.user);
-      return;
-    } catch (error) {
-      if (!DEMO_MODE_ENABLED || !isBackendUnreachable(error)) {
-        throw error;
-      }
-
-      console.log('[auth] login fallback activated (dev build, server unreachable):', error);
+    rememberedRef.current = rememberMe;
+    await saveToken(result.token, rememberMe);
+    if (rememberMe) {
+      await saveCachedUser(result.user);
+    } else {
+      await deleteCachedUser();
     }
 
-    // Backend unreachable, dev build only - run offline so the app
-    // can still be demoed in Expo Go.
-    const demoUser = createDemoUser(username, username);
-    const demoToken = 'demo-session-token';
-
-    await saveToken(demoToken);
-    setToken(demoToken);
-    setUser(demoUser);
+    setToken(result.token);
+    setUser(result.user);
   }, []);
 
+  /**
+   * Self-registration is disabled on the backend (accounts come from
+   * the CAO), so this only ever surfaces the server's message. Kept
+   * so the existing screens still type-check.
+   */
   const register = useCallback(async (payload: RegisterPayload) => {
     const username = (payload.username ?? payload.fullName ?? '').trim();
 
-    try {
-      const result = await authService.register({
-        fullName: payload.fullName,
-        username: username.toLowerCase(),
-        password: payload.password,
-        phoneNumber: payload.phoneNumber,
-        address: payload.address,
-      });
-
-      await saveToken(result.token);
-      setToken(result.token);
-      setUser(result.user);
-      return;
-    } catch (error) {
-      if (!DEMO_MODE_ENABLED || !isBackendUnreachable(error)) {
-        throw error;
-      }
-
-      console.log('[auth] register fallback activated (dev build, server unreachable):', error);
-    }
-
-    const demoUser = createDemoUser(payload.fullName, username, {
+    const result = await authService.register({
+      fullName: payload.fullName,
+      username: username.toLowerCase(),
+      password: payload.password,
       phoneNumber: payload.phoneNumber,
       address: payload.address,
     });
-    const demoToken = 'demo-session-token';
 
-    await saveToken(demoToken);
-    setToken(demoToken);
-    setUser(demoUser);
+    rememberedRef.current = false;
+    await saveToken(result.token, false);
+    setToken(result.token);
+    setUser(result.user);
   }, []);
 
   const logout = useCallback(async () => {
-    await deleteToken();
-    setToken(null);
-    setUser(null);
-  }, []);
+    await clearSession();
+  }, [clearSession]);
 
   const refreshUser = useCallback(async () => {
     try {
       const currentUser = await authService.getCurrentUser();
+      if (rememberedRef.current) {
+        await saveCachedUser(currentUser);
+      }
       setUser(currentUser);
     } catch (error) {
+      if (isSessionRejected(error)) {
+        await clearSession();
+        return;
+      }
       console.error('[auth] Failed to refresh user:', error);
     }
-  }, []);
+  }, [clearSession]);
 
   return (
     <AuthContext.Provider

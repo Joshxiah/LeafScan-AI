@@ -22,15 +22,29 @@ export interface TokenPayload {
   role: UserRole;
 }
 
+export interface GenerateTokenOptions {
+  /**
+   * True when the "Remember me" box was checked at login. The token
+   * then lives for JWT_REMEMBER_EXPIRES_IN (default 90 days) instead
+   * of the short JWT_EXPIRES_IN (default 1 day).
+   */
+  rememberMe?: boolean;
+}
+
 /**
  * Creates a signed token for a user.
  *
  * The signature is derived from the payload plus JWT_SECRET, so
  * a payload edited by an attacker will fail verification.
  */
-export function generateToken(payload: TokenPayload): string {
+export function generateToken(
+  payload: TokenPayload,
+  { rememberMe = false }: GenerateTokenOptions = {}
+): string {
+  const expiresIn = rememberMe ? env.jwt.rememberExpiresIn : env.jwt.expiresIn;
+
   const options: SignOptions = {
-    expiresIn: env.jwt.expiresIn as SignOptions['expiresIn'],
+    expiresIn: expiresIn as SignOptions['expiresIn'],
     issuer: 'leafscan-ai',
   };
 

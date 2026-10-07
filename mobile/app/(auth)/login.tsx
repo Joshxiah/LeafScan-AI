@@ -37,6 +37,9 @@ export default function LoginScreen() {
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  // On by default: most farmers use their own phone, and staying
+  // signed in is what lets the app work offline in the field.
+  const [rememberMe, setRememberMe] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -55,7 +58,7 @@ export default function LoginScreen() {
 
     setIsSubmitting(true);
     try {
-      await login({ username: username.trim(), password });
+      await login({ username: username.trim(), password, rememberMe });
       router.replace('/home');
     } catch (error) {
       setErrorMessage(getErrorMessage(error, t.login.errorGeneric, t.apiErrors));
@@ -130,16 +133,31 @@ export default function LoginScreen() {
             />
           </View>
 
-          {/* ---------- Forgot password ---------- */}
-          <Pressable
-            onPress={() => router.push('/forgot-password')}
-            hitSlop={8}
-            className="mt-3 self-end"
-          >
-            <Text className="text-[13px] font-bold text-[#2F6D46]">
-              {t.login.forgotPassword}
-            </Text>
-          </Pressable>
+          {/* ---------- Remember me + Forgot password ---------- */}
+          <View className="mt-3 flex-row items-center justify-between">
+            <Pressable
+              onPress={() => setRememberMe((value) => !value)}
+              hitSlop={8}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: rememberMe }}
+              className="flex-row items-center"
+            >
+              <Ionicons
+                name={rememberMe ? 'checkbox' : 'square-outline'}
+                size={20}
+                color="#2F6D46"
+              />
+              <Text className="ml-2 text-[13px] text-[#16241B]">
+                {t.login.rememberMe}
+              </Text>
+            </Pressable>
+
+            <Pressable onPress={() => router.push('/forgot-password')} hitSlop={8}>
+              <Text className="text-[13px] font-bold text-[#2F6D46]">
+                {t.login.forgotPassword}
+              </Text>
+            </Pressable>
+          </View>
 
           {errorMessage && (
             <Text className="ml-1 mt-2 text-[13px] text-[#D64545]">

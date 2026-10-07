@@ -103,6 +103,8 @@ export interface LoginPayload {
   /** Kept only so older callers still type-check; unused by the backend. */
   email?: string;
   password: string;
+  /** "Remember me" box. True = stay signed in (and usable offline). */
+  rememberMe?: boolean;
 }
 
 /** What the Forgot Password screen sends (step 1: request a code). */

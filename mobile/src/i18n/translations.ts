@@ -88,6 +88,7 @@ export interface Translations {
     usernamePlaceholder: string;
     passwordPlaceholder: string;
     forgotPassword: string;
+    rememberMe: string;
     signingIn: string;
     signIn: string;
     errorEmptyUsername: string;
@@ -413,6 +414,7 @@ export const en: Translations = {
     usernamePlaceholder: 'Username',
     passwordPlaceholder: 'Password',
     forgotPassword: 'Forgot password?',
+    rememberMe: 'Remember me',
     signingIn: 'Signing in...',
     signIn: 'Sign In',
     errorEmptyUsername: 'Please enter your username.',
@@ -770,6 +772,7 @@ export const ceb: Translations = {
     usernamePlaceholder: 'Username',
     passwordPlaceholder: 'Password',
     forgotPassword: 'Nalimtan ang password?',
+    rememberMe: 'Hinumdumi ako',
     signingIn: 'Nag-sign in...',
     signIn: 'Mag-sign In',
     errorEmptyUsername: 'Palihug isulat ang imong username.',

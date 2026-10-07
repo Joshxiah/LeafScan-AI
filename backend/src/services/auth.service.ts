@@ -156,7 +156,10 @@ export async function login(input: LoginInput): Promise<AuthResult> {
   }
 
   const publicUser = toPublicUser(user);
-  const token = generateToken({ userId: publicUser.id, role: publicUser.role });
+  const token = generateToken(
+    { userId: publicUser.id, role: publicUser.role },
+    { rememberMe: input.rememberMe }
+  );
 
   return { user: publicUser, token };
 }

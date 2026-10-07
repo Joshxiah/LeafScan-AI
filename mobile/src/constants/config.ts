@@ -48,6 +48,17 @@ import Constants from 'expo-constants';
 // ----------------------------------------------------------
 const DEV_MACHINE_IP = '192.168.1.11';
 
+/**
+ * INSTALLED APK (preview / production build): there is no Expo
+ * bundler, so the app cannot discover your PC's address on its own.
+ * Set the backend address at BUILD time instead, in eas.json:
+ *   "env": { "EXPO_PUBLIC_API_URL": "http://192.168.x.x:4000" }
+ * If it is not set, the build falls back to DEV_MACHINE_IP below,
+ * which is usually stale - that gives "Cannot reach the server".
+ * Ignored in dev (Expo Go / npm start), which uses the Metro proxy.
+ */
+const BUILD_API_URL = (process.env.EXPO_PUBLIC_API_URL ?? '').trim().replace(/\/+$/, '');
+
 /** Where the real backend listens. Used directly only in production builds. */
 const BACKEND_PORT = 4000;
 
@@ -71,6 +82,11 @@ function parseHostUri(): { host: string; port: number } {
 }
 
 function resolve(): { origin: string } {
+  // ---------- Installed build with an explicit backend address ----------
+  if (!__DEV__ && BUILD_API_URL) {
+    return { origin: BUILD_API_URL };
+  }
+
   // ---------- Web ----------
   if (Platform.OS === 'web') {
     const host =

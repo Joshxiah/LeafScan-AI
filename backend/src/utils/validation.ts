@@ -88,6 +88,8 @@ export const registerSchema = z.object({
 export const loginSchema = z.object({
   username: z.string().trim().toLowerCase().min(1, 'Username is required'),
   password: z.string().min(1, 'Password is required'),
+  /** The "Remember me" box. Missing (e.g. the admin site) = a short session. */
+  rememberMe: z.boolean().optional().default(false),
 });
 
 /**

@@ -25,6 +25,17 @@ describe('generateToken / verifyToken', () => {
     assert.equal(payload.role, 'farmer');
   });
 
+  test('a "Remember me" token outlives a normal session token', () => {
+    const session = jwt.decode(generateToken({ userId: 7, role: 'farmer' })) as jwt.JwtPayload;
+    const remembered = jwt.decode(
+      generateToken({ userId: 7, role: 'farmer' }, { rememberMe: true })
+    ) as jwt.JwtPayload;
+
+    assert.ok(typeof session.exp === 'number' && typeof remembered.exp === 'number');
+    assert.ok(remembered.exp! > session.exp!, 'remembered token should expire later');
+    assert.equal(verifyToken(generateToken({ userId: 7, role: 'farmer' }, { rememberMe: true })).userId, 7);
+  });
+
   test('rejects a token signed with the wrong secret', () => {
     const forged = jwt.sign({ userId: 1, role: 'admin' }, 'not-the-real-secret', {
       issuer: 'leafscan-ai',
