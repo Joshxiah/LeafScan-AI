@@ -34,6 +34,10 @@ export interface ScanEntry {
   imagePath?: string;
   /** Absolute URL of the uploaded photo, for immediate display. */
   imageUrl?: string;
+  /** On-device photo, for scans that are still waiting to upload (taken offline). */
+  localUri?: string;
+  /** True until an offline scan has been uploaded. */
+  pending?: boolean;
 }
 
 /** The on-disk shape - a Date cannot survive JSON.stringify, so it is stored as ISO text. */

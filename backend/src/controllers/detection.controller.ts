@@ -8,6 +8,15 @@ import type { RiskLevel, DetectionResult } from '../services/detection.service';
 import { ApiError } from '../utils/ApiError';
 import { validate, createDetectionSchema, reviewDetectionSchema } from '../utils/validation';
 
+/** A 'YYYY-MM-DD' query param, or undefined when absent. Anything else is a 400. */
+function parseDateParam(value: unknown): string | undefined {
+  if (typeof value !== 'string' || value === '') return undefined;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(value))) {
+    throw ApiError.badRequest('Dates must look like YYYY-MM-DD');
+  }
+  return value;
+}
+
 /**
  * POST /api/detections
  * Farmer only. Records a scan the mobile app just finished, so it
@@ -71,6 +80,12 @@ export async function listDetections(req: Request, res: Response): Promise<void>
   const barangayParam = typeof req.query.barangay === 'string' ? req.query.barangay.trim() : '';
   const barangay = barangayParam.length > 0 ? barangayParam : undefined;
 
+  const diseaseParam = typeof req.query.disease === 'string' ? req.query.disease.trim() : '';
+  const disease = diseaseParam.length > 0 ? diseaseParam : undefined;
+
+  const from = parseDateParam(req.query.from);
+  const to = parseDateParam(req.query.to);
+
   const page = Math.max(1, Number(req.query.page) || 1);
   const pageSize = Math.min(100, Math.max(1, Number(req.query.pageSize) || 20));
 
@@ -80,6 +95,9 @@ export async function listDetections(req: Request, res: Response): Promise<void>
     result,
     search,
     barangay,
+    disease,
+    from,
+    to,
     page,
     pageSize,
   });

@@ -4,7 +4,7 @@
  * Route: /detections
  *
  * Every leaf scan recorded in the `detections` table, newest first.
- * Filter by risk or by barangay, search by farmer or disease, and
+ * Filter by disease, risk, barangay or scan date, search by farmer or disease, export the filtered list to Excel, and
  * deep-link in from:
  *   - the dashboard tiles   (/detections?risk=high, ?result=healthy…)
  *   - a farmer's detail      (/detections?farmerId=123)
@@ -22,6 +22,9 @@ import { ApiError } from '../services/api';
 import * as detectionService from '../services/detection.service';
 import * as diseaseService from '../services/disease.service';
 import * as farmerService from '../services/farmer.service';
+import { downloadExcel, todayStamp } from '../services/excel';
+import { ControlLevelBadge } from '../components/ControlLevelBadge';
+import { RISK_NAME } from '../types';
 import type { DetectionSummary, DiseaseInfo, RiskLevel } from '../types';
 
 const RISK_BADGE: Record<RiskLevel, string> = {
@@ -33,7 +36,7 @@ const RISK_BADGE: Record<RiskLevel, string> = {
 
 const RISK_OPTIONS: { label: string; value: RiskLevel | 'all' }[] = [
   { label: 'All risk levels', value: 'all' },
-  { label: 'None', value: 'none' },
+  { label: 'No disease', value: 'none' },
   { label: 'Low', value: 'low' },
   { label: 'Moderate', value: 'moderate' },
   { label: 'High', value: 'high' },
@@ -61,12 +64,18 @@ export function DetectionsPage() {
   const risk = (searchParams.get('risk') as RiskLevel | null) ?? 'all';
   const result = (searchParams.get('result') as 'healthy' | 'diseased' | null) ?? 'all';
   const barangay = searchParams.get('barangay') ?? 'all';
+  const diseaseFilter = searchParams.get('disease') ?? 'all';
+  const from = searchParams.get('from') ?? '';
+  const to = searchParams.get('to') ?? '';
 
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
   const [detections, setDetections] = useState<DetectionSummary[] | null>(null);
   const [total, setTotal] = useState(0);
+  const [diseasedTotal, setDiseasedTotal] = useState(0);
+  const [healthyTotal, setHealthyTotal] = useState(0);
+  const [isExporting, setIsExporting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [diseases, setDiseases] = useState<DiseaseInfo[]>([]);
@@ -106,18 +115,23 @@ export function DetectionsPage() {
         risk: risk === 'all' ? undefined : risk,
         result: result === 'all' ? undefined : result,
         barangay: barangay === 'all' ? undefined : barangay,
+        disease: diseaseFilter === 'all' ? undefined : diseaseFilter,
+        from: from || undefined,
+        to: to || undefined,
         search: search.trim() || undefined,
         page,
         pageSize: PAGE_SIZE,
       });
       setDetections(data.detections);
       setTotal(data.total);
+      setDiseasedTotal(data.diseasedTotal);
+      setHealthyTotal(data.healthyTotal);
     } catch (error) {
       setErrorMessage(
         error instanceof ApiError ? error.message : 'Could not load detections.'
       );
     }
-  }, [farmerId, risk, result, barangay, search, page]);
+  }, [farmerId, risk, result, barangay, diseaseFilter, from, to, search, page]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), search ? 300 : 0);
@@ -125,6 +139,60 @@ export function DetectionsPage() {
   }, [load, search]);
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  /** Downloads every scan matching the current filters (not just this page) as .xlsx. */
+  async function handleExport() {
+    setIsExporting(true);
+    setErrorMessage(null);
+    try {
+      const rows: DetectionSummary[] = [];
+      for (let exportPage = 1; ; exportPage++) {
+        const data = await detectionService.listDetections({
+          farmerId,
+          risk: risk === 'all' ? undefined : risk,
+          result: result === 'all' ? undefined : result,
+          barangay: barangay === 'all' ? undefined : barangay,
+          disease: diseaseFilter === 'all' ? undefined : diseaseFilter,
+          from: from || undefined,
+          to: to || undefined,
+          search: search.trim() || undefined,
+          page: exportPage,
+          pageSize: 100,
+        });
+        rows.push(...data.detections);
+        if (rows.length >= data.total || data.detections.length === 0) break;
+      }
+
+      await downloadExcel(`leafscan-detections-${todayStamp()}.xlsx`, [
+        {
+          name: 'Detections',
+          headers: [
+            'Date',
+            'Farmer',
+            'Barangay',
+            'Disease',
+            'Confidence (%)',
+            'Risk',
+            'Review status',
+          ],
+          rows: rows.map((d) => [
+            d.detectedAt.slice(0, 10),
+            d.farmerName,
+            d.barangay ?? '',
+            d.diseaseName ?? d.predictedClass,
+            Math.round(d.confidenceScore * 10) / 10,
+            RISK_NAME[d.riskLevel],
+            d.reviewStatus,
+          ]),
+        },
+      ]);
+    } catch (error) {
+      setErrorMessage(error instanceof ApiError ? error.message : 'Could not export detections.');
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
   const farmerName = useMemo(
     () => (farmerId ? detections?.find((d) => d.farmerId === farmerId)?.farmerName : undefined),
     [farmerId, detections]
@@ -149,6 +217,19 @@ export function DetectionsPage() {
           </select>
 
           <select
+            value={diseaseFilter}
+            onChange={(e) => patchParams({ disease: e.target.value })}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:border-leaf-500 focus:outline-none"
+          >
+            <option value="all">All diseases</option>
+            {diseases.map((d) => (
+              <option key={d.classLabel} value={d.classLabel}>
+                {d.displayName}
+              </option>
+            ))}
+          </select>
+
+          <select
             value={risk}
             onChange={(e) => patchParams({ risk: e.target.value })}
             className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:border-leaf-500 focus:outline-none"
@@ -161,6 +242,7 @@ export function DetectionsPage() {
           </select>
         </div>
 
+        <div className="flex flex-wrap items-center gap-2">
         <input
           type="search"
           value={search}
@@ -171,6 +253,70 @@ export function DetectionsPage() {
           placeholder="Search farmer or disease…"
           className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:border-leaf-500 focus:outline-none"
         />
+        <button
+          type="button"
+          onClick={() => void handleExport()}
+          disabled={isExporting || total === 0}
+          className="rounded-lg bg-leaf-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-leaf-700 disabled:opacity-50"
+        >
+          {isExporting ? 'Exporting…' : 'Export to Excel'}
+        </button>
+        </div>
+      </div>
+
+      {/* ---------- Date filters ---------- */}
+      <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-gray-500">
+        <label className="flex items-center gap-1.5">
+          Scanned from
+          <input
+            type="date"
+            value={from}
+            max={to || undefined}
+            onChange={(e) => patchParams({ from: e.target.value })}
+            className="rounded-lg border border-gray-200 px-2 py-1 text-sm text-gray-700 focus:border-leaf-500 focus:outline-none"
+          />
+        </label>
+        <label className="flex items-center gap-1.5">
+          to
+          <input
+            type="date"
+            value={to}
+            min={from || undefined}
+            onChange={(e) => patchParams({ to: e.target.value })}
+            className="rounded-lg border border-gray-200 px-2 py-1 text-sm text-gray-700 focus:border-leaf-500 focus:outline-none"
+          />
+        </label>
+        {(from || to) && (
+          <button
+            type="button"
+            onClick={() => patchParams({ from: null, to: null })}
+            className="rounded-md px-2 py-0.5 text-xs font-medium text-leaf-700 hover:bg-leaf-100"
+          >
+            Clear dates
+          </button>
+        )}
+      </div>
+
+      {/* ---------- Counts for the current filters ---------- */}
+      <div className="mt-3 grid grid-cols-3 gap-3">
+        <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+          <p className="text-xs text-gray-500">Total scans</p>
+          <p className="mt-1 text-2xl font-bold text-gray-900">
+            {(diseasedTotal + healthyTotal).toLocaleString()}
+          </p>
+        </div>
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+          <p className="text-xs text-amber-700">Disease scans</p>
+          <p className="mt-1 text-2xl font-bold text-amber-800">
+            {diseasedTotal.toLocaleString()}
+          </p>
+        </div>
+        <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+          <p className="text-xs text-green-700">No disease (healthy)</p>
+          <p className="mt-1 text-2xl font-bold text-green-800">
+            {healthyTotal.toLocaleString()}
+          </p>
+        </div>
       </div>
 
       {farmerId && (
@@ -229,7 +375,7 @@ export function DetectionsPage() {
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-400">
                   <th className="px-4 py-3 font-medium">Farmer</th>
-                  <th className="px-4 py-3 font-medium">Result</th>
+                  <th className="px-4 py-3 font-medium">Disease</th>
                   <th className="px-4 py-3 font-medium">Confidence</th>
                   <th className="px-4 py-3 font-medium">Risk</th>
                   <th className="px-4 py-3 font-medium">Barangay</th>
@@ -270,7 +416,7 @@ export function DetectionsPage() {
                             RISK_BADGE[detection.riskLevel]
                           }`}
                         >
-                          {detection.riskLevel}
+                          {RISK_NAME[detection.riskLevel]}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-gray-600">{detection.barangay ?? '—'}</td>
@@ -351,7 +497,9 @@ function DiseaseDetailModal({
                   RISK_BADGE[disease.defaultRiskLevel]
                 }`}
               >
-                {disease.defaultRiskLevel} risk
+                {disease.defaultRiskLevel === 'none'
+                  ? RISK_NAME.none
+                  : `${disease.defaultRiskLevel} risk`}
               </span>
               {disease.isHealthy && (
                 <span className="rounded bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
@@ -375,7 +523,7 @@ function DiseaseDetailModal({
 
         <div className="overflow-y-auto px-6 py-5">
           {disease.description && (
-            <p className="text-sm text-gray-700">{disease.description}</p>
+            <p className="whitespace-pre-line text-sm text-gray-700">{disease.description}</p>
           )}
 
           {disease.symptoms && (
@@ -383,7 +531,7 @@ function DiseaseDetailModal({
               <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                 Symptoms
               </h3>
-              <p className="mt-1 text-sm text-gray-700">{disease.symptoms}</p>
+              <p className="mt-1 whitespace-pre-line text-sm text-gray-700">{disease.symptoms}</p>
             </div>
           )}
 
@@ -397,7 +545,8 @@ function DiseaseDetailModal({
               <ul className="mt-2 space-y-3">
                 {disease.treatments.map((treatment) => (
                   <li key={treatment.id} className="text-sm text-gray-700">
-                    <span className="font-medium text-gray-900">{treatment.title}</span> —{' '}
+                    <span className="font-medium text-gray-900">{treatment.title}</span>{' '}
+                    <ControlLevelBadge level={treatment.controlLevel} /> —{' '}
                     {treatment.recommendationText}
                     {treatment.applicationMethod && (
                       <p className="mt-1 text-xs text-gray-600">

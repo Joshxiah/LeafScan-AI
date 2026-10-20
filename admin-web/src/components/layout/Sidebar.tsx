@@ -9,6 +9,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../../context/AuthContext';
 import logo from '../../assets/logo.png';
+import { PartnerLogos, CopyrightLine } from '../PartnerFooter';
 
 interface NavItem {
   label: string;
@@ -72,6 +73,8 @@ export function Sidebar({ unreadReports }: { unreadReports?: number }) {
 
       {/* ---------- Footer ---------- */}
       <div className="border-t border-leaf-700 px-5 py-4">
+        <PartnerLogos className="mb-4 justify-center" />
+
         <p className="text-xs text-leaf-300">City Agriculture Office</p>
         <p className="text-xs text-leaf-400">Pagadian City</p>
 
@@ -97,6 +100,8 @@ export function Sidebar({ unreadReports }: { unreadReports?: number }) {
           </svg>
           <span>Log out</span>
         </button>
+
+        <CopyrightLine className="mt-3 text-center text-[10px] text-leaf-400" />
       </div>
     </aside>
   );

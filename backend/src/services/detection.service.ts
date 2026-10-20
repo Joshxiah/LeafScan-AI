@@ -110,6 +110,11 @@ export interface ListDetectionsOptions {
   result?: DetectionResult;
   search?: string;
   barangay?: string;
+  /** Exact class label, e.g. 'southern_rust'. */
+  disease?: string;
+  /** Inclusive scan-date range, 'YYYY-MM-DD'. */
+  from?: string;
+  to?: string;
   page: number;
   pageSize: number;
 }
@@ -117,6 +122,9 @@ export interface ListDetectionsOptions {
 export interface ListDetectionsResult {
   detections: DetectionSummary[];
   total: number;
+  /** Healthy / diseased split of every scan matching the filters (ignoring `result`). */
+  healthyTotal: number;
+  diseasedTotal: number;
   page: number;
   pageSize: number;
 }
@@ -125,7 +133,8 @@ export interface ListDetectionsResult {
 export async function listDetections(
   options: ListDetectionsOptions
 ): Promise<ListDetectionsResult> {
-  const { farmerId, riskLevel, result, search, barangay, page, pageSize } = options;
+  const { farmerId, riskLevel, result, search, barangay, disease, from, to, page, pageSize } =
+    options;
   const offset = (page - 1) * pageSize;
 
   const conditions: string[] = [];
@@ -138,11 +147,17 @@ export async function listDetections(
     conditions.push('d.risk_level = ?');
     params.push(riskLevel);
   }
-  if (result === 'healthy') {
-    conditions.push('dis.is_healthy = 1');
+  if (disease) {
+    conditions.push('d.predicted_class = ?');
+    params.push(disease);
   }
-  if (result === 'diseased') {
-    conditions.push('(dis.is_healthy = 0 OR dis.is_healthy IS NULL)');
+  if (from) {
+    conditions.push('DATE(d.detected_at) >= ?');
+    params.push(from);
+  }
+  if (to) {
+    conditions.push('DATE(d.detected_at) <= ?');
+    params.push(to);
   }
   if (search) {
     conditions.push(
@@ -154,6 +169,16 @@ export async function listDetections(
   if (barangay) {
     conditions.push('COALESCE(f.barangay, f.address) = ?');
     params.push(barangay);
+  }
+  // Everything above also feeds the healthy / diseased counters;
+  // `result` narrows the list itself but not those counters.
+  const countWhere = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  if (result === 'healthy') {
+    conditions.push('dis.is_healthy = 1');
+  }
+  if (result === 'diseased') {
+    conditions.push('(dis.is_healthy = 0 OR dis.is_healthy IS NULL)');
   }
   const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
@@ -174,9 +199,22 @@ export async function listDetections(
     params
   );
 
+  const [splitRows] = await pool.query<RowDataPacket[]>(
+    `SELECT COALESCE(SUM(dis.is_healthy = 1), 0) AS healthy, COUNT(*) AS total
+     FROM detections d
+     JOIN users u ON u.id = d.user_id
+     LEFT JOIN diseases dis ON dis.id = d.disease_id
+     LEFT JOIN farmers f ON f.user_id = u.id
+     ${countWhere}`,
+    params
+  );
+  const healthyTotal = Number(splitRows[0].healthy);
+
   return {
     detections: rows.map(toSummary),
     total: Number(countRows[0].total),
+    healthyTotal,
+    diseasedTotal: Number(splitRows[0].total) - healthyTotal,
     page,
     pageSize,
   };
@@ -214,11 +252,20 @@ export async function createDetection(
     ? 'none'
     : (disease.default_risk_level as RiskLevel);
 
+  // A scan queued offline carries its real scan time. The DB session
+  // is UTC (see config/database.ts), so a UTC wall-clock string is
+  // stored as-is. Never accept a time in the future.
+  const requested = input.detectedAt ? new Date(input.detectedAt) : null;
+  const scannedAt =
+    requested && requested.getTime() <= Date.now()
+      ? requested.toISOString().slice(0, 19).replace('T', ' ')
+      : null;
+
   const [result] = await pool.query<ResultSetHeader>(
     `INSERT INTO detections
        (user_id, disease_id, image_path, predicted_class,
-        confidence_score, confidence_level, risk_level, model_version)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        confidence_score, confidence_level, risk_level, model_version, detected_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, UTC_TIMESTAMP()))`,
     [
       userId,
       disease.id,
@@ -228,6 +275,7 @@ export async function createDetection(
       confidenceLevelFor(input.confidenceScore),
       riskLevel,
       'mobile-stand-in',
+      scannedAt,
     ]
   );
 

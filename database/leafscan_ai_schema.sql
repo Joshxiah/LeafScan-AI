@@ -367,11 +367,11 @@ INSERT INTO diseases
     (class_label, display_name, scientific_name, description, symptoms,
      default_risk_level, is_healthy)
 VALUES
-    ('common_rust',
-     'Common Rust',
-     'Puccinia sorghi',
-     'A fungal disease of corn caused by Puccinia sorghi. It develops in cool, humid conditions and spreads through airborne spores.',
-     'Small reddish-brown to cinnamon-brown pustules scattered on both the upper and lower leaf surfaces. Pustules rupture the leaf surface and release powdery spores.',
+    ('southern_rust',
+     'Southern Rust',
+     'Puccinia polysora',
+     'A fungal disease of corn caused by Puccinia polysora. It develops in warm, humid conditions and spreads through airborne spores.',
+     'Small, circular to oval orange to light-brown pustules clustered mostly on the upper leaf surface. Pustules rupture the leaf surface and release powdery orange spores.',
      'moderate',
      0),
 

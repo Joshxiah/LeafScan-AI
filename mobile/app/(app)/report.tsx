@@ -28,7 +28,7 @@ import {
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { useAuth } from '../../src/context/AuthContext';
@@ -46,6 +46,7 @@ export default function ReportScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { t } = useLanguage();
+  const insets = useSafeAreaInsets();
 
   const [estimatedArea, setEstimatedArea] = useState('');
   const [remarks, setRemarks] = useState('');
@@ -76,28 +77,52 @@ export default function ReportScreen() {
   const municipality = profile?.municipality || null;
   const locationLine = barangay ?? municipality ?? t.report.notSet;
 
+  // Same size as the tab AppHeader: one 48px row, same padding.
   const header = (
-    <View className="bg-[#2F6D46] px-5 pb-5 pt-14">
-      <Pressable
-        onPress={() => router.back()}
-        hitSlop={10}
-        className="flex-row items-center self-start active:opacity-80"
-      >
-        <Ionicons name="arrow-back" size={20} color="#ffffff" />
-        <Text className="ml-1 text-[15px] font-semibold text-white">{t.common.back}</Text>
-      </Pressable>
+    <View
+      className="overflow-hidden bg-[#2F6D46] px-5 pb-5"
+      style={{
+        paddingTop: insets.top + 12,
+        borderBottomLeftRadius: 28,
+        borderBottomRightRadius: 28,
+      }}
+    >
+      {/* Decorative circles, same as the tab header */}
+      <View
+        className="absolute rounded-full bg-white/10"
+        style={{ width: 150, height: 150, right: -40, top: -50 }}
+      />
+      <View
+        className="absolute rounded-full bg-white/10"
+        style={{ width: 90, height: 90, right: 60, bottom: -45 }}
+      />
 
-      <View className="mt-4 flex-row items-center">
-        <Ionicons name="location" size={16} color="#ffffff" />
-        <Text className="ml-1.5 text-[17px] font-extrabold text-white">
-          {locationLine}
-        </Text>
+      <View className="flex-row items-center">
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={10}
+          accessibilityLabel={t.common.back}
+          className="h-12 w-12 items-center justify-center rounded-full bg-white/15 active:opacity-80"
+        >
+          <Ionicons name="arrow-back" size={22} color="#ffffff" />
+        </Pressable>
+
+        <View className="ml-3 flex-1 flex-row items-center">
+          <View className="h-9 w-9 items-center justify-center rounded-full bg-white/15">
+            <Ionicons name="location" size={18} color="#ffffff" />
+          </View>
+          <View className="ml-2.5 flex-1 justify-center">
+            <Text className="text-[16px] font-extrabold leading-5 text-white" numberOfLines={1}>
+              {locationLine}
+            </Text>
+            {barangay && municipality && (
+              <Text className="text-[12px] leading-4 text-white/75" numberOfLines={1}>
+                {municipality}
+              </Text>
+            )}
+          </View>
+        </View>
       </View>
-      {barangay && municipality && (
-        <Text className="ml-[22px] mt-0.5 text-[12px] text-white/70">
-          {municipality}
-        </Text>
-      )}
     </View>
   );
 
@@ -179,7 +204,7 @@ export default function ReportScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
-          contentContainerClassName="px-6 pb-8 pt-5"
+          contentContainerClassName="px-6 pb-8 pt-8"
           showsVerticalScrollIndicator={false}
         >
           {/* ---------- Stat row ---------- */}
@@ -240,12 +265,22 @@ export default function ReportScreen() {
               <View className="flex-row items-center">
                 <TextInput
                   value={estimatedArea}
-                  onChangeText={setEstimatedArea}
+                  onChangeText={(text) => {
+                    // Numbers only, one decimal point.
+                    const cleaned = text.replace(/[^0-9.]/g, '');
+                    const [whole, ...rest] = cleaned.split('.');
+                    setEstimatedArea(rest.length ? `${whole}.${rest.join('')}` : whole);
+                  }}
                   placeholder="0.0"
                   placeholderTextColor={brand.placeholder}
                   keyboardType="decimal-pad"
-                  className="text-right text-[13px] font-bold text-[#D64545]"
-                  style={{ minWidth: 40, paddingVertical: 0 }}
+                  className="text-[13px] font-bold text-[#D64545]"
+                  style={{
+                    minWidth: 40,
+                    paddingVertical: 0,
+                    textAlign: 'left',
+                    writingDirection: 'ltr',
+                  }}
                 />
                 <Text className="ml-1 text-[13px] font-bold text-[#D64545]">
                   {t.report.hectare}

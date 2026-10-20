@@ -1,7 +1,7 @@
 /**
  * Bottom tab navigation for the signed-in farmer.
  *
- * Home · Scans · History · Library · Setting
+ * Home · History · Scan (centre, raised) · Library · Setting
  *
  * Full-screen flows that should hide the tab bar (camera,
  * preview, the CAO report) live one level up in app/(app)/ and
@@ -9,10 +9,11 @@
  */
 
 import { Tabs } from 'expo-router';
-import { Text } from 'react-native';
+import { Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppHeader } from '../../../src/components/AppHeader';
 import { brand } from '../../../src/constants/theme';
 import { useLanguage } from '../../../src/context/LanguageContext';
 
@@ -43,7 +44,8 @@ export default function TabsLayout() {
       screenOptions={({ route }) => {
         const name = route.name as TabName;
         return {
-          headerShown: false,
+          headerShown: true,
+          header: () => <AppHeader />,
           // Strong dark green for the selected tab so it clearly
           // stands out against the muted grey of the others.
           tabBarActiveTintColor: brand.accentDark,
@@ -58,6 +60,8 @@ export default function TabsLayout() {
             // bottom edge and get clipped or dropped.
             height: 74 + insets.bottom,
             paddingTop: 10,
+            // Let the raised Scan button poke above the bar.
+            overflow: 'visible',
             paddingBottom: Math.max(insets.bottom, 14),
           },
           // Render the label ourselves so it is never auto-hidden
@@ -67,15 +71,39 @@ export default function TabsLayout() {
               {labels[name]}
             </Text>
           ),
-          tabBarIcon: ({ color }) => (
-            <Ionicons name={ICONS[name]} size={22} color={color} />
-          ),
+          tabBarIcon: ({ color, focused }) =>
+            name === 'scan' ? (
+              // Centre button: a raised, larger circle so it stands
+              // out from the other four tabs.
+              <View
+                style={{
+                  width: 62,
+                  height: 62,
+                  borderRadius: 31,
+                  marginTop: -30,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: focused ? brand.accentDark : brand.accent,
+                  borderWidth: 4,
+                  borderColor: '#ffffff',
+                  elevation: 6,
+                  shadowColor: '#000',
+                  shadowOpacity: 0.2,
+                  shadowRadius: 6,
+                  shadowOffset: { width: 0, height: 3 },
+                }}
+              >
+                <Ionicons name="camera" size={30} color="#ffffff" />
+              </View>
+            ) : (
+              <Ionicons name={ICONS[name]} size={22} color={color} />
+            ),
         };
       }}
     >
       <Tabs.Screen name="home" />
-      <Tabs.Screen name="scan" />
       <Tabs.Screen name="history" />
+      <Tabs.Screen name="scan" />
       <Tabs.Screen name="library" />
       <Tabs.Screen name="settings" />
     </Tabs>

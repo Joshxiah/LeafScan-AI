@@ -15,6 +15,8 @@ import {
   UpdateRecommendationInput,
 } from '../utils/validation';
 
+export type ControlLevel = 'biological' | 'mechanical' | 'cultural' | 'chemical';
+
 export interface RecommendationSummary {
   id: number;
   diseaseId: number;
@@ -24,6 +26,7 @@ export interface RecommendationSummary {
   recommendationText: string;
   applicationMethod: string | null;
   preventiveMeasures: string | null;
+  controlLevel: ControlLevel | null;
   isActive: boolean;
   createdAt: Date;
 }
@@ -37,6 +40,7 @@ interface RecommendationRow extends RowDataPacket {
   recommendation_text: string;
   application_method: string | null;
   preventive_measures: string | null;
+  control_level: ControlLevel | null;
   is_active: number;
   created_at: Date;
 }
@@ -51,6 +55,7 @@ function toSummary(row: RecommendationRow): RecommendationSummary {
     recommendationText: row.recommendation_text,
     applicationMethod: row.application_method,
     preventiveMeasures: row.preventive_measures,
+    controlLevel: row.control_level,
     isActive: row.is_active === 1,
     createdAt: row.created_at,
   };
@@ -62,7 +67,7 @@ const SELECT_RECOMMENDATION = `
     dis.display_name AS disease_name,
     dis.class_label,
     tr.title, tr.recommendation_text, tr.application_method,
-    tr.preventive_measures, tr.is_active, tr.created_at
+    tr.preventive_measures, tr.control_level, tr.is_active, tr.created_at
   FROM treatment_recommendations tr
   JOIN diseases dis ON dis.id = tr.disease_id
 `;
@@ -103,14 +108,15 @@ export async function createRecommendation(
   const [result] = await pool.query<ResultSetHeader>(
     `INSERT INTO treatment_recommendations
        (disease_id, title, recommendation_text, application_method,
-        preventive_measures, created_by, is_active)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        preventive_measures, control_level, created_by, is_active)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       input.diseaseId,
       input.title,
       input.recommendationText,
       input.applicationMethod || null,
       input.preventiveMeasures || null,
+      input.controlLevel ?? null,
       createdBy,
       input.isActive === false ? 0 : 1,
     ]
@@ -135,20 +141,36 @@ export async function updateRecommendation(
   const sets: string[] = [];
   const params: (string | number | null)[] = [];
   if (input.title !== undefined) {
+    // English-only edit: drop the stale Cebuano text so the app falls back.
+    sets.push('title_ceb = IF(NOT (title <=> ?), NULL, title_ceb)');
+    params.push(input.title);
     sets.push('title = ?');
     params.push(input.title);
   }
   if (input.recommendationText !== undefined) {
+    // English-only edit: drop the stale Cebuano text so the app falls back.
+    sets.push('recommendation_text_ceb = IF(NOT (recommendation_text <=> ?), NULL, recommendation_text_ceb)');
+    params.push(input.recommendationText);
     sets.push('recommendation_text = ?');
     params.push(input.recommendationText);
   }
   if (input.applicationMethod !== undefined) {
+    // English-only edit: drop the stale Cebuano text so the app falls back.
+    sets.push('application_method_ceb = IF(NOT (application_method <=> ?), NULL, application_method_ceb)');
+    params.push(input.applicationMethod || null);
     sets.push('application_method = ?');
     params.push(input.applicationMethod || null);
   }
   if (input.preventiveMeasures !== undefined) {
+    // English-only edit: drop the stale Cebuano text so the app falls back.
+    sets.push('preventive_measures_ceb = IF(NOT (preventive_measures <=> ?), NULL, preventive_measures_ceb)');
+    params.push(input.preventiveMeasures || null);
     sets.push('preventive_measures = ?');
     params.push(input.preventiveMeasures || null);
+  }
+  if (input.controlLevel !== undefined) {
+    sets.push('control_level = ?');
+    params.push(input.controlLevel);
   }
   if (input.isActive !== undefined) {
     sets.push('is_active = ?');

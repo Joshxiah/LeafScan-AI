@@ -31,7 +31,7 @@
  * search that filtered everything out.
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -43,7 +43,7 @@ import {
   Modal,
   useWindowDimensions,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -85,9 +85,13 @@ export default function LibraryScreen() {
     }
   }, [language]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  // Reload every time the tab gains focus (not just on first mount), so
+  // edits the CAO saved on the web show up without a manual pull-to-refresh.
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load])
+  );
 
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -102,7 +106,7 @@ export default function LibraryScreen() {
   }, [diseases, query]);
 
   return (
-    <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={[]}>
       <View className="px-6 pb-3 pt-4">
         <Text className="text-center text-[17px] font-bold text-[#16241B]">
           {t.library.title}
@@ -203,8 +207,8 @@ function DiseaseCard({
       <Pressable onPress={onPreview} className="h-64 w-full items-center justify-center bg-[#E7F4EA] active:opacity-95">
         <Image
           source={diseaseImage(disease.classLabel)}
-          className="h-full w-full"
-          resizeMode="contain"
+          style={{ width: '100%', height: '100%' }}
+          resizeMode="cover"
         />
       </Pressable>
 

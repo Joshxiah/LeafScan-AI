@@ -19,8 +19,10 @@ import { ApiError } from '../services/api';
 import { mediaUrl } from '../services/media';
 import * as reportService from '../services/report.service';
 import * as agriculturistService from '../services/agriculturist.service';
+import { downloadExcel, todayStamp } from '../services/excel';
 import { useNotifications } from '../context/NotificationsContext';
 import {
+  RISK_NAME,
   STATUS_LABEL,
   type AdminSettableStatus,
   type AgriculturistSummary,
@@ -108,6 +110,7 @@ export function ReportsPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Deep link from a notification: /reports?open=<id>
   useEffect(() => {
@@ -151,6 +154,59 @@ export function ReportsPage() {
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const hasFilter = status !== 'all' || barangay !== 'all';
+
+  /** Downloads every report matching the current filters (not just this page) as .xlsx. */
+  async function handleExport() {
+    setIsExporting(true);
+    setErrorMessage(null);
+    try {
+      const rows: ReportSummary[] = [];
+      for (let exportPage = 1; ; exportPage++) {
+        const result = await reportService.listReports({
+          status: status === 'all' ? undefined : status,
+          barangay: barangay === 'all' ? undefined : barangay,
+          page: exportPage,
+          pageSize: 100,
+        });
+        rows.push(...result.reports);
+        if (rows.length >= result.total || result.reports.length === 0) break;
+      }
+
+      await downloadExcel(`leafscan-reports-${todayStamp()}.xlsx`, [
+        {
+          name: 'Reports',
+          headers: [
+            'Date filed',
+            'Farmer',
+            'Phone',
+            'Barangay',
+            'Municipality',
+            'Total scans',
+            'Disease scans',
+            'Healthy scans',
+            'Est. area (ha)',
+            'Status',
+          ],
+          rows: rows.map((r) => [
+            r.createdAt.slice(0, 10),
+            r.farmerName,
+            r.farmerPhone ?? '',
+            r.barangay ?? '',
+            r.municipality ?? '',
+            r.totalScans,
+            r.affectedScans,
+            r.healthyScans,
+            r.estimatedAreaHectares ?? '',
+            STATUS_LABEL[r.status],
+          ]),
+        },
+      ]);
+    } catch (error) {
+      setErrorMessage(error instanceof ApiError ? error.message : 'Could not export reports.');
+    } finally {
+      setIsExporting(false);
+    }
+  }
 
   function resetFilters() {
     setStatus('all');
@@ -217,6 +273,15 @@ export function ReportsPage() {
               </option>
             ))}
           </select>
+
+          <button
+            type="button"
+            onClick={() => void handleExport()}
+            disabled={isExporting || total === 0}
+            className="rounded-lg bg-leaf-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-leaf-700 disabled:opacity-50"
+          >
+            {isExporting ? 'Exporting…' : 'Export to Excel'}
+          </button>
 
           {hasFilter && (
             <button
@@ -790,7 +855,7 @@ function DiseasePanel({
               <span
                 className={`rounded px-1.5 py-0.5 text-[11px] font-medium capitalize ${RISK_BADGE[sample.riskLevel]}`}
               >
-                {sample.riskLevel}
+                {RISK_NAME[sample.riskLevel]}
               </span>
             ) : (
               '—'

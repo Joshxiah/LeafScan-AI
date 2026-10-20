@@ -8,6 +8,7 @@
 
 import { RowDataPacket } from 'mysql2';
 import { pool } from '../config/database';
+import { ApiError } from '../utils/ApiError';
 
 export interface DashboardStatistics {
   totalFarmers: number;
@@ -433,4 +434,75 @@ export async function getFarmersPerBarangay(): Promise<FarmerBarangayCount[]> {
   );
 
   return rows.map((row) => ({ barangay: row.barangay, total: Number(row.total) }));
+}
+
+/** Longest date range the activity chart will draw. */
+const MAX_ACTIVITY_DAYS = 366;
+
+export interface ScanActivity {
+  from: string;
+  to: string;
+  totalScans: number;
+  /** One point per day from `from` to `to`, zero-filled. */
+  scanTrend: ScanTrendPoint[];
+  /** Scans per disease class inside the same range. */
+  diseaseBreakdown: DiseaseCount[];
+}
+
+/**
+ * Scans per day and per disease between two inclusive dates
+ * ('YYYY-MM-DD') - powers the dashboard's date-filtered Scan Activity.
+ */
+export async function getScanActivity(from: string, to: string): Promise<ScanActivity> {
+  const start = new Date(`${from}T00:00:00Z`);
+  const end = new Date(`${to}T00:00:00Z`);
+  const days = Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1;
+
+  if (days < 1) {
+    throw ApiError.badRequest('"from" must not be after "to"');
+  }
+  if (days > MAX_ACTIVITY_DAYS) {
+    throw ApiError.badRequest(`Pick a range of ${MAX_ACTIVITY_DAYS} days or fewer`);
+  }
+
+  const [[trendRows], [breakdownRows]] = await Promise.all([
+    pool.query<RowDataPacket[]>(
+      `SELECT DATE(detected_at) AS day, COUNT(*) AS count
+       FROM detections
+       WHERE DATE(detected_at) BETWEEN ? AND ?
+       GROUP BY DATE(detected_at)`,
+      [from, to]
+    ),
+    pool.query<RowDataPacket[]>(
+      `SELECT dis.class_label, dis.display_name, dis.default_risk_level, COUNT(d.id) AS count
+       FROM diseases dis
+       LEFT JOIN detections d
+         ON d.disease_id = dis.id AND DATE(d.detected_at) BETWEEN ? AND ?
+       GROUP BY dis.id, dis.class_label, dis.display_name, dis.default_risk_level
+       ORDER BY dis.class_label`,
+      [from, to]
+    ),
+  ]);
+
+  const countByDay = new Map(
+    trendRows.map((row) => [new Date(row.day).toISOString().slice(0, 10), Number(row.count)])
+  );
+  const scanTrend: ScanTrendPoint[] = [];
+  for (let i = 0; i < days; i++) {
+    const key = new Date(start.getTime() + i * 86_400_000).toISOString().slice(0, 10);
+    scanTrend.push({ date: key, count: countByDay.get(key) ?? 0 });
+  }
+
+  return {
+    from,
+    to,
+    totalScans: scanTrend.reduce((sum, point) => sum + point.count, 0),
+    scanTrend,
+    diseaseBreakdown: breakdownRows.map((row) => ({
+      classLabel: row.class_label,
+      displayName: row.display_name,
+      count: Number(row.count),
+      riskLevel: row.default_risk_level,
+    })),
+  };
 }

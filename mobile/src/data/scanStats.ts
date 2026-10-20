@@ -13,14 +13,14 @@ import { ScanEntry } from '../services/scanLog';
 
 /** Matches backend `diseases.class_label` exactly - see database/leafscan_ai_schema.sql. */
 export type ScanClassLabel =
-  | 'common_rust'
+  | 'southern_rust'
   | 'gray_leaf_spot'
   | 'healthy'
   | 'northern_leaf_blight';
 
 /** The real, seeded display names, so a scan lines up with the live Disease Library. */
 export const CLASS_DISPLAY_NAME: Record<ScanClassLabel, string> = {
-  common_rust: 'Common Rust',
+  southern_rust: 'Southern Rust',
   gray_leaf_spot: 'Gray Leaf Spot',
   healthy: 'Healthy Leaf',
   northern_leaf_blight: 'Northern Leaf Blight',
@@ -28,7 +28,7 @@ export const CLASS_DISPLAY_NAME: Record<ScanClassLabel, string> = {
 
 /** Default risk level per class - matches diseases.default_risk_level in the DB. */
 export const CLASS_RISK_LEVEL: Record<ScanClassLabel, 'none' | 'low' | 'moderate' | 'high'> = {
-  common_rust: 'moderate',
+  southern_rust: 'moderate',
   gray_leaf_spot: 'high',
   healthy: 'none',
   northern_leaf_blight: 'high',
@@ -250,7 +250,7 @@ export function pickMockDiagnosis(): { classLabel: ScanClassLabel; confidence: n
     roll < 0.55
       ? 'healthy'
       : roll < 0.7
-        ? 'common_rust'
+        ? 'southern_rust'
         : roll < 0.85
           ? 'gray_leaf_spot'
           : 'northern_leaf_blight';

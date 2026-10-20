@@ -392,6 +392,9 @@ export const updateDiseaseSchema = z.object({
   defaultRiskLevel: z.enum(['none', 'low', 'moderate', 'high']).optional(),
 });
 
+/** How severe an infection each treatment is meant for - see database/add_treatment_control_levels.sql. */
+const controlLevelSchema = z.enum(['biological', 'mechanical', 'cultural', 'chemical']);
+
 /** The CAO adding a treatment recommendation for a disease. */
 export const createRecommendationSchema = z.object({
   diseaseId: z.number().int().positive(),
@@ -403,6 +406,7 @@ export const createRecommendationSchema = z.object({
     .max(4000),
   applicationMethod: z.string().trim().max(4000).optional().or(z.literal('')),
   preventiveMeasures: z.string().trim().max(4000).optional().or(z.literal('')),
+  controlLevel: controlLevelSchema.nullable().optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -412,6 +416,7 @@ export const updateRecommendationSchema = z.object({
   recommendationText: z.string().trim().min(2).max(4000).optional(),
   applicationMethod: z.string().trim().max(4000).optional().or(z.literal('')),
   preventiveMeasures: z.string().trim().max(4000).optional().or(z.literal('')),
+  controlLevel: controlLevelSchema.nullable().optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -426,6 +431,8 @@ export const createDetectionSchema = z.object({
   imagePath: z.string().trim().min(1).max(255),
   predictedClass: z.string().trim().min(1).max(50),
   confidenceScore: z.number().min(0).max(100),
+  /** When the leaf was actually scanned - set by scans queued offline and uploaded later. Defaults to now. */
+  detectedAt: z.string().datetime().optional(),
 });
 
 /**

@@ -15,7 +15,7 @@
 --                               to a report and to the disease each
 --                               photo was classified as, so the CAO
 --                               can visually verify "is this really
---                               Common Rust, and how bad is it?".
+--                               Southern Rust, and how bad is it?".
 --
 --   notifications               one inbox table for BOTH sides:
 --                               the CAO when a report is filed, the

@@ -3,7 +3,7 @@
  * Disease Library ("Search past scans" / "Search diseases").
  */
 
-import { View, TextInput } from 'react-native';
+import { View, TextInput, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { brand } from '../constants/theme';
@@ -27,8 +27,10 @@ export function SearchInput({
         placeholderTextColor={brand.placeholder}
         autoCapitalize="none"
         autoCorrect={false}
+        underlineColorAndroid="transparent"
+        selectionColor={brand.accent}
         className="ml-2.5 flex-1 text-[14px] text-[#16241B]"
-        style={{ paddingVertical: 0 }}
+        style={[{ paddingVertical: 0 }, Platform.OS === 'web' && ({ outlineStyle: 'none' } as object)]}
       />
     </View>
   );

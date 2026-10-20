@@ -92,3 +92,30 @@ export async function getRecentDetections(req: Request, res: Response): Promise<
     data: { detections },
   });
 }
+
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * GET /api/dashboard/scan-activity?from=YYYY-MM-DD&to=YYYY-MM-DD
+ * CAO admin only. Scans per day and per disease inside the range;
+ * defaults to the last 14 days.
+ */
+export async function getScanActivity(req: Request, res: Response): Promise<void> {
+  const today = new Date().toISOString().slice(0, 10);
+  const fourteenAgo = new Date(Date.now() - 13 * 86_400_000).toISOString().slice(0, 10);
+
+  const from = typeof req.query.from === 'string' && req.query.from ? req.query.from : fourteenAgo;
+  const to = typeof req.query.to === 'string' && req.query.to ? req.query.to : today;
+
+  if (
+    !DATE_PATTERN.test(from) ||
+    !DATE_PATTERN.test(to) ||
+    Number.isNaN(Date.parse(from)) ||
+    Number.isNaN(Date.parse(to))
+  ) {
+    throw ApiError.badRequest('Dates must look like YYYY-MM-DD');
+  }
+
+  const data = await dashboardService.getScanActivity(from, to);
+  res.status(200).json({ success: true, data });
+}

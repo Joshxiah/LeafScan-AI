@@ -11,11 +11,16 @@ export interface ListDetectionsFilters {
   result?: 'healthy' | 'diseased';
   search?: string;
   barangay?: string;
+  /** Exact class label, e.g. 'southern_rust'. */
+  disease?: string;
+  /** Inclusive scan-date range, 'YYYY-MM-DD'. */
+  from?: string;
+  to?: string;
   page?: number;
   pageSize?: number;
 }
 
-/** GET /api/detections?farmerId=&risk=&result=&search=&barangay=&page=&pageSize= */
+/** GET /api/detections?farmerId=&risk=&result=&search=&barangay=&disease=&from=&to=&page=&pageSize= */
 export async function listDetections(
   filters: ListDetectionsFilters = {}
 ): Promise<ListDetectionsResult> {
@@ -25,6 +30,9 @@ export async function listDetections(
   if (filters.result) params.set('result', filters.result);
   if (filters.search) params.set('search', filters.search);
   if (filters.barangay) params.set('barangay', filters.barangay);
+  if (filters.disease) params.set('disease', filters.disease);
+  if (filters.from) params.set('from', filters.from);
+  if (filters.to) params.set('to', filters.to);
   if (filters.page) params.set('page', String(filters.page));
   if (filters.pageSize) params.set('pageSize', String(filters.pageSize));
 

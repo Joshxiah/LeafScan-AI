@@ -11,12 +11,13 @@
  * a few outbreak reports) if you want to see this page populated.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { AdminLayout } from '../components/layout/AdminLayout';
 import { StatCard } from '../components/StatCard';
 import { ScanTrendChart } from '../components/charts/ScanTrendChart';
+import { DiseaseClassChart } from '../components/charts/DiseaseClassChart';
 import { BarangayRiskChart } from '../components/charts/BarangayRiskChart';
 import { FarmersByBarangayChart } from '../components/charts/FarmersByBarangayChart';
 import { api, ApiError } from '../services/api';
@@ -27,7 +28,9 @@ import type {
   FarmerBarangayCount,
   RecentDetection,
   RiskLevel,
+  ScanActivity,
 } from '../types';
+import { RISK_NAME } from '../types';
 
 const RISK_BADGE: Record<RiskLevel, string> = {
   none: 'bg-green-50 text-green-700',
@@ -38,16 +41,45 @@ const RISK_BADGE: Record<RiskLevel, string> = {
 
 const RISK_FILTERS: { label: string; value: RiskLevel | 'all' }[] = [
   { label: 'All risk levels', value: 'all' },
-  { label: 'None', value: 'none' },
+  { label: 'No disease', value: 'none' },
   { label: 'Low', value: 'low' },
   { label: 'Moderate', value: 'moderate' },
   { label: 'High', value: 'high' },
+];
+
+/** 'YYYY-MM-DD' for a date `daysAgo` days before today (browser-local day). */
+function isoDaysAgo(daysAgo: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+const RISK_COLUMNS: RiskLevel[] = ['none', 'low', 'moderate', 'high'];
+
+/** Highest risk level that has at least one scan; 'none' when everything is healthy. */
+function overallRisk(counts: Record<RiskLevel, number>): RiskLevel {
+  return (['high', 'moderate', 'low'] as RiskLevel[]).find((risk) => counts[risk] > 0) ?? 'none';
+}
+
+const ACTIVITY_PRESETS: { label: string; days: number }[] = [
+  { label: '7 days', days: 7 },
+  { label: '14 days', days: 14 },
+  { label: '30 days', days: 30 },
+  { label: '90 days', days: 90 },
 ];
 
 export function DashboardPage() {
   const [statistics, setStatistics] = useState<DashboardStatistics | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // ---- "Scan Activity" section (date-range filter + fetch) ----
+  const [activityFrom, setActivityFrom] = useState(() => isoDaysAgo(13));
+  const [activityTo, setActivityTo] = useState(() => isoDaysAgo(0));
+  const [activity, setActivity] = useState<ScanActivity | null>(null);
+  const [activityError, setActivityError] = useState<string | null>(null);
+  const [isActivityLoading, setIsActivityLoading] = useState(true);
 
   // ---- "Scans by Barangay" section (its own risk filter + fetch) ----
   const [barangayRisk, setBarangayRisk] = useState<RiskLevel | 'all'>('all');
@@ -68,6 +100,19 @@ export function DashboardPage() {
       );
     }
   }, [barangayRisk, barangayData]);
+
+  // Scans per barangay split by risk level: healthy leaves are "No
+  // disease"; each diseased scan counts at its disease's risk level.
+  const { riskRows, riskTotals } = useMemo(() => {
+    const totals: Record<RiskLevel, number> = { none: 0, low: 0, moderate: 0, high: 0 };
+    const rows = (barangayData?.barangays ?? []).map((row) => {
+      const counts: Record<RiskLevel, number> = { none: row.healthy, low: 0, moderate: 0, high: 0 };
+      for (const disease of row.diseases) counts[disease.riskLevel] += disease.count;
+      for (const risk of RISK_COLUMNS) totals[risk] += counts[risk];
+      return { barangay: row.barangay, counts, total: row.total, overall: overallRisk(counts) };
+    });
+    return { riskRows: rows, riskTotals: totals };
+  }, [barangayData]);
 
   // ---- "Registered Farmers by Barangay" section ----
   const [farmersByBarangay, setFarmersByBarangay] = useState<FarmerBarangayCount[] | null>(null);
@@ -113,6 +158,38 @@ export function DashboardPage() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!activityFrom || !activityTo) return;
+    if (activityFrom > activityTo) {
+      setActivityError('"From" must not be after "To".');
+      return;
+    }
+
+    let isMounted = true;
+    setIsActivityLoading(true);
+    setActivityError(null);
+
+    dashboardService
+      .getScanActivity(activityFrom, activityTo)
+      .then((data) => {
+        if (isMounted) setActivity(data);
+      })
+      .catch((error) => {
+        if (isMounted) {
+          setActivityError(
+            error instanceof ApiError ? error.message : 'Could not load scan activity.'
+          );
+        }
+      })
+      .finally(() => {
+        if (isMounted) setIsActivityLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activityFrom, activityTo]);
 
   useEffect(() => {
     let isMounted = true;
@@ -217,18 +294,22 @@ export function DashboardPage() {
           {/* ---------- Stat tiles (each navigates) ---------- */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
             <Link to="/farmers" className="block rounded-xl transition hover:shadow-md">
-              <StatCard label="Total Farmers" value={statistics.totalFarmers} icon="👥" />
+              <StatCard
+                label="Registered Farmers"
+                value={statistics.totalFarmers}
+                icon="👥"
+              />
             </Link>
             <Link to="/agriculturists" className="block rounded-xl transition hover:shadow-md">
               <StatCard
-                label="Total Agriculturists"
+                label="Registered Agriculturists"
                 value={statistics.totalAgriculturists}
                 icon="🧑‍🌾"
               />
             </Link>
             <Link to="/detections" className="block rounded-xl transition hover:shadow-md">
               <StatCard
-                label="Total Scans"
+                label="Total Leaf Scans"
                 value={statistics.totalScans}
                 icon="🔬"
                 hint={`${statistics.scansToday} today`}
@@ -250,7 +331,7 @@ export function DashboardPage() {
               className="block rounded-xl transition hover:shadow-md"
             >
               <StatCard
-                label="Diseased Scans"
+                label="Scanned Leaf Diseases"
                 value={statistics.diseasedScans}
                 icon="⚠️"
                 accent="warning"
@@ -278,14 +359,37 @@ export function DashboardPage() {
             </Link>
           </div>
 
+          {/* ---------- Top scans by disease class ---------- */}
+          <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900">
+                  Top Scans by Disease Class
+                </h2>
+                <p className="mt-0.5 text-xs text-gray-400">
+                  Number of scanned leaf diseases, all time
+                </p>
+              </div>
+              <p className="text-sm text-gray-500">
+                Total Leaf Scans:{' '}
+                <span className="font-semibold text-gray-900">
+                  {statistics.totalScans.toLocaleString()}
+                </span>
+              </p>
+            </div>
+            <div className="mt-4">
+              <DiseaseClassChart data={statistics.diseaseBreakdown} />
+            </div>
+          </section>
+
           {/* ---------- Scans by Barangay ---------- */}
           <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h2 className="text-sm font-semibold text-gray-900">Scans by Barangay</h2>
+                <h2 className="text-sm font-semibold text-gray-900">Risk by Barangay</h2>
                 <p className="mt-0.5 text-xs text-gray-400">
-                  Where healthy and diseased scans come from. Every scan is
-                  counted, so these rows reconcile with the totals above.
+                  How many scans at each risk level came from every barangay. Every
+                  scan is counted, so these rows reconcile with the totals above.
                 </p>
               </div>
 
@@ -321,38 +425,48 @@ export function DashboardPage() {
                       <thead>
                         <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-400">
                           <th className="py-2 pr-4 font-medium">Barangay</th>
-                          <th className="py-2 pr-4 text-right font-medium">Healthy</th>
-                          <th className="py-2 pr-4 text-right font-medium">Diseased</th>
-                          <th className="py-2 text-right font-medium">Total</th>
+                          {RISK_COLUMNS.map((risk) => (
+                            <th key={risk} className="py-2 pr-4 text-right font-medium">
+                              {RISK_NAME[risk]}
+                            </th>
+                          ))}
+                          <th className="py-2 pr-4 text-right font-medium">Total</th>
+                          <th className="py-2 font-medium">Overall risk</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {barangayData.barangays.map((row) => (
+                        {riskRows.map((row) => (
                           <tr
                             key={row.barangay}
                             className="border-b border-gray-100 last:border-0"
                           >
                             <td className="py-2 pr-4 text-gray-900">{row.barangay}</td>
-                            <td className="py-2 pr-4 text-right text-green-700">
-                              {row.healthy}
+                            {RISK_COLUMNS.map((risk) => (
+                              <td key={risk} className="py-2 pr-4 text-right text-gray-700">
+                                {row.counts[risk]}
+                              </td>
+                            ))}
+                            <td className="py-2 pr-4 text-right text-gray-700">{row.total}</td>
+                            <td className="py-2">
+                              <span
+                                className={`rounded px-2 py-0.5 text-xs font-medium ${RISK_BADGE[row.overall]}`}
+                              >
+                                {RISK_NAME[row.overall]}
+                              </span>
                             </td>
-                            <td className="py-2 pr-4 text-right text-red-700">
-                              {row.diseased}
-                            </td>
-                            <td className="py-2 text-right text-gray-700">{row.total}</td>
                           </tr>
                         ))}
                       </tbody>
                       <tfoot>
                         <tr className="border-t-2 border-gray-200 text-sm font-semibold text-gray-900">
                           <td className="py-2 pr-4">All barangays</td>
-                          <td className="py-2 pr-4 text-right">
-                            {barangayData.totals.healthy}
-                          </td>
-                          <td className="py-2 pr-4 text-right">
-                            {barangayData.totals.diseased}
-                          </td>
-                          <td className="py-2 text-right">{barangayData.totals.total}</td>
+                          {RISK_COLUMNS.map((risk) => (
+                            <td key={risk} className="py-2 pr-4 text-right">
+                              {riskTotals[risk]}
+                            </td>
+                          ))}
+                          <td className="py-2 pr-4 text-right">{barangayData.totals.total}</td>
+                          <td />
                         </tr>
                       </tfoot>
                     </table>
@@ -384,11 +498,84 @@ export function DashboardPage() {
 
           {/* ---------- Scan activity trend ---------- */}
           <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
-            <h2 className="text-sm font-semibold text-gray-900">Scan Activity</h2>
-            <p className="mt-0.5 text-xs text-gray-400">Scans recorded per day, last 14 days</p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-900">Scan Activity</h2>
+                <p className="mt-0.5 text-xs text-gray-400">
+                  Scans per day
+                  {activity && (
+                    <>
+                      {' '}
+                      ·{' '}
+                      <span className="font-medium text-gray-600">
+                        {activity.totalScans.toLocaleString()}
+                      </span>{' '}
+                      scan{activity.totalScans === 1 ? '' : 's'} in this range
+                    </>
+                  )}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {ACTIVITY_PRESETS.map((preset) => {
+                  const active =
+                    activityTo === isoDaysAgo(0) && activityFrom === isoDaysAgo(preset.days - 1);
+                  return (
+                    <button
+                      key={preset.days}
+                      type="button"
+                      onClick={() => {
+                        setActivityFrom(isoDaysAgo(preset.days - 1));
+                        setActivityTo(isoDaysAgo(0));
+                      }}
+                      className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium ${
+                        active
+                          ? 'border-leaf-600 bg-leaf-50 text-leaf-700'
+                          : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  );
+                })}
+                <label className="flex items-center gap-1.5 text-xs text-gray-500">
+                  From
+                  <input
+                    type="date"
+                    value={activityFrom}
+                    max={activityTo || undefined}
+                    onChange={(e) => setActivityFrom(e.target.value)}
+                    className="rounded-lg border border-gray-200 px-2 py-1 text-sm text-gray-700 focus:border-leaf-500 focus:outline-none"
+                  />
+                </label>
+                <label className="flex items-center gap-1.5 text-xs text-gray-500">
+                  To
+                  <input
+                    type="date"
+                    value={activityTo}
+                    min={activityFrom || undefined}
+                    max={isoDaysAgo(0)}
+                    onChange={(e) => setActivityTo(e.target.value)}
+                    className="rounded-lg border border-gray-200 px-2 py-1 text-sm text-gray-700 focus:border-leaf-500 focus:outline-none"
+                  />
+                </label>
+              </div>
+            </div>
+
+            {activityError && (
+              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+                <p className="text-sm text-red-700">{activityError}</p>
+              </div>
+            )}
 
             <div className="mt-4">
-              <ScanTrendChart data={statistics.scanTrend} />
+              {isActivityLoading || !activity ? (
+                <div className="flex h-40 items-center justify-center">
+                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-leaf-200 border-t-leaf-600" />
+                </div>
+              ) : (
+                <ScanTrendChart data={activity.scanTrend} />
+              )}
             </div>
           </section>
 
@@ -536,7 +723,7 @@ export function DashboardPage() {
                           <span
                             className={`rounded px-2 py-0.5 text-xs font-medium capitalize ${RISK_BADGE[d.riskLevel]}`}
                           >
-                            {d.riskLevel}
+                            {RISK_NAME[d.riskLevel]}
                           </span>
                         </td>
                         <td className="py-2.5 text-gray-500">

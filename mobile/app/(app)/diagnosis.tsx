@@ -14,24 +14,36 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { View, Text, Pressable, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, Image, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { listDiseases } from '../../src/services/disease.service';
-import { Disease } from '../../src/types';
+import { ControlLevel, Disease } from '../../src/types';
 import { useLanguage } from '../../src/context/LanguageContext';
 import { brand, shadows } from '../../src/constants/theme';
 import { ScanClassLabel } from '../../src/data/scanStats';
+import { useAuth } from '../../src/context/AuthContext';
+import { mediaUrl } from '../../src/utils/media';
+import { ControlLevelPill } from '../../src/components/ControlLevelPill';
+import { CONTROL_LEVEL_STYLE, CONTROL_LEVEL_ORDER } from '../../src/constants/controlLevels';
 
 export default function DiagnosisScreen() {
   const router = useRouter();
   const { t, language } = useLanguage();
-  const { classLabel, confidence } = useLocalSearchParams<{
+  const { token } = useAuth();
+  const { classLabel, confidence, imageUri, imagePath, pending } = useLocalSearchParams<{
     classLabel: ScanClassLabel;
     confidence: string;
+    imageUri?: string;
+    imagePath?: string;
+    pending?: string;
   }>();
+
+  // The leaf photo that was scanned: the on-device copy when we have
+  // one (instant, works offline), otherwise the server copy.
+  const photoUri = imageUri || mediaUrl(imagePath, token);
 
   const [diseases, setDiseases] = useState<Disease[] | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -85,6 +97,26 @@ export default function DiagnosisScreen() {
         contentContainerClassName="px-6 pb-10"
         showsVerticalScrollIndicator={false}
       >
+        {/* ---------- The scanned leaf ---------- */}
+        {photoUri && (
+          <View className="mb-4 overflow-hidden rounded-2xl bg-white" style={shadows.card}>
+            <Image
+              source={{ uri: photoUri }}
+              className="aspect-square w-full"
+              resizeMode="cover"
+            />
+          </View>
+        )}
+
+        {pending === '1' && (
+          <View className="mb-4 flex-row items-center rounded-xl bg-[#FFF6E0] px-4 py-3">
+            <Ionicons name="cloud-offline-outline" size={16} color="#9A6B00" />
+            <Text className="ml-2 flex-1 text-[12.5px] text-[#7A5600]">
+              {t.diagnosis.pendingUploadNote}
+            </Text>
+          </View>
+        )}
+
         {/* ---------- Verdict banner ---------- */}
         <View
           className="flex-row items-center self-start rounded-full px-3 py-1.5"
@@ -120,6 +152,15 @@ export default function DiagnosisScreen() {
           </Text>
         </View>
 
+        {/* ---------- Description ---------- */}
+        {disease?.description ? (
+          <Text className="mt-5 text-[13.5px] leading-5 text-[#3F5246]">
+            {disease.description}
+          </Text>
+        ) : !diseases && !loadError ? (
+          <ActivityIndicator className="mt-5" color={brand.accent} />
+        ) : null}
+
         {isHealthy ? (
           /* ---------- Healthy leaf: NO treatment plan ---------- */
           <View
@@ -149,23 +190,6 @@ export default function DiagnosisScreen() {
           </View>
         ) : (
           <>
-            {/* ---------- Recommended actions (diseased only) ---------- */}
-            <Text className="mb-2.5 mt-6 text-[13px] font-bold text-[#9BAAA1]">
-              {t.diagnosis.recommendedActions}
-            </Text>
-
-            {!diseases && !loadError ? (
-              <ActivityIndicator className="mt-4" color={brand.accent} />
-            ) : disease && disease.treatments.length > 0 ? (
-              <View className="gap-2.5">
-                {disease.treatments.map((treatment) => (
-                  <ActionCard key={treatment.id} text={treatment.recommendationText} />
-                ))}
-              </View>
-            ) : (
-              <ActionCard text={t.diagnosis.noTreatmentPublished} />
-            )}
-
             {/* ---------- View full disease entry ---------- */}
             {disease && (
               <Pressable
@@ -190,13 +214,26 @@ export default function DiagnosisScreen() {
   );
 }
 
-function ActionCard({ text }: { text: string }) {
+function ActionCard({ text, level }: { text: string; level?: ControlLevel | null }) {
+  const { t } = useLanguage();
+  const accent = level ? CONTROL_LEVEL_STYLE[level].color : brand.accent;
+
   return (
     <View
       className="rounded-xl bg-white px-4 py-3.5"
-      style={[{ borderLeftWidth: 3, borderLeftColor: brand.accent }, shadows.card]}
+      style={[{ borderLeftWidth: 4, borderLeftColor: accent }, shadows.card]}
     >
+      {level ? (
+        <View className="mb-2">
+          <ControlLevelPill level={level} />
+        </View>
+      ) : null}
       <Text className="text-[13px] leading-5 text-[#16241B]">{text}</Text>
+      {level === 'chemical' ? (
+        <Text className="mt-2 text-[12px] font-semibold" style={{ color: accent }}>
+          {t.treatmentLevels.chemicalWarning}
+        </Text>
+      ) : null}
     </View>
   );
 }

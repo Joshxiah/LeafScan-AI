@@ -62,10 +62,10 @@ PREPARE s FROM @sql; EXECUTE s; DEALLOCATE PREPARE s;
 -- 3. Disease content - Cebuano
 -- ------------------------------------------------------------
 UPDATE diseases SET
-  display_name_ceb = 'Kasagarang Taya',
-  description_ceb = 'Usa ka sakit nga gikan sa fungus nga Puccinia sorghi. Motubo kini sa bugnaw ug umog nga panahon ug mokaylap pinaagi sa mga spore nga gidala sa hangin.',
-  symptoms_ceb = 'Gagmay nga pula-pula ngadto sa brown nga mga bukol nga nagkatag sa ibabaw ug ilawom nga bahin sa dahon. Mobuto ang mga bukol ug mogawas ang pulbos nga spore.'
-WHERE class_label = 'common_rust';
+  display_name_ceb = 'Habagatang Taya',
+  description_ceb = 'Usa ka sakit nga gikan sa fungus nga Puccinia polysora. Motubo kini sa init ug umog nga panahon ug mokaylap pinaagi sa mga spore nga gidala sa hangin.',
+  symptoms_ceb = 'Gagmay, lingin ngadto sa oval nga orange ngadto sa light-brown nga mga bukol nga nagkatapok kasagaran sa ibabaw nga bahin sa dahon. Mobuto ang mga bukol ug mogawas ang pulbos nga spore.'
+WHERE class_label = 'southern_rust';
 
 UPDATE diseases SET
   display_name_ceb = 'Abuhon nga Tulpok sa Dahon',
@@ -91,25 +91,25 @@ WHERE class_label = 'northern_leaf_blight';
 -- even if the recommendation ids differ between databases.
 -- ------------------------------------------------------------
 
--- ----- common_rust -----
+-- ----- southern_rust -----
 UPDATE treatment_recommendations tr
-JOIN diseases d ON d.id = tr.disease_id AND d.class_label = 'common_rust'
+JOIN diseases d ON d.id = tr.disease_id AND d.class_label = 'southern_rust'
 SET tr.title_ceb = 'Paggamit og Fungicide',
-    tr.recommendation_text_ceb = 'Pagbutang og triazole o strobilurin nga fungicide sa unang timailhan sa mga bukol, ug balika matag 7-10 ka adlaw samtang bugnaw ug umog pa ang panahon.',
+    tr.recommendation_text_ceb = 'Pagbutang og triazole o strobilurin nga fungicide sa unang timailhan sa mga bukol, ug balika matag 7-10 ka adlaw samtang init ug umog pa ang panahon.',
     tr.application_method_ceb = 'Isprayan pag-ayo ang duha ka bahin sa dahon, sunod sa gidaghanon ug pre-harvest interval nga nakasulat sa label sa produkto.'
 WHERE tr.title = 'Fungicide Application';
 
 UPDATE treatment_recommendations tr
-JOIN diseases d ON d.id = tr.disease_id AND d.class_label = 'common_rust'
-SET tr.title_ceb = 'Mga Hybrid nga Lig-on Batok sa Sakit',
-    tr.recommendation_text_ceb = 'Pagpili og mga hybrid nga mais nga lig-on batok sa taya para sa sunod nga tanom aron makunhoran ang kanunay nga paggamit og fungicide.',
+JOIN diseases d ON d.id = tr.disease_id AND d.class_label = 'southern_rust'
+SET tr.title_ceb = 'Mga Barayti nga Lig-on Batok sa Sakit',
+    tr.recommendation_text_ceb = 'Pagpili og mga barayti sa mais nga lig-on batok sa taya para sa sunod nga tanom aron makunhoran ang kanunay nga paggamit og fungicide.',
     tr.preventive_measures_ceb = 'Ang mga barayti nga lig-on batok sa taya mao ang labing kasaligan nga dugay nga pamaagi sa pagpugong.'
-WHERE tr.title = 'Resistant Hybrids';
+WHERE tr.title = 'Resistant Varieties';
 
 UPDATE treatment_recommendations tr
-JOIN diseases d ON d.id = tr.disease_id AND d.class_label = 'common_rust'
+JOIN diseases d ON d.id = tr.disease_id AND d.class_label = 'southern_rust'
 SET tr.title_ceb = 'Pagbantay sa Uma',
-    tr.recommendation_text_ceb = 'Susiha ang mga dahon matag semana panahon sa bugnaw ug umog nga panahon, kung kanus-a pinakapaspas mokaylap ang taya, ug tambali dayon sa dili pa moabot ang mga bukol sa ibabaw nga bahin sa tanom.'
+    tr.recommendation_text_ceb = 'Susiha ang mga dahon matag semana panahon sa init ug umog nga panahon, kung kanus-a pinakapaspas mokaylap ang taya, ug tambali dayon sa dili pa moabot ang mga bukol sa ibabaw nga bahin sa tanom.'
 WHERE tr.title = 'Field Monitoring';
 
 -- ----- gray_leaf_spot -----
@@ -150,7 +150,7 @@ WHERE tr.title = 'Fungicide Application' AND d.class_label = 'northern_leaf_blig
 UPDATE treatment_recommendations tr
 JOIN diseases d ON d.id = tr.disease_id AND d.class_label = 'northern_leaf_blight'
 SET tr.title_ceb = 'Pag-ilis-ilis sa Tanom',
-    tr.recommendation_text_ceb = 'Pag-ilis og tanom nga dili host sa sunod nga panahon ug pilia ang mga hybrid nga lig-on kung balik-balik ang pagkalaya.'
+    tr.recommendation_text_ceb = 'Pag-ilis og tanom nga dili host sa sunod nga panahon ug pilia ang mga barayti nga lig-on kung balik-balik ang pagkalaya.'
 WHERE tr.title = 'Crop Rotation' AND d.class_label = 'northern_leaf_blight';
 
 UPDATE treatment_recommendations tr

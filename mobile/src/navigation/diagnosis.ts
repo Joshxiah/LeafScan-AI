@@ -21,6 +21,10 @@ export function goToDiagnosis(
       classLabel: scan.classLabel,
       confidence: String(scan.confidence),
       scannedAt: scan.scannedAt.toISOString(),
+      // Local photo when we have one (works offline), else the server copy.
+      ...(scan.localUri ? { imageUri: scan.localUri } : {}),
+      ...(scan.imagePath ? { imagePath: scan.imagePath } : {}),
+      ...(scan.pending ? { pending: '1' } : {}),
     },
   };
 

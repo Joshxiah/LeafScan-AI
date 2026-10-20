@@ -64,7 +64,7 @@ export default function ScanScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={[]}>
       <ScrollView
         contentContainerClassName="px-6 pb-10 pt-4"
         showsVerticalScrollIndicator={false}

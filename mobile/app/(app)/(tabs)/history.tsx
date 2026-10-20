@@ -22,7 +22,9 @@ import { goToDiagnosis } from '../../../src/navigation/diagnosis';
 import { useAuth } from '../../../src/context/AuthContext';
 import { useLanguage } from '../../../src/context/LanguageContext';
 import { brand } from '../../../src/constants/theme';
+import { mediaUrl } from '../../../src/utils/media';
 import { ScanEntry } from '../../../src/services/scanLog';
+import { onPendingSynced } from '../../../src/services/pendingScans';
 import { loadFarmerScans } from '../../../src/services/detection.service';
 import {
   SCAN_BUCKETS,
@@ -37,7 +39,7 @@ type Filter = (typeof FILTERS)[number];
 
 export default function HistoryScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { t } = useLanguage();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('All');
@@ -47,11 +49,16 @@ export default function HistoryScreen() {
     useCallback(() => {
       if (!user) return;
       let isMounted = true;
-      loadFarmerScans(user.id).then((log) => {
-        if (isMounted) setScans(log);
-      });
+      const reload = () => {
+        loadFarmerScans(user.id).then((log) => {
+          if (isMounted) setScans(log);
+        });
+      };
+      reload();
+      const unsubscribe = onPendingSynced(reload);
       return () => {
         isMounted = false;
+        unsubscribe();
       };
     }, [user])
   );
@@ -91,7 +98,7 @@ export default function HistoryScreen() {
   const hasAnyResults = grouped.length > 0;
 
   return (
-    <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={[]}>
       <View className="px-6 pb-3 pt-4">
         <Text className="text-center text-[17px] font-bold text-[#16241B]">
           {t.history.title}
@@ -141,10 +148,11 @@ export default function HistoryScreen() {
                       <ScanListItem
                         key={scan.id}
                         title={t.diseaseNames[scan.classLabel]}
-                        subtitle={`${t.common.corn} | ${timeLabelFor(scan) ?? bucketLabels[bucketOf(scan)]}`}
+                        subtitle={`${t.common.corn} | ${timeLabelFor(scan) ?? bucketLabels[bucketOf(scan)]}${scan.pending ? ` | ${t.common.waitingToUpload}` : ''}`}
                         confidence={scan.confidence}
                         healthy={isHealthy(scan)}
                         healthyLabel={t.home.healthy}
+                        imageUri={scan.localUri ?? mediaUrl(scan.imagePath, token)}
                         onPress={() => goToDiagnosis(router, scan)}
                       />
                     ))}

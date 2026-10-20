@@ -19,7 +19,8 @@ import { useEffect, useState } from 'react';
 import { AdminLayout } from '../components/layout/AdminLayout';
 import { ApiError } from '../services/api';
 import * as diseaseService from '../services/disease.service';
-import type { DiseaseInfo, RiskLevel } from '../types';
+import { ControlLevelBadge } from '../components/ControlLevelBadge';
+import { RISK_NAME, type DiseaseInfo, type RiskLevel } from '../types';
 
 const RISK_BADGE: Record<RiskLevel, string> = {
   none: 'bg-green-50 text-green-700',
@@ -145,7 +146,7 @@ function DiseaseSelector({
                 RISK_BADGE[disease.defaultRiskLevel]
               }`}
             >
-              {disease.defaultRiskLevel} risk
+              {disease.defaultRiskLevel === 'none' ? RISK_NAME.none : `${disease.defaultRiskLevel} risk`}
             </span>
           </div>
           {disease.scientificName && (
@@ -173,7 +174,7 @@ function DiseaseCard({ disease, onEdit }: { disease: DiseaseInfo; onEdit: () => 
             RISK_BADGE[disease.defaultRiskLevel]
           }`}
         >
-          {disease.defaultRiskLevel} risk
+          {disease.defaultRiskLevel === 'none' ? RISK_NAME.none : `${disease.defaultRiskLevel} risk`}
         </span>
         {disease.isHealthy && (
           <span className="rounded bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
@@ -193,12 +194,12 @@ function DiseaseCard({ disease, onEdit }: { disease: DiseaseInfo; onEdit: () => 
         <p className="mt-0.5 text-sm italic text-gray-500">{disease.scientificName}</p>
       )}
       {disease.description && (
-        <p className="mt-3 text-sm text-gray-700">{disease.description}</p>
+        <p className="mt-3 whitespace-pre-line text-sm text-gray-700">{disease.description}</p>
       )}
       {disease.symptoms && (
         <div className="mt-3">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-400">Symptoms</h3>
-          <p className="mt-1 text-sm text-gray-700">{disease.symptoms}</p>
+          <p className="mt-1 whitespace-pre-line text-sm text-gray-700">{disease.symptoms}</p>
         </div>
       )}
 
@@ -212,7 +213,8 @@ function DiseaseCard({ disease, onEdit }: { disease: DiseaseInfo; onEdit: () => 
           <ul className="mt-2 space-y-1.5">
             {disease.treatments.map((treatment) => (
               <li key={treatment.id} className="text-sm text-gray-700">
-                <span className="font-medium text-gray-900">{treatment.title}</span> —{' '}
+                <span className="font-medium text-gray-900">{treatment.title}</span>{' '}
+                <ControlLevelBadge level={treatment.controlLevel} /> —{' '}
                 {treatment.recommendationText}
               </li>
             ))}
@@ -277,7 +279,7 @@ function DiseaseEditCard({
           label="Scientific name"
           value={scientificName}
           onChange={setScientificName}
-          placeholder="Puccinia sorghi"
+          placeholder="Puccinia polysora"
         />
         <EditArea label="Description" value={description} onChange={setDescription} />
         <EditArea label="Symptoms" value={symptoms} onChange={setSymptoms} />
@@ -292,7 +294,7 @@ function DiseaseEditCard({
           >
             {RISK_LEVELS.map((level) => (
               <option key={level} value={level}>
-                {level}
+                {RISK_NAME[level]}
               </option>
             ))}
           </select>

@@ -73,6 +73,23 @@ export interface ScanTrendPoint {
   count: number;
 }
 
+/** Display words for a risk level - 'none' means the leaf is healthy, so it reads "No disease". */
+export const RISK_NAME: Record<RiskLevel, string> = {
+  none: 'No disease',
+  low: 'Low',
+  moderate: 'Moderate',
+  high: 'High',
+};
+
+/** Response of GET /api/dashboard/scan-activity. */
+export interface ScanActivity {
+  from: string;
+  to: string;
+  totalScans: number;
+  scanTrend: ScanTrendPoint[];
+  diseaseBreakdown: DiseaseCount[];
+}
+
 /** Matches DashboardStatistics in the backend dashboard service. */
 export interface DashboardStatistics {
   totalFarmers: number;
@@ -355,6 +372,9 @@ export interface DetectionSummary {
 export interface ListDetectionsResult {
   detections: DetectionSummary[];
   total: number;
+  /** Healthy / diseased split of every scan matching the filters (ignoring the result filter). */
+  healthyTotal: number;
+  diseasedTotal: number;
   page: number;
   pageSize: number;
 }
@@ -363,6 +383,9 @@ export interface ListDetectionsResult {
 // Disease library (diseases + their treatment recommendations)
 // ============================================================
 
+/** IPM ladder, mildest first. */
+export type ControlLevel = 'biological' | 'mechanical' | 'cultural' | 'chemical';
+
 /** Matches TreatmentRecommendation in backend/src/services/disease.service.ts. */
 export interface TreatmentRecommendation {
   id: number;
@@ -370,6 +393,7 @@ export interface TreatmentRecommendation {
   recommendationText: string;
   applicationMethod: string | null;
   preventiveMeasures: string | null;
+  controlLevel: ControlLevel | null;
 }
 
 /** Matches DiseaseInfo in backend/src/services/disease.service.ts. */
@@ -395,6 +419,7 @@ export interface RecommendationSummary {
   recommendationText: string;
   applicationMethod: string | null;
   preventiveMeasures: string | null;
+  controlLevel: ControlLevel | null;
   isActive: boolean;
   createdAt: string;
 }

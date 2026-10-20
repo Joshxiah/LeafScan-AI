@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Disease } from '../../src/types';
+import { ControlLevelPill } from '../../src/components/ControlLevelPill';
 import { useLanguage } from '../../src/context/LanguageContext';
 import { brand } from '../../src/constants/theme';
 import { diseaseImage } from '../../src/constants/diseaseImages';
@@ -69,8 +70,8 @@ export default function DiseaseDetailScreen() {
         <View className="h-56 bg-[#E7F4EA]">
           <Image
             source={diseaseImage(disease.classLabel)}
-            className="h-full w-full"
-            resizeMode="contain"
+            style={{ width: '100%', height: '100%' }}
+            resizeMode="cover"
           />
 
           <Pressable
@@ -136,6 +137,11 @@ export default function DiseaseDetailScreen() {
                     <Text className="text-[13px] font-bold text-[#16241B]">
                       {treatment.title}
                     </Text>
+                    {treatment.controlLevel ? (
+                      <View className="mt-1">
+                        <ControlLevelPill level={treatment.controlLevel} />
+                      </View>
+                    ) : null}
                     <Text className="mt-1 text-[13px] leading-5 text-[#6C8073]">
                       {treatment.recommendationText}
                     </Text>

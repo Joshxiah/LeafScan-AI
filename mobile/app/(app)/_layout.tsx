@@ -11,6 +11,7 @@ import { Stack, Redirect } from 'expo-router';
 
 import { useAuth } from '../../src/context/AuthContext';
 import { NotificationsProvider } from '../../src/context/NotificationsContext';
+import { PendingScanSync } from '../../src/components/PendingScanSync';
 import { colors } from '../../src/constants/theme';
 
 export default function ProtectedLayout() {
@@ -32,6 +33,7 @@ export default function ProtectedLayout() {
 
   return (
     <NotificationsProvider>
+      <PendingScanSync />
       <Stack screenOptions={{ headerShown: false }} />
     </NotificationsProvider>
   );

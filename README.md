@@ -16,7 +16,7 @@ Agriculture Office (CAO) of Pagadian City.
 ## Disease Classes
 
 1. Healthy Corn Leaves
-2. Common Rust
+2. Southern Rust
 3. Northern Leaf Blight
 4. Gray Leaf Spot
 

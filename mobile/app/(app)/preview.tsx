@@ -25,10 +25,11 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { uploadLeafImage, UploadResult } from '../../src/services/upload.service';
-import { getErrorMessage } from '../../src/services/api';
+import { getErrorMessage, ApiError } from '../../src/services/api';
 import { goToDiagnosis } from '../../src/navigation/diagnosis';
 import { pickMockDiagnosis } from '../../src/data/scanStats';
-import { addScan } from '../../src/services/scanLog';
+import { addScan, ScanEntry } from '../../src/services/scanLog';
+import { queuePendingScan } from '../../src/services/pendingScans';
 import { recordDetection } from '../../src/services/detection.service';
 import { useLanguage } from '../../src/context/LanguageContext';
 import { useAuth } from '../../src/context/AuthContext';
@@ -48,6 +49,9 @@ export default function PreviewScreen() {
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
+  // Set when there was no connection: the scan is saved on the phone
+  // and uploaded automatically once the phone is back online.
+  const [offlineScan, setOfflineScan] = useState<ScanEntry | null>(null);
 
   if (!imageUri) {
     return (
@@ -70,6 +74,29 @@ export default function PreviewScreen() {
       const result = await uploadLeafImage(imageUri);
       setUploadResult(result);
     } catch (error) {
+      const isOffline = error instanceof ApiError && (error.status === 0 || error.status === 408);
+
+      if (isOffline && user) {
+        try {
+          const { classLabel, confidence } = pickMockDiagnosis();
+          const queued = await queuePendingScan(user.id, {
+            imageUri,
+            classLabel,
+            confidence,
+          });
+          setOfflineScan({
+            id: `pending-${queued.id}`,
+            classLabel,
+            confidence,
+            scannedAt: new Date(queued.scannedAt),
+            localUri: queued.localUri,
+            pending: true,
+          });
+          return;
+        } catch (queueError) {
+          console.error('[preview] Could not save the scan offline:', queueError);
+        }
+      }
       setErrorMessage(getErrorMessage(error, t.preview.errorGeneric, t.apiErrors));
     } finally {
       setIsUploading(false);
@@ -86,11 +113,26 @@ export default function PreviewScreen() {
   }
 
   async function handleDone() {
+    if (offlineScan) {
+      goToDiagnosis(router, offlineScan, { replace: true });
+      return;
+    }
+
     const { classLabel, confidence } = pickMockDiagnosis();
 
     // Send the scan to the backend so the CAO's Detections page and
-    // dashboard see it. Best-effort: the farmer still gets their
-    // result even if this call fails or there is no connection.
+    // dashboard see it. If that fails, queue it (the photo is already
+    // uploaded) so it is retried later and History never disagrees
+    // with the server.
+    let scan: ScanEntry = {
+      id: `${Date.now()}`,
+      classLabel,
+      confidence,
+      scannedAt: new Date(),
+      imagePath: uploadResult?.imagePath,
+      imageUrl: uploadResult?.imageUrl,
+    };
+
     if (uploadResult?.imagePath) {
       try {
         await recordDetection({
@@ -98,26 +140,28 @@ export default function PreviewScreen() {
           predictedClass: classLabel,
           confidenceScore: confidence,
         });
+        if (user) scan = await addScan(user.id, scan);
       } catch (error) {
         console.warn('[preview] Could not record the detection on the server:', error);
+        if (user) {
+          const queued = await queuePendingScan(user.id, {
+            imageUri,
+            classLabel,
+            confidence,
+            imagePath: uploadResult.imagePath,
+          });
+          scan = {
+            ...scan,
+            id: `pending-${queued.id}`,
+            scannedAt: new Date(queued.scannedAt),
+            pending: true,
+          };
+        }
       }
     }
 
-    // Also written to the on-device log (scoped to this farmer) as an
-    // instant fallback for Home/History if the backend can't be
-    // reached right after - see loadFarmerScans() in detection.service.ts.
-    const scan = user
-      ? await addScan(user.id, {
-          classLabel,
-          confidence,
-          scannedAt: new Date(),
-          // Keep the uploaded photo with the scan so it can be attached to
-          // a CAO report later for visual verification.
-          imagePath: uploadResult?.imagePath,
-          imageUrl: uploadResult?.imageUrl,
-        })
-      : { id: `${Date.now()}`, classLabel, confidence, scannedAt: new Date() };
-    goToDiagnosis(router, scan, { replace: true });
+    // Show the farmer's own photo on the Diagnosis screen.
+    goToDiagnosis(router, { ...scan, localUri: imageUri }, { replace: true });
   }
 
   return (
@@ -131,10 +175,18 @@ export default function PreviewScreen() {
         </Pressable>
 
         <Text className="mt-5 text-2xl font-bold text-gray-900">
-          {uploadResult ? t.preview.uploadedTitle : t.preview.reviewTitle}
+          {offlineScan
+            ? t.preview.savedOfflineTitle
+            : uploadResult
+              ? t.preview.uploadedTitle
+              : t.preview.reviewTitle}
         </Text>
         <Text className="mt-1 text-sm text-gray-500">
-          {uploadResult ? t.preview.uploadedSubtitle : t.preview.reviewSubtitle}
+          {offlineScan
+            ? t.preview.savedOfflineSubtitle
+            : uploadResult
+              ? t.preview.uploadedSubtitle
+              : t.preview.reviewSubtitle}
         </Text>
 
         {/* ---------- The image ---------- */}
@@ -175,7 +227,7 @@ export default function PreviewScreen() {
         )}
 
         {/* ---------- Actions ---------- */}
-        {!uploadResult ? (
+        {!uploadResult && !offlineScan ? (
           <View className="mt-7">
             <Pressable
               onPress={handleUpload}

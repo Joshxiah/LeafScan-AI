@@ -112,7 +112,7 @@ export const shadows = {
  *   - the output of the prediction service (Phase 12)
  */
 export const DISEASE_CLASSES = [
-  'common_rust',
+  'southern_rust',
   'gray_leaf_spot',
   'healthy',
   'northern_leaf_blight',

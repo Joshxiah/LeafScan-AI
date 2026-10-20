@@ -113,7 +113,7 @@ const SAMPLE_AGRICULTURISTS = [
 const HISTORY_DAYS = 21;
 
 const RISK_BY_CLASS = {
-  common_rust: 'moderate',
+  southern_rust: 'moderate',
   gray_leaf_spot: 'high',
   healthy: 'none',
   northern_leaf_blight: 'high',
@@ -266,12 +266,12 @@ async function main() {
             ? pick([
                 ['gray_leaf_spot', 0.65],
                 ['healthy', 0.2],
-                ['common_rust', 0.1],
+                ['southern_rust', 0.1],
                 ['northern_leaf_blight', 0.05],
               ])
             : pick([
                 ['healthy', 0.55],
-                ['common_rust', 0.18],
+                ['southern_rust', 0.18],
                 ['gray_leaf_spot', 0.15],
                 ['northern_leaf_blight', 0.12],
               ]);
@@ -348,7 +348,7 @@ async function main() {
         totalScans: 5,
         affectedScans: 2,
         healthyScans: 3,
-        breakdown: [{ classLabel: 'common_rust', displayName: 'Common Rust', count: 2 }],
+        breakdown: [{ classLabel: 'southern_rust', displayName: 'Southern Rust', count: 2 }],
         area: 0.6,
         remarks: 'A few rust pustules spotted, applying fungicide as advised in the app.',
         status: 'agriculturist_assigned',

@@ -23,17 +23,17 @@ INSERT INTO treatment_recommendations
 SELECT id, title, recommendation_text, application_method, preventive_measures, 1
 FROM diseases
 CROSS JOIN (
-    SELECT 'common_rust' AS class_label, 'Fungicide Application' AS title,
-           'Apply a triazole or strobilurin fungicide at the first sign of pustules, repeating every 7-10 days while conditions stay cool and humid.' AS recommendation_text,
+    SELECT 'southern_rust' AS class_label, 'Fungicide Application' AS title,
+           'Apply a triazole or strobilurin fungicide at the first sign of pustules, repeating every 7-10 days while conditions stay warm and humid.' AS recommendation_text,
            'Spray both leaf surfaces thoroughly, following the product label''s rate and pre-harvest interval.' AS application_method,
            NULL AS preventive_measures
     UNION ALL
-    SELECT 'common_rust', 'Resistant Hybrids',
-           'Choose rust-resistant corn hybrids for future plantings to reduce how often fungicide is needed.',
+    SELECT 'southern_rust', 'Resistant Varieties',
+           'Choose rust-resistant corn varieties for future plantings to reduce how often fungicide is needed.',
            NULL, 'Rust-resistant varieties are the most reliable long-term control.'
     UNION ALL
-    SELECT 'common_rust', 'Field Monitoring',
-           'Inspect leaves weekly during cool, humid weather, when rust spreads fastest, and treat early before pustules reach the upper canopy.',
+    SELECT 'southern_rust', 'Field Monitoring',
+           'Inspect leaves weekly during warm, humid weather, when rust spreads fastest, and treat early before pustules reach the upper canopy.',
            NULL, NULL
 
     UNION ALL
@@ -59,7 +59,7 @@ CROSS JOIN (
            'Cover the whole canopy evenly and repeat after heavy rain.', NULL
     UNION ALL
     SELECT 'northern_leaf_blight', 'Crop Rotation',
-           'Rotate with a non-host crop next season and favour resistant hybrids where blight recurs.',
+           'Rotate with a non-host crop next season and favour resistant varieties where blight recurs.',
            NULL, NULL
     UNION ALL
     SELECT 'northern_leaf_blight', 'Seek Local Guidance',

@@ -3,11 +3,12 @@
  *
  * Shared by Home ("Recent Scans"), the History tab, and anywhere
  * else a scan needs to be listed the same way: a tinted leaf icon
- * with a small outcome badge, the disease name, a crop/time
+ * (or the scanned leaf photo, when there is one) with a small outcome badge, the disease name, a crop/time
  * subtitle, and the confidence (or "Healthy") on the right.
  */
 
-import { View, Text, Pressable } from 'react-native';
+import { useState } from 'react';
+import { View, Text, Pressable, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { shadows } from '../constants/theme';
@@ -18,6 +19,7 @@ export function ScanListItem({
   confidence,
   healthy,
   healthyLabel,
+  imageUri,
   onPress,
 }: {
   title: string;
@@ -26,8 +28,13 @@ export function ScanListItem({
   healthy: boolean;
   /** Translated "Healthy" text, shown instead of a percentage. */
   healthyLabel: string;
+  /** The scanned leaf photo, shown instead of the icon. Falls back to the icon if missing or it fails to load. */
+  imageUri?: string | null;
   onPress?: () => void;
 }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const showPhoto = !!imageUri && !imageFailed;
+
   const tint = healthy
     ? { bg: '#E7F4EA', fg: '#2F6D46', badge: '#22A559', badgeIcon: 'checkmark' as const }
     : { bg: '#FBEDED', fg: '#D64545', badge: '#D64545', badgeIcon: 'warning' as const };
@@ -40,12 +47,22 @@ export function ScanListItem({
       style={shadows.card}
     >
       <View className="relative">
-        <View
-          className="h-11 w-11 items-center justify-center rounded-full"
-          style={{ backgroundColor: tint.bg }}
-        >
-          <Ionicons name="leaf-outline" size={20} color={tint.fg} />
-        </View>
+        {showPhoto ? (
+          <Image
+            source={{ uri: imageUri as string }}
+            onError={() => setImageFailed(true)}
+            className="h-11 w-11 rounded-full"
+            style={{ backgroundColor: tint.bg }}
+            resizeMode="cover"
+          />
+        ) : (
+          <View
+            className="h-11 w-11 items-center justify-center rounded-full"
+            style={{ backgroundColor: tint.bg }}
+          >
+            <Ionicons name="leaf-outline" size={20} color={tint.fg} />
+          </View>
+        )}
         <View
           className="absolute -bottom-0.5 -right-0.5 h-4 w-4 items-center justify-center rounded-full border-2 border-white"
           style={{ backgroundColor: tint.badge }}

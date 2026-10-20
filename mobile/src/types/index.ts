@@ -13,6 +13,9 @@ export type UserRole = 'farmer' | 'admin';
 /** How severe a disease is, matching the backend `diseases` table. */
 export type RiskLevel = 'none' | 'low' | 'moderate' | 'high';
 
+/** IPM ladder, mildest first: how severe an infection a treatment is for. */
+export type ControlLevel = 'biological' | 'mechanical' | 'cultural' | 'chemical';
+
 /** One expert-verified treatment, published by the CAO. */
 export interface DiseaseTreatment {
   id: number;
@@ -20,6 +23,8 @@ export interface DiseaseTreatment {
   recommendationText: string;
   applicationMethod: string | null;
   preventiveMeasures: string | null;
+  /** null for advice that is not a control step (monitoring, resistant varieties). */
+  controlLevel: ControlLevel | null;
 }
 
 /** A disease class shown in the in-app Disease Library. */

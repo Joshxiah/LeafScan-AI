@@ -7,7 +7,13 @@
  */
 
 import { api } from './api';
-import type { BarangayBreakdown, FarmerBarangayCount, RecentDetection, RiskLevel } from '../types';
+import type {
+  BarangayBreakdown,
+  FarmerBarangayCount,
+  RecentDetection,
+  RiskLevel,
+  ScanActivity,
+} from '../types';
 
 /**
  * GET /api/dashboard/barangay-breakdown?risk=
@@ -61,4 +67,18 @@ export async function getRecentDetections(
     `/dashboard/recent-detections${query ? `?${query}` : ''}`
   );
   return result.detections;
+}
+
+/**
+ * GET /api/dashboard/scan-activity?from=&to=
+ *
+ * Scans per day and per disease class between two inclusive dates
+ * ('YYYY-MM-DD'). Omit both for the last 14 days.
+ */
+export async function getScanActivity(from?: string, to?: string): Promise<ScanActivity> {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  const query = params.toString();
+  return api.get<ScanActivity>(`/dashboard/scan-activity${query ? `?${query}` : ''}`);
 }

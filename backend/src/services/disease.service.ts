@@ -21,12 +21,17 @@ import { UpdateDiseaseInput } from '../utils/validation';
 export type RiskLevel = 'none' | 'low' | 'moderate' | 'high';
 export type DiseaseLang = 'en' | 'ceb';
 
+/** IPM ladder, mildest first: biological -> mechanical -> cultural -> chemical. */
+export type ControlLevel = 'biological' | 'mechanical' | 'cultural' | 'chemical';
+
 export interface TreatmentRecommendation {
   id: number;
   title: string;
   recommendationText: string;
   applicationMethod: string | null;
   preventiveMeasures: string | null;
+  /** null for advice that is not a control step (monitoring, resistant varieties). */
+  controlLevel: ControlLevel | null;
 }
 
 export interface DiseaseInfo {
@@ -59,6 +64,7 @@ interface TreatmentRow extends RowDataPacket {
   recommendation_text: string;
   application_method: string | null;
   preventive_measures: string | null;
+  control_level: ControlLevel | null;
 }
 
 /**
@@ -96,10 +102,13 @@ export async function listDiseases(lang: DiseaseLang = 'en'): Promise<DiseaseInf
               ${trTitle}   AS title,
               ${trText}    AS recommendation_text,
               ${trMethod}  AS application_method,
-              ${trPrevent} AS preventive_measures
+              ${trPrevent} AS preventive_measures,
+              control_level
        FROM treatment_recommendations
        WHERE is_active = 1
-       ORDER BY id ASC`
+       ORDER BY FIELD(control_level, 'biological', 'mechanical', 'cultural', 'chemical') = 0,
+                FIELD(control_level, 'biological', 'mechanical', 'cultural', 'chemical'),
+                id ASC`
     ),
   ]);
 
@@ -112,6 +121,7 @@ export async function listDiseases(lang: DiseaseLang = 'en'): Promise<DiseaseInf
       recommendationText: row.recommendation_text,
       applicationMethod: row.application_method,
       preventiveMeasures: row.preventive_measures,
+      controlLevel: row.control_level,
     });
     treatmentsByDisease.set(row.disease_id, list);
   }
@@ -150,6 +160,11 @@ export async function updateDisease(
   const sets: string[] = [];
   const params: (string | null)[] = [];
   if (input.displayName !== undefined) {
+    // The edit is English-only. Drop the Cebuano text when the English
+    // changes, so the mobile app (which prefers *_ceb) falls back to the
+    // new English instead of showing the stale translation.
+    sets.push('display_name_ceb = IF(NOT (display_name <=> ?), NULL, display_name_ceb)');
+    params.push(input.displayName);
     sets.push('display_name = ?');
     params.push(input.displayName);
   }
@@ -158,10 +173,20 @@ export async function updateDisease(
     params.push(input.scientificName || null);
   }
   if (input.description !== undefined) {
+    // The edit is English-only. Drop the Cebuano text when the English
+    // changes, so the mobile app (which prefers *_ceb) falls back to the
+    // new English instead of showing the stale translation.
+    sets.push('description_ceb = IF(NOT (description <=> ?), NULL, description_ceb)');
+    params.push(input.description || null);
     sets.push('description = ?');
     params.push(input.description || null);
   }
   if (input.symptoms !== undefined) {
+    // The edit is English-only. Drop the Cebuano text when the English
+    // changes, so the mobile app (which prefers *_ceb) falls back to the
+    // new English instead of showing the stale translation.
+    sets.push('symptoms_ceb = IF(NOT (symptoms <=> ?), NULL, symptoms_ceb)');
+    params.push(input.symptoms || null);
     sets.push('symptoms = ?');
     params.push(input.symptoms || null);
   }

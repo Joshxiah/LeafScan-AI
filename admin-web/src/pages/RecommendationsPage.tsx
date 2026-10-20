@@ -18,7 +18,9 @@ import { AdminLayout } from '../components/layout/AdminLayout';
 import { ApiError } from '../services/api';
 import * as recommendationService from '../services/recommendation.service';
 import * as diseaseService from '../services/disease.service';
-import type { DiseaseInfo, RecommendationSummary } from '../types';
+import { ControlLevelBadge } from '../components/ControlLevelBadge';
+import { CONTROL_LEVELS } from '../constants/controlLevels';
+import type { ControlLevel, DiseaseInfo, RecommendationSummary } from '../types';
 
 export function RecommendationsPage() {
   const [recommendations, setRecommendations] = useState<RecommendationSummary[] | null>(null);
@@ -83,6 +85,19 @@ export function RecommendationsPage() {
         >
           + Add Recommendation
         </button>
+      </div>
+
+      {/* ---------- Control-level legend ---------- */}
+      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2.5">
+        {CONTROL_LEVELS.map((info) => (
+          <span key={info.level} className="flex items-center gap-1.5 text-xs text-gray-600">
+            <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: info.color }} />
+            <span className="font-semibold">
+              {info.step}. {info.label}
+            </span>
+            — {info.when}
+          </span>
+        ))}
       </div>
 
       {errorMessage && (
@@ -237,7 +252,12 @@ function RecommendationCard({
       }`}
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-semibold text-gray-900">{rec.title}</p>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-gray-900">{rec.title}</p>
+          <div className="mt-1">
+            <ControlLevelBadge level={rec.controlLevel} />
+          </div>
+        </div>
         {!rec.isActive && (
           <span className="shrink-0 rounded bg-gray-200 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
             Inactive
@@ -338,6 +358,9 @@ function RecommendationModal({
   const [preventiveMeasures, setPreventiveMeasures] = useState(
     existing?.preventiveMeasures ?? ''
   );
+  const [controlLevel, setControlLevel] = useState<ControlLevel | ''>(
+    existing?.controlLevel ?? ''
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -360,6 +383,7 @@ function RecommendationModal({
           recommendationText: text.trim(),
           applicationMethod: applicationMethod.trim(),
           preventiveMeasures: preventiveMeasures.trim(),
+          controlLevel: controlLevel || null,
         });
       } else {
         await recommendationService.createRecommendation({
@@ -368,6 +392,7 @@ function RecommendationModal({
           recommendationText: text.trim(),
           applicationMethod: applicationMethod.trim() || undefined,
           preventiveMeasures: preventiveMeasures.trim() || undefined,
+          controlLevel: controlLevel || null,
         });
       }
       onSaved();
@@ -421,6 +446,24 @@ function RecommendationModal({
                   </option>
                 ))
               )}
+            </select>
+          </label>
+
+          <label className="block">
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+              Control level (how severe the infection is)
+            </span>
+            <select
+              value={controlLevel}
+              onChange={(e) => setControlLevel(e.target.value as ControlLevel | '')}
+              className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
+            >
+              <option value="">Not a control step (monitoring, prevention…)</option>
+              {CONTROL_LEVELS.map((info) => (
+                <option key={info.level} value={info.level}>
+                  Level {info.step} · {info.label} — {info.when}
+                </option>
+              ))}
             </select>
           </label>
 

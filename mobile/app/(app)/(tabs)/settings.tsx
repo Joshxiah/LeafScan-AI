@@ -24,6 +24,7 @@ import {
   Modal,
   Image,
   TextInput,
+  Platform,
   ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -35,6 +36,7 @@ import { useAuth } from '../../../src/context/AuthContext';
 import { useLanguage } from '../../../src/context/LanguageContext';
 import { Language } from '../../../src/i18n/translations';
 import { brand, shadows } from '../../../src/constants/theme';
+import { PartnerFooter } from '../../../src/components/PartnerFooter';
 import { mediaUrl } from '../../../src/utils/media';
 import { uploadImage } from '../../../src/services/upload.service';
 import { updateProfile } from '../../../src/services/profile.service';
@@ -224,7 +226,7 @@ export default function SettingsScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={[]}>
       <View className="px-6 pb-2 pt-4">
         <Text className="text-center text-[17px] font-bold text-[#16241B]">
           {t.settings.title}
@@ -392,6 +394,7 @@ export default function SettingsScreen() {
         <Text className="mt-5 text-center text-[11px] text-[#9BAAA1]">
           {t.settings.footer}
         </Text>
+        <PartnerFooter />
       </ScrollView>
 
       {/* ---------- Photo action sheet ---------- */}
@@ -708,8 +711,10 @@ function FieldInput({
         {...inputProps}
         secureTextEntry={isPassword ? hidden : secureTextEntry}
         placeholderTextColor={brand.placeholder}
+        underlineColorAndroid="transparent"
+        selectionColor={brand.accent}
         className="ml-2.5 flex-1 text-[14px] text-[#16241B]"
-        style={{ paddingVertical: 0 }}
+        style={[{ paddingVertical: 0 }, Platform.OS === 'web' && ({ outlineStyle: 'none' } as object)]}
       />
       {isPassword && (
         <Pressable onPress={() => setHidden((v) => !v)} hitSlop={10}>

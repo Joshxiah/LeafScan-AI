@@ -66,4 +66,17 @@ router.get(
   dashboardController.getRecentDetections
 );
 
+/**
+ * GET /api/dashboard/scan-activity?from=&to=
+ *
+ * Same two guards as /statistics. Scans per day and per disease
+ * between two dates.
+ */
+router.get(
+  '/scan-activity',
+  authenticate,
+  requireAdmin,
+  dashboardController.getScanActivity
+);
+
 export default router;

@@ -7,7 +7,7 @@
  */
 
 import { api } from './api';
-import type { RecommendationSummary } from '../types';
+import type { ControlLevel, RecommendationSummary } from '../types';
 
 /** GET /api/recommendations - all recommendations, disease first. */
 export async function listRecommendations(): Promise<RecommendationSummary[]> {
@@ -21,6 +21,7 @@ export interface RecommendationPayload {
   recommendationText?: string;
   applicationMethod?: string;
   preventiveMeasures?: string;
+  controlLevel?: ControlLevel | null;
   isActive?: boolean;
 }
 

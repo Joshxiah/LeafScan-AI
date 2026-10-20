@@ -21,6 +21,7 @@ import { useLanguage } from '../../../src/context/LanguageContext';
 import { useNotifications } from '../../../src/context/NotificationsContext';
 import { brand, shadows } from '../../../src/constants/theme';
 import { mediaUrl } from '../../../src/utils/media';
+import { PartnerFooter } from '../../../src/components/PartnerFooter';
 import { StatCard } from '../../../src/components/StatCard';
 import { WeeklyBarChart } from '../../../src/components/WeeklyBarChart';
 import { DonutChart } from '../../../src/components/DonutChart';
@@ -28,6 +29,7 @@ import { ScanListItem } from '../../../src/components/ScanListItem';
 import { FilterPills } from '../../../src/components/FilterPills';
 import { goToDiagnosis } from '../../../src/navigation/diagnosis';
 import { ScanEntry } from '../../../src/services/scanLog';
+import { onPendingSynced } from '../../../src/services/pendingScans';
 import { loadFarmerScans } from '../../../src/services/detection.service';
 import {
   ActivityRange,
@@ -53,11 +55,16 @@ export default function HomeScreen() {
     useCallback(() => {
       if (!user) return;
       let isMounted = true;
-      loadFarmerScans(user.id).then((log) => {
-        if (isMounted) setScans(log);
-      });
+      const reload = () => {
+        loadFarmerScans(user.id).then((log) => {
+          if (isMounted) setScans(log);
+        });
+      };
+      reload();
+      const unsubscribe = onPendingSynced(reload);
       return () => {
         isMounted = false;
+        unsubscribe();
       };
     }, [user])
   );
@@ -106,9 +113,9 @@ export default function HomeScreen() {
   // ---------- Nothing scanned yet ----------
   if (scans.length === 0) {
     return (
-      <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={[]}>
         <ScrollView
-          contentContainerClassName="grow px-6 pb-28 pt-5"
+          contentContainerClassName="grow px-6 pb-6 pt-5"
           showsVerticalScrollIndicator={false}
         >
           <View className="flex-row items-start justify-between">
@@ -178,9 +185,9 @@ export default function HomeScreen() {
 
   // ---------- Dashboard ----------
   return (
-    <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={[]}>
       <ScrollView
-        contentContainerClassName="px-6 pb-28 pt-5"
+        contentContainerClassName="px-6 pb-6 pt-5"
         showsVerticalScrollIndicator={false}
       >
         {/* ---------- Greeting ---------- */}
@@ -315,10 +322,11 @@ export default function HomeScreen() {
               <ScanListItem
                 key={scan.id}
                 title={t.diseaseNames[scan.classLabel]}
-                subtitle={`${t.common.corn} | ${timeLabelFor(scan) ?? bucketLabels[bucketOf(scan)]}`}
+                subtitle={`${t.common.corn} | ${timeLabelFor(scan) ?? bucketLabels[bucketOf(scan)]}${scan.pending ? ` | ${t.common.waitingToUpload}` : ''}`}
                 confidence={scan.confidence}
                 healthy={isHealthy(scan)}
                 healthyLabel={t.home.healthy}
+                imageUri={scan.localUri ?? mediaUrl(scan.imagePath, token)}
                 onPress={() => goToDiagnosis(router, scan)}
               />
             ))}
@@ -334,6 +342,8 @@ export default function HomeScreen() {
             {t.home.tip}
           </Text>
         </View>
+
+        <PartnerFooter />
       </ScrollView>
     </SafeAreaView>
   );

@@ -7,7 +7,7 @@
  * apart as screens change.
  *
  * What is deliberately NOT translated here, and why:
- *   - Disease names ("Common Rust", "Gray Leaf Spot"...) - these
+ *   - Disease names ("Southern Rust", "Gray Leaf Spot"...) - these
  *     come from the backend (GET /api/diseases) and are technical/
  *     scientific names without an established Cebuano equivalent,
  *     the same way agricultural bulletins keep them in English.
@@ -60,6 +60,7 @@ export interface Translations {
     bucketToday: string;
     bucketYesterday: string;
     bucketLastWeek: string;
+    waitingToUpload: string;
   };
 
   /**
@@ -69,7 +70,7 @@ export interface Translations {
    * screens use the API's localised name instead.
    */
   diseaseNames: {
-    common_rust: string;
+    southern_rust: string;
     gray_leaf_spot: string;
     healthy: string;
     northern_leaf_blight: string;
@@ -279,6 +280,19 @@ export interface Translations {
     viewDiagnosis: string;
     noImage: string;
     chooseImageLink: string;
+    savedOfflineTitle: string;
+    savedOfflineSubtitle: string;
+  };
+
+  treatmentLevels: {
+    level: string;
+    guideTitle: string;
+    guideSubtitle: string;
+    biological: { label: string; when: string };
+    mechanical: { label: string; when: string };
+    cultural: { label: string; when: string };
+    chemical: { label: string; when: string };
+    chemicalWarning: string;
   };
 
   diseaseDetail: {
@@ -302,6 +316,7 @@ export interface Translations {
     recommendedActions: string;
     noTreatmentNeeded: string;
     noTreatmentPublished: string;
+    pendingUploadNote: string;
     viewTreatmentPlan: string;
   };
 
@@ -395,10 +410,11 @@ export const en: Translations = {
     bucketToday: 'Today',
     bucketYesterday: 'Yesterday',
     bucketLastWeek: 'Last Week',
+    waitingToUpload: 'Waiting to upload',
   },
 
   diseaseNames: {
-    common_rust: 'Common Rust',
+    southern_rust: 'Southern Rust',
     gray_leaf_spot: 'Gray Leaf Spot',
     healthy: 'Healthy Leaf',
     northern_leaf_blight: 'Northern Leaf Blight',
@@ -615,6 +631,19 @@ export const en: Translations = {
     viewDiagnosis: 'View Diagnosis',
     noImage: 'No image was provided.',
     chooseImageLink: 'Choose an Image',
+    savedOfflineTitle: 'Saved on Your Phone',
+    savedOfflineSubtitle: 'No internet right now. This scan will upload automatically once you are back online.',
+  },
+
+  treatmentLevels: {
+    level: 'Level',
+    guideTitle: 'CHOOSE BY HOW SEVERE IT IS',
+    guideSubtitle: 'Start with the mildest level. Move up only if the disease keeps spreading.',
+    biological: { label: 'Biological', when: 'Light infection (about 10-20% affected)' },
+    mechanical: { label: 'Mechanical', when: 'Moderate infection - trim infected leaves' },
+    cultural: { label: 'Cultural', when: 'Spreading infection - clean the field' },
+    chemical: { label: 'Chemical', when: 'Severe (about 50-60% damage, IPM threshold)' },
+    chemicalWarning: 'Poisonous - wear gloves and a mask, and follow the label.',
   },
 
   diseaseDetail: {
@@ -642,6 +671,8 @@ export const en: Translations = {
       'No treatment needed - keep monitoring the plant and scan again if symptoms appear.',
     noTreatmentPublished:
       'The City Agriculture Office has not published treatment recommendations for this disease yet.',
+    pendingUploadNote:
+      'Saved on your phone. It will upload automatically when you are back online.',
     viewTreatmentPlan: 'View treatment plan →',
   },
 
@@ -753,10 +784,11 @@ export const ceb: Translations = {
     bucketToday: 'Karon',
     bucketYesterday: 'Kagahapon',
     bucketLastWeek: 'Miaging Semana',
+    waitingToUpload: 'Naghulat ma-upload',
   },
 
   diseaseNames: {
-    common_rust: 'Kasagarang Taya',
+    southern_rust: 'Habagatang Taya',
     gray_leaf_spot: 'Abuhon nga Tulpok sa Dahon',
     healthy: 'Himsog nga Dahon',
     northern_leaf_blight: 'Amihanang Pagkalaya sa Dahon',
@@ -974,6 +1006,19 @@ export const ceb: Translations = {
     viewDiagnosis: 'Tan-awa ang Diagnosis',
     noImage: 'Walay litrato nga gihatag.',
     chooseImageLink: 'Pagpili og Litrato',
+    savedOfflineTitle: 'Gitipigan sa Imong Telepono',
+    savedOfflineSubtitle: 'Walay internet karon. Awtomatiko ma-upload kini nga scan inig naa na pud kay internet.',
+  },
+
+  treatmentLevels: {
+    level: 'Lebel',
+    guideTitle: 'PILI SUMALA SA KALALA',
+    guideSubtitle: 'Sugdi sa pinakagaan nga lebel. Mosaka ra kung nagkaylap gihapon ang sakit.',
+    biological: { label: 'Biological', when: 'Gamay pa nga sakit (mga 10-20% ang apektado)' },
+    mechanical: { label: 'Mekanikal', when: 'Kasarangan nga sakit - putlai ang apektadong dahon' },
+    cultural: { label: 'Kultural', when: 'Nagkaylap na - limpyohi ang uma' },
+    chemical: { label: 'Kemikal', when: 'Grabe na (mga 50-60% ang kadaot, IPM threshold)' },
+    chemicalWarning: 'Peligroso - magsuot og guwantes ug mask, ug sunda ang label.',
   },
 
   diseaseDetail: {
@@ -1001,6 +1046,8 @@ export const ceb: Translations = {
       'Walay kinahanglan nga tambal - padayon sa pagbantay sa tanom ug pag-scan pag-usab kung naay motungha nga simtomas.',
     noTreatmentPublished:
       'Wala pa mag-publish ang City Agriculture Office og rekomendasyon sa tambal para ani nga sakit.',
+    pendingUploadNote:
+      'Gitipigan sa imong telepono. Awtomatiko kini ma-upload inig naa na pud kay internet.',
     viewTreatmentPlan: 'Tan-awa ang plano sa tambal →',
   },
 
