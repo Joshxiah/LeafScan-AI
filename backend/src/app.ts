@@ -32,6 +32,10 @@ import { ApiError } from './utils/ApiError';
 
 const app: Application = express();
 
+// Behind Nginx on the server: trust the first proxy so the
+// login rate limiter sees each user's real IP address.
+app.set('trust proxy', 1);
+
 // ============================================================
 // MIDDLEWARE - order matters, these run top to bottom
 // ============================================================
