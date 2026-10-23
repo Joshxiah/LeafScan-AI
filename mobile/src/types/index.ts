@@ -14,7 +14,7 @@ export type UserRole = 'farmer' | 'admin';
 export type RiskLevel = 'none' | 'low' | 'moderate' | 'high';
 
 /** IPM ladder, mildest first: how severe an infection a treatment is for. */
-export type ControlLevel = 'biological' | 'mechanical' | 'cultural' | 'chemical';
+export type ControlLevel = 'prevention' | 'cultural' | 'monitoring' | 'chemical';
 
 /** One expert-verified treatment, published by the CAO. */
 export interface DiseaseTreatment {

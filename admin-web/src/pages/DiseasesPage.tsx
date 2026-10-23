@@ -22,13 +22,6 @@ import * as diseaseService from '../services/disease.service';
 import { ControlLevelBadge } from '../components/ControlLevelBadge';
 import { RISK_NAME, type DiseaseInfo, type RiskLevel } from '../types';
 
-const RISK_BADGE: Record<RiskLevel, string> = {
-  none: 'bg-green-50 text-green-700',
-  low: 'bg-lime-50 text-lime-700',
-  moderate: 'bg-amber-50 text-amber-700',
-  high: 'bg-red-50 text-red-700',
-};
-
 const RISK_LEVELS: RiskLevel[] = ['none', 'low', 'moderate', 'high'];
 
 export function DiseasesPage() {
@@ -141,13 +134,6 @@ function DiseaseSelector({
         >
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-base font-semibold text-gray-900">{disease.displayName}</h3>
-            <span
-              className={`rounded px-2 py-0.5 text-xs font-medium capitalize ${
-                RISK_BADGE[disease.defaultRiskLevel]
-              }`}
-            >
-              {disease.defaultRiskLevel === 'none' ? RISK_NAME.none : `${disease.defaultRiskLevel} risk`}
-            </span>
           </div>
           {disease.scientificName && (
             <p className="mt-0.5 text-xs italic text-gray-500">{disease.scientificName}</p>
@@ -169,13 +155,6 @@ function DiseaseCard({ disease, onEdit }: { disease: DiseaseInfo; onEdit: () => 
     >
       <div className="flex flex-wrap items-center gap-3">
         <h2 className="text-lg font-semibold text-gray-900">{disease.displayName}</h2>
-        <span
-          className={`rounded px-2 py-0.5 text-xs font-medium capitalize ${
-            RISK_BADGE[disease.defaultRiskLevel]
-          }`}
-        >
-          {disease.defaultRiskLevel === 'none' ? RISK_NAME.none : `${disease.defaultRiskLevel} risk`}
-        </span>
         {disease.isHealthy && (
           <span className="rounded bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
             Healthy class

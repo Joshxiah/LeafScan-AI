@@ -15,7 +15,7 @@ import {
   UpdateRecommendationInput,
 } from '../utils/validation';
 
-export type ControlLevel = 'biological' | 'mechanical' | 'cultural' | 'chemical';
+export type ControlLevel = 'prevention' | 'cultural' | 'monitoring' | 'chemical';
 
 export interface RecommendationSummary {
   id: number;

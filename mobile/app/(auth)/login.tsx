@@ -27,6 +27,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/context/AuthContext';
 import { useLanguage } from '../../src/context/LanguageContext';
 import { AuthTextField } from '../../src/components/AuthTextField';
+import { PartnerFooter } from '../../src/components/PartnerFooter';
 import { brand, shadows } from '../../src/constants/theme';
 import { getErrorMessage } from '../../src/services/api';
 
@@ -186,6 +187,8 @@ export default function LoginScreen() {
               {t.login.noAccount}
             </Text>
           </View>
+
+          <PartnerFooter />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

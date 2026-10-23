@@ -21,8 +21,8 @@ import { UpdateDiseaseInput } from '../utils/validation';
 export type RiskLevel = 'none' | 'low' | 'moderate' | 'high';
 export type DiseaseLang = 'en' | 'ceb';
 
-/** IPM ladder, mildest first: biological -> mechanical -> cultural -> chemical. */
-export type ControlLevel = 'biological' | 'mechanical' | 'cultural' | 'chemical';
+/** IPM ladder, mildest first: prevention -> cultural -> monitoring -> chemical. */
+export type ControlLevel = 'prevention' | 'cultural' | 'monitoring' | 'chemical';
 
 export interface TreatmentRecommendation {
   id: number;
@@ -106,8 +106,8 @@ export async function listDiseases(lang: DiseaseLang = 'en'): Promise<DiseaseInf
               control_level
        FROM treatment_recommendations
        WHERE is_active = 1
-       ORDER BY FIELD(control_level, 'biological', 'mechanical', 'cultural', 'chemical') = 0,
-                FIELD(control_level, 'biological', 'mechanical', 'cultural', 'chemical'),
+       ORDER BY FIELD(control_level, 'prevention', 'cultural', 'monitoring', 'chemical') = 0,
+                FIELD(control_level, 'prevention', 'cultural', 'monitoring', 'chemical'),
                 id ASC`
     ),
   ]);

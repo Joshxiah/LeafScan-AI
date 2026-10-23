@@ -392,8 +392,8 @@ export const updateDiseaseSchema = z.object({
   defaultRiskLevel: z.enum(['none', 'low', 'moderate', 'high']).optional(),
 });
 
-/** How severe an infection each treatment is meant for - see database/add_treatment_control_levels.sql. */
-const controlLevelSchema = z.enum(['biological', 'mechanical', 'cultural', 'chemical']);
+/** How severe an infection each treatment is meant for - see database/update_disease_content.sql. */
+const controlLevelSchema = z.enum(['prevention', 'cultural', 'monitoring', 'chemical']);
 
 /** The CAO adding a treatment recommendation for a disease. */
 export const createRecommendationSchema = z.object({

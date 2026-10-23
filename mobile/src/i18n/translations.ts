@@ -288,9 +288,9 @@ export interface Translations {
     level: string;
     guideTitle: string;
     guideSubtitle: string;
-    biological: { label: string; when: string };
-    mechanical: { label: string; when: string };
+    prevention: { label: string; when: string };
     cultural: { label: string; when: string };
+    monitoring: { label: string; when: string };
     chemical: { label: string; when: string };
     chemicalWarning: string;
   };
@@ -299,6 +299,7 @@ export interface Translations {
     couldNotLoad: string;
     goBack: string;
     symptoms: string;
+    favorableConditions: string;
     treatment: string;
     noTreatmentYet: string;
     howToApply: string;
@@ -639,10 +640,10 @@ export const en: Translations = {
     level: 'Level',
     guideTitle: 'CHOOSE BY HOW SEVERE IT IS',
     guideSubtitle: 'Start with the mildest level. Move up only if the disease keeps spreading.',
-    biological: { label: 'Biological', when: 'Light infection (about 10-20% affected)' },
-    mechanical: { label: 'Mechanical', when: 'Moderate infection - trim infected leaves' },
-    cultural: { label: 'Cultural', when: 'Spreading infection - clean the field' },
-    chemical: { label: 'Chemical', when: 'Severe (about 50-60% damage, IPM threshold)' },
+    prevention: { label: 'Prevention', when: 'Before planting - choose resistant varieties' },
+    cultural: { label: 'Cultural', when: 'Good farm practices - rotation, clean field, spacing' },
+    monitoring: { label: 'Monitoring', when: 'Check the field regularly to catch it early' },
+    chemical: { label: 'Chemical', when: 'If it keeps spreading - FPA-registered fungicide only' },
     chemicalWarning: 'Poisonous - wear gloves and a mask, and follow the label.',
   },
 
@@ -650,6 +651,7 @@ export const en: Translations = {
     couldNotLoad: 'This disease could not be loaded.',
     goBack: 'Go back',
     symptoms: 'SYMPTOMS',
+    favorableConditions: 'FAVORABLE CONDITIONS',
     treatment: 'TREATMENT',
     noTreatmentYet:
       'The City Agriculture Office has not published treatment recommendations for this disease yet. Check back soon.',
@@ -1014,10 +1016,10 @@ export const ceb: Translations = {
     level: 'Lebel',
     guideTitle: 'PILI SUMALA SA KALALA',
     guideSubtitle: 'Sugdi sa pinakagaan nga lebel. Mosaka ra kung nagkaylap gihapon ang sakit.',
-    biological: { label: 'Biological', when: 'Gamay pa nga sakit (mga 10-20% ang apektado)' },
-    mechanical: { label: 'Mekanikal', when: 'Kasarangan nga sakit - putlai ang apektadong dahon' },
-    cultural: { label: 'Kultural', when: 'Nagkaylap na - limpyohi ang uma' },
-    chemical: { label: 'Kemikal', when: 'Grabe na (mga 50-60% ang kadaot, IPM threshold)' },
+    prevention: { label: 'Paglikay', when: 'Sa dili pa magtanom - pilia ang lig-on nga barayti' },
+    cultural: { label: 'Kultural', when: 'Maayong pamaagi sa pag-uma - pag-ilis sa tanom, limpyo nga uma, gilay-on' },
+    monitoring: { label: 'Pagbantay', when: 'Susiha kanunay ang uma aron sayo makit-an' },
+    chemical: { label: 'Kemikal', when: 'Kung nagkaylap gihapon - fungicide nga rehistrado sa FPA lang' },
     chemicalWarning: 'Peligroso - magsuot og guwantes ug mask, ug sunda ang label.',
   },
 
@@ -1025,6 +1027,7 @@ export const ceb: Translations = {
     couldNotLoad: 'Wala ma-load kini nga sakit.',
     goBack: 'Balik',
     symptoms: 'MGA SIMTOMAS',
+    favorableConditions: 'KAHIMTANG NGA PABORABLE SA SAKIT',
     treatment: 'TAMBAL',
     noTreatmentYet:
       'Wala pa mag-publish ang City Agriculture Office og rekomendasyon sa tambal para ani nga sakit. Balik ug susiha sa ulahi.',

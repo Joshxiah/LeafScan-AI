@@ -14,7 +14,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Disease } from '../../src/types';
+import { Disease, DiseaseTreatment } from '../../src/types';
 import { ControlLevelPill } from '../../src/components/ControlLevelPill';
 import { useLanguage } from '../../src/context/LanguageContext';
 import { brand } from '../../src/constants/theme';
@@ -27,6 +27,43 @@ function toBullets(text: string | null): string[] {
     .split(/\n|(?<=\.)\s+/)
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+/**
+ * Favorable conditions and Impact are stored at the end of the description
+ * as "Favorable conditions: ..." / "Kahimtang nga paborable sa sakit: ..."
+ * and "Impact: ..." / "Epekto: ...". Favorable conditions is pulled out so
+ * it can have its own heading; Impact is not shown.
+ */
+function splitDescription(text: string | null): {
+  description: string | null;
+  favorable: string[];
+} {
+  if (!text) return { description: null, favorable: [] };
+  const rest: string[] = [];
+  let favorable: string[] = [];
+  for (const paragraph of text.split(/\n{2,}/)) {
+    const match = paragraph.match(
+      /^(?:Favorable conditions|Kahimtang nga paborable sa sakit)\s*:\s*([\s\S]+)$/i,
+    );
+    if (match) favorable = match[1].split('\n').map((line) => line.trim()).filter(Boolean);
+    else if (!/^(?:Impact|Epekto)\s*:/i.test(paragraph)) rest.push(paragraph);
+  }
+  return { description: rest.join('\n\n') || null, favorable };
+}
+
+/** Groups consecutive treatments that share a control level under one pill. */
+function groupByLevel(treatments: DiseaseTreatment[]): DiseaseTreatment[][] {
+  const groups: DiseaseTreatment[][] = [];
+  for (const treatment of treatments) {
+    const last = groups[groups.length - 1];
+    if (last && treatment.controlLevel && last[0].controlLevel === treatment.controlLevel) {
+      last.push(treatment);
+    } else {
+      groups.push([treatment]);
+    }
+  }
+  return groups;
 }
 
 export default function DiseaseDetailScreen() {
@@ -59,6 +96,7 @@ export default function DiseaseDetailScreen() {
   }
 
   const symptoms = toBullets(disease.symptoms);
+  const { description, favorable } = splitDescription(disease.description);
 
   return (
     <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={['top', 'bottom']}>
@@ -100,9 +138,9 @@ export default function DiseaseDetailScreen() {
             </Text>
           ) : null}
 
-          {disease.description ? (
+          {description ? (
             <Text className="mt-3 text-[13px] leading-5 text-[#6C8073]">
-              {disease.description}
+              {description}
             </Text>
           ) : null}
 
@@ -114,6 +152,20 @@ export default function DiseaseDetailScreen() {
               </Text>
               <View className="mt-2 gap-1.5">
                 {symptoms.map((line, i) => (
+                  <Bullet key={i} text={line} />
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* ---------- Favorable conditions ---------- */}
+          {favorable.length > 0 && (
+            <View className="mt-6">
+              <Text className="text-[11px] font-bold tracking-wide text-[#9BAAA1]">
+                {t.diseaseDetail.favorableConditions}
+              </Text>
+              <View className="mt-2 gap-1.5">
+                {favorable.map((line, i) => (
                   <Bullet key={i} text={line} />
                 ))}
               </View>
@@ -132,25 +184,27 @@ export default function DiseaseDetailScreen() {
               </Text>
             ) : (
               <View className="mt-2 gap-4">
-                {disease.treatments.map((treatment) => (
-                  <View key={treatment.id}>
-                    <Text className="text-[13px] font-bold text-[#16241B]">
-                      {treatment.title}
-                    </Text>
-                    {treatment.controlLevel ? (
-                      <View className="mt-1">
-                        <ControlLevelPill level={treatment.controlLevel} />
+                {groupByLevel(disease.treatments).map((group) => (
+                  <View key={group[0].id} className="gap-3">
+                    {group[0].controlLevel ? (
+                      <ControlLevelPill level={group[0].controlLevel} />
+                    ) : null}
+                    {group.map((treatment) => (
+                      <View key={treatment.id}>
+                        <Text className="text-[13px] font-bold text-[#16241B]">
+                          {treatment.title}
+                        </Text>
+                        <Text className="mt-1 text-[13px] leading-5 text-[#6C8073]">
+                          {treatment.recommendationText}
+                        </Text>
+                        {treatment.applicationMethod ? (
+                          <Text className="mt-1 text-[12px] leading-5 text-[#9BAAA1]">
+                            {t.diseaseDetail.howToApply}
+                            {treatment.applicationMethod}
+                          </Text>
+                        ) : null}
                       </View>
-                    ) : null}
-                    <Text className="mt-1 text-[13px] leading-5 text-[#6C8073]">
-                      {treatment.recommendationText}
-                    </Text>
-                    {treatment.applicationMethod ? (
-                      <Text className="mt-1 text-[12px] leading-5 text-[#9BAAA1]">
-                        {t.diseaseDetail.howToApply}
-                        {treatment.applicationMethod}
-                      </Text>
-                    ) : null}
+                    ))}
                   </View>
                 ))}
               </View>

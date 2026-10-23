@@ -384,7 +384,7 @@ export interface ListDetectionsResult {
 // ============================================================
 
 /** IPM ladder, mildest first. */
-export type ControlLevel = 'biological' | 'mechanical' | 'cultural' | 'chemical';
+export type ControlLevel = 'prevention' | 'cultural' | 'monitoring' | 'chemical';
 
 /** Matches TreatmentRecommendation in backend/src/services/disease.service.ts. */
 export interface TreatmentRecommendation {

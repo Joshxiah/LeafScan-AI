@@ -458,7 +458,7 @@ function RecommendationModal({
               onChange={(e) => setControlLevel(e.target.value as ControlLevel | '')}
               className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
             >
-              <option value="">Not a control step (monitoring, prevention…)</option>
+              <option value="">Not a control step (e.g. seek local guidance)</option>
               {CONTROL_LEVELS.map((info) => (
                 <option key={info.level} value={info.level}>
                   Level {info.step} · {info.label} — {info.when}
