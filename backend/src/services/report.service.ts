@@ -146,11 +146,21 @@ function toImage(row: ReportImageRow): ReportImage {
   };
 }
 
+/**
+ * Reads a JSON column. Older MariaDB (XAMPP) returns JSON columns as
+ * text, while newer MariaDB (the production server) returns them
+ * already parsed - so accept both.
+ */
+function parseJsonColumn<T>(value: unknown, fallback: T): T {
+  if (value === null || value === undefined || value === '') return fallback;
+  if (typeof value === 'string') return JSON.parse(value) as T;
+  return value as T;
+}
+
 function toDetail(row: ReportRow, images: ReportImageRow[]): ReportDetail {
   return {
     ...toSummary(row),
-    diseaseBreakdown: row.disease_breakdown ? JSON.parse(row.disease_breakdown) : [],
-    images: images.map(toImage),
+    diseaseBreakdown: parseJsonColumn<ReportDetail['diseaseBreakdown']>(row.disease_breakdown, []),    images: images.map(toImage),
     remarks: row.remarks,
     caoMessage: row.cao_message,
     assignedAgriculturistId:
