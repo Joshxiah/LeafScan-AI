@@ -20,6 +20,11 @@ export function goToDiagnosis(
     params: {
       classLabel: scan.classLabel,
       confidence: String(scan.confidence),
+      // Only when the server gave them. A scan that was never classified by
+      // the server (pending queue, older local log) has neither, and the
+      // Diagnosis screen then simply leaves that part out.
+      ...(scan.confidenceLevel ? { confidenceLevel: scan.confidenceLevel } : {}),
+      ...(scan.riskLevel ? { riskLevel: scan.riskLevel } : {}),
       scannedAt: scan.scannedAt.toISOString(),
       // Local photo when we have one (works offline), else the server copy.
       ...(scan.localUri ? { imageUri: scan.localUri } : {}),

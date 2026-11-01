@@ -62,6 +62,14 @@ const resetCodeRule = z
   .trim()
   .regex(/^\d{6}$/, 'Enter the 6-digit code from the text message');
 
+/** An email address, lowercased so lookups and the UNIQUE index agree. */
+const emailRule = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .max(150, 'Email must be at most 150 characters')
+  .email('Enter a valid email address');
+
 export const registerSchema = z.object({
   fullName: z
     .string()
@@ -108,6 +116,13 @@ export const updateProfileSchema = z.object({
     .max(150, 'Full name must be at most 150 characters')
     .optional(),
   phoneNumber: phoneRule.optional(),
+  /**
+   * CAO staff only - the address their password-reset code is sent to.
+   * Changing it needs `currentPassword`, so a stolen session token
+   * cannot redirect the reset code to someone else's inbox.
+   */
+  email: emailRule.optional(),
+  currentPassword: z.string().optional(),
   address: z.string().trim().max(255).optional().or(z.literal('')),
   municipality: z.string().trim().max(100).optional().or(z.literal('')),
   cornType: z.enum(['white', 'yellow', 'both']).optional(),
@@ -124,6 +139,24 @@ export const forgotPasswordSchema = z.object({
 export const resetPasswordSchema = z.object({
   phoneNumber: phoneRule,
   code: resetCodeRule,
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .max(72, 'Password must be at most 72 characters'),
+});
+
+/** Step 1 of a CAO reset: "email a code to this address". */
+export const adminForgotPasswordSchema = z.object({
+  email: emailRule,
+});
+
+/** Step 2 of a CAO reset: "here is the code and my new password". */
+export const adminResetPasswordSchema = z.object({
+  email: emailRule,
+  code: z
+    .string()
+    .trim()
+    .regex(/^\d{6}$/, 'Enter the 6-digit code from the email'),
   password: z
     .string()
     .min(8, 'Password must be at least 8 characters')
@@ -494,6 +527,8 @@ export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type AdminForgotPasswordInput = z.infer<typeof adminForgotPasswordSchema>;
+export type AdminResetPasswordInput = z.infer<typeof adminResetPasswordSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type CreateReportInput = z.infer<typeof createReportSchema>;
 export type ReportStatusInput = z.infer<typeof reportStatusSchema>;

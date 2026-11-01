@@ -54,26 +54,39 @@ const MIME_TYPES: Record<string, string> = {
   '.webp': 'image/webp',
 };
 
+/** ApiError.code when the photo is readable but is not a corn leaf. */
+const NOT_A_CORN_LEAF = 'NOT_A_CORN_LEAF';
+
 /**
- * Pulls a readable message out of a Python error body. FastAPI sends
- * { detail: "text" } for errors we raise and { detail: [ {msg}, ... ] }
- * for its own validation failures.
+ * Pulls a readable message (and the machine-readable code, if the
+ * Python service set one) out of a Python error body. FastAPI sends
+ * { detail: "text" } or { detail: { code, message } } for errors we
+ * raise and { detail: [ {msg}, ... ] } for its own validation failures.
  */
-async function readErrorDetail(response: Response): Promise<string> {
-  const fallback = 'The image could not be processed';
+async function readErrorDetail(
+  response: Response
+): Promise<{ message: string; code?: string }> {
+  const fallback = { message: 'The image could not be processed' };
 
   try {
     const body = (await response.json()) as { detail?: unknown };
 
     if (typeof body.detail === 'string' && body.detail.trim()) {
-      return body.detail;
+      return { message: body.detail };
+    }
+
+    if (body.detail && typeof body.detail === 'object' && !Array.isArray(body.detail)) {
+      const { code, message } = body.detail as { code?: unknown; message?: unknown };
+      if (typeof message === 'string' && message.trim()) {
+        return { message, code: typeof code === 'string' ? code : undefined };
+      }
     }
 
     if (Array.isArray(body.detail)) {
       const messages = body.detail
         .map((item) => (item && typeof (item as { msg?: unknown }).msg === 'string' ? (item as { msg: string }).msg : ''))
         .filter(Boolean);
-      if (messages.length > 0) return messages.join('; ');
+      if (messages.length > 0) return { message: messages.join('; ') };
     }
   } catch {
     // Body was not JSON - use the fallback.
@@ -117,7 +130,8 @@ function parsePrediction(raw: PythonPrediction): AiPrediction {
  *
  * Errors:
  *   - service down / unreachable / timed out -> 503
- *   - Python answers 4xx (e.g. not a valid image) -> 400 with its message
+ *   - Python says the photo is not a corn leaf -> 422 NOT_A_CORN_LEAF
+ *   - Python answers any other 4xx (e.g. not a valid image) -> 400 with its message
  *   - Python answers 5xx or garbage -> 502
  */
 export async function predictLeaf(absoluteFilePath: string): Promise<AiPrediction> {
@@ -143,7 +157,11 @@ export async function predictLeaf(absoluteFilePath: string): Promise<AiPredictio
   }
 
   if (response.status >= 400 && response.status < 500) {
-    throw ApiError.badRequest(await readErrorDetail(response), 'AI_REJECTED_IMAGE');
+    const { message, code } = await readErrorDetail(response);
+    if (code === NOT_A_CORN_LEAF) {
+      throw new ApiError(422, message, NOT_A_CORN_LEAF);
+    }
+    throw ApiError.badRequest(message, 'AI_REJECTED_IMAGE');
   }
 
   if (!response.ok) {

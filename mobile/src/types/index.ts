@@ -13,6 +13,13 @@ export type UserRole = 'farmer' | 'admin';
 /** How severe a disease is, matching the backend `diseases` table. */
 export type RiskLevel = 'none' | 'low' | 'moderate' | 'high';
 
+/**
+ * How sure the AI is of a scan result (detections.confidence_level, set
+ * from the confidence score). Not the same thing as RiskLevel, which is
+ * how dangerous the disease is.
+ */
+export type ConfidenceLevel = 'low' | 'moderate' | 'high';
+
 /** IPM ladder, mildest first: how severe an infection a treatment is for. */
 export type ControlLevel = 'prevention' | 'cultural' | 'monitoring' | 'chemical';
 

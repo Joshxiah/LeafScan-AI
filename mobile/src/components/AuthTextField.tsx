@@ -75,7 +75,7 @@ export function AuthTextField({
       {isPassword && (
         <Pressable onPress={() => setHidden((v) => !v)} hitSlop={10}>
           <Ionicons
-            name={hidden ? 'eye-outline' : 'eye-off-outline'}
+            name={hidden ? 'eye-off-outline' : 'eye-outline'}
             size={20}
             color={brand.muted}
           />

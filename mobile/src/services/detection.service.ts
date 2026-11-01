@@ -15,16 +15,44 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { api } from './api';
 import { ScanClassLabel } from '../data/scanStats';
+import { ConfidenceLevel, RiskLevel } from '../types';
 import { ScanEntry, getScanLog } from './scanLog';
 import { getPendingScans } from './pendingScans';
 
 /** What POST /api/detections/scan returns inside "data" (only the parts the phone uses). */
 interface ScanLeafResponse {
+  /** The saved detections row - the same values GET /api/detections gives back later. */
+  detection: {
+    id: number;
+    confidenceLevel: ConfidenceLevel;
+    /** From diseases.default_risk_level for the predicted class. */
+    riskLevel: RiskLevel;
+  };
   prediction: {
     classLabel: ScanClassLabel;
     /** 0-100 */
     confidence: number;
   };
+}
+
+/** What scanLeaf() hands back: the verdict, how sure the AI is, and how dangerous the disease is. */
+export interface ScanLeafResult {
+  classLabel: ScanClassLabel;
+  /** 0-100, one decimal place (e.g. 96.6). */
+  confidence: number;
+  confidenceLevel: ConfidenceLevel;
+  riskLevel: RiskLevel;
+  /** detections.id of the row the server just saved. */
+  detectionId: number;
+}
+
+/**
+ * The confidence score as the screens show it: one decimal place (96.64 -> 96.6).
+ * Used for a fresh scan and for a row read back from the server, so the same
+ * scan never reads differently on the result screen and in History.
+ */
+function roundToOneDecimal(score: number): number {
+  return Math.round(score * 10) / 10;
 }
 
 /**
@@ -37,14 +65,17 @@ export async function scanLeaf(
   imagePath: string,
   /** ISO time the leaf was actually scanned - only for scans queued before they could be sent. */
   detectedAt?: string
-): Promise<{ classLabel: ScanClassLabel; confidence: number }> {
+): Promise<ScanLeafResult> {
   const result = await api.post<ScanLeafResponse>('/detections/scan', {
     imagePath,
     ...(detectedAt ? { detectedAt } : {}),
   });
   return {
     classLabel: result.prediction.classLabel,
-    confidence: Math.round(result.prediction.confidence),
+    confidence: roundToOneDecimal(result.prediction.confidence),
+    confidenceLevel: result.detection.confidenceLevel,
+    riskLevel: result.detection.riskLevel,
+    detectionId: result.detection.id,
   };
 }
 
@@ -53,6 +84,13 @@ export interface RemoteDetection {
   id: number;
   predictedClass: string;
   confidenceScore: number;
+  /**
+   * How sure the AI was / how dangerous the disease is. The server sends
+   * both on every row; they are optional here only because a list cached
+   * on the phone by an older app version does not have them.
+   */
+  confidenceLevel?: ConfidenceLevel;
+  riskLevel?: RiskLevel;
   imagePath: string;
   detectedAt: string;
 }
@@ -102,7 +140,9 @@ function toScanEntry(detection: RemoteDetection): ScanEntry {
   return {
     id: `detection-${detection.id}`,
     classLabel: detection.predictedClass as ScanClassLabel,
-    confidence: Math.round(detection.confidenceScore),
+    confidence: roundToOneDecimal(detection.confidenceScore),
+    confidenceLevel: detection.confidenceLevel,
+    riskLevel: detection.riskLevel,
     scannedAt: new Date(detection.detectedAt),
     imagePath: detection.imagePath,
   };

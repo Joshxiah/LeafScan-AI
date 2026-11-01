@@ -458,8 +458,9 @@ export default function SettingsScreen() {
                 icon="call-outline"
                 placeholder={t.settings.phonePlaceholder}
                 value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
+                onChangeText={(text) => setPhone(text.replace(/\D/g, '').slice(0, 11))}
+                keyboardType="number-pad"
+                maxLength={11}
               />
               <FieldInput
                 icon="location-outline"
@@ -719,7 +720,7 @@ function FieldInput({
       {isPassword && (
         <Pressable onPress={() => setHidden((v) => !v)} hitSlop={10}>
           <Ionicons
-            name={hidden ? 'eye-outline' : 'eye-off-outline'}
+            name={hidden ? 'eye-off-outline' : 'eye-outline'}
             size={16}
             color={brand.muted}
           />

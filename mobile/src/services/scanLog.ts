@@ -15,6 +15,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ScanClassLabel } from '../data/scanStats';
+import { ConfidenceLevel, RiskLevel } from '../types';
 
 const STORAGE_KEY_PREFIX = 'leafscan_scan_log';
 
@@ -29,6 +30,14 @@ export interface ScanEntry {
   id: string;
   classLabel: ScanClassLabel;
   confidence: number;
+  /**
+   * How sure the AI was, and how dangerous the disease is. Both come from
+   * the server's saved detection. They stay undefined for a scan the
+   * server never classified (the pending queue) and for older entries in
+   * the on-device log - the phone never guesses or works them out itself.
+   */
+  confidenceLevel?: ConfidenceLevel;
+  riskLevel?: RiskLevel;
   scannedAt: Date;
   /** Relative path of the uploaded photo ("uploads/xxx.jpg"), when the scan was uploaded. */
   imagePath?: string;
@@ -45,6 +54,8 @@ interface StoredScanEntry {
   id: string;
   classLabel: ScanClassLabel;
   confidence: number;
+  confidenceLevel?: ConfidenceLevel;
+  riskLevel?: RiskLevel;
   scannedAt: string;
   imagePath?: string;
   imageUrl?: string;

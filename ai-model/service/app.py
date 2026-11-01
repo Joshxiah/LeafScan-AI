@@ -10,6 +10,7 @@ Kana gikan sa MySQL (CAO-managed) pinaagi sa Express backend.
 
 import io
 import json
+import os
 import time
 from pathlib import Path
 
@@ -28,6 +29,15 @@ LABELS_PATH = MODELS_DIR / "labels.json"
 
 MAX_IMAGE_BYTES = 10 * 1024 * 1024                          # 10 MB
 ALLOWED_FORMATS = {"JPEG", "PNG", "WEBP"}
+
+# "Dahon ba kini?" check (tan-awa ang reject_if_not_a_leaf). Gi-calibrate sa tinuod nga
+# corn leaf photos (min ~31% tanom-kolor) batok sa selfie/lugar/screenshot (max ~12%).
+# Ibutang ang LEAFSCAN_MIN_PLANT_FRACTION=0 aron i-off ang kolor check.
+MIN_PLANT_FRACTION = float(os.environ.get("LEAFSCAN_MIN_PLANT_FRACTION", "0.15"))
+PLANT_HUE_DEGREES = (45, 170)   # dilaw-berde ngadto sa berde; gawas ang beige/skin/kahoy
+PLANT_MIN_SATURATION = 0.18
+PLANT_MIN_VALUE = 0.15
+MIN_LUMA_STD = 8.0              # ubos aniini = blangko/solid nga hulagway
 
 # ---------------------------------------------------------------------------
 # 2. Basaha ang labels.json (ang contract gikan sa Colab export)
@@ -73,6 +83,45 @@ def get_confidence_level(confidence_pct: float) -> str:
     return "High"
 
 
+def reject_if_not_a_leaf(img: Image.Image) -> None:
+    """
+    Ang model naay 4 ra ka klase ug kinahanglan mopili og usa bisan unsa pa ang litrato,
+    mao nga ang selfie o itom nga frame mahimong "Healthy 53%" (ug ang solid nga hulagway
+    100% "Healthy"). Sala-on dinhi ang mga litrato nga klaro nga dili dahon, SA DILI pa
+    moabot sa model:
+      - blangko/solid nga hulagway (natabunan ang lens, itom, puti)
+      - kulang ang kolor sa tanom (dilaw-berde ngadto sa berde)
+
+    Heuristic ra kini: dili niini madakpan ang berde nga dili corn (ubang tanom, bungbong).
+    Ang tinuod nga solusyon kay dugangan ang model og "not_corn_leaf" nga klase.
+    """
+    small = img.resize((IMG_W, IMG_H))
+    luma_std = float(np.asarray(small.convert("L"), dtype=np.float32).std())
+
+    hsv = np.asarray(small.convert("HSV"), dtype=np.float32)
+    hue = hsv[..., 0] * 360.0 / 255.0
+    sat = hsv[..., 1] / 255.0
+    val = hsv[..., 2] / 255.0
+    plant = (
+        (hue >= PLANT_HUE_DEGREES[0])
+        & (hue <= PLANT_HUE_DEGREES[1])
+        & (sat >= PLANT_MIN_SATURATION)
+        & (val >= PLANT_MIN_VALUE)
+    )
+    plant_fraction = float(plant.mean())
+
+    if luma_std < MIN_LUMA_STD or plant_fraction < MIN_PLANT_FRACTION:
+        print(f"[LeafScan AI] Rejected as not a leaf: plant={plant_fraction:.1%} luma_std={luma_std:.1f}")
+        # 422 + code: ang Express mosusi sa code, dili sa status (ang FastAPI mismo mo-422 usab).
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "NOT_A_CORN_LEAF",
+                "message": "This does not look like a corn leaf. Please take a clear photo of a corn leaf.",
+            },
+        )
+
+
 def preprocess(raw_bytes: bytes) -> np.ndarray:
     """
     Andama ang hulagway PAREHO sa training:
@@ -94,6 +143,7 @@ def preprocess(raw_bytes: bytes) -> np.ndarray:
 
     # Ang mga litrato sa cellphone usahay naay EXIF rotation - i-straighten
     img = ImageOps.exif_transpose(img).convert("RGB")
+    reject_if_not_a_leaf(img)
 
     arr = np.asarray(img, dtype=np.float32)
     # Parehas nga resize method sa image_dataset_from_directory sa training

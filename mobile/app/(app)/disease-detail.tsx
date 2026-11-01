@@ -15,42 +15,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Disease, DiseaseTreatment } from '../../src/types';
+import { Bullet } from '../../src/components/Bullet';
 import { ControlLevelPill } from '../../src/components/ControlLevelPill';
 import { useLanguage } from '../../src/context/LanguageContext';
 import { brand } from '../../src/constants/theme';
 import { diseaseImage } from '../../src/constants/diseaseImages';
-
-/** Turns one blob of prose into individual bullet points. */
-function toBullets(text: string | null): string[] {
-  if (!text) return [];
-  return text
-    .split(/\n|(?<=\.)\s+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
-/**
- * Favorable conditions and Impact are stored at the end of the description
- * as "Favorable conditions: ..." / "Kahimtang nga paborable sa sakit: ..."
- * and "Impact: ..." / "Epekto: ...". Favorable conditions is pulled out so
- * it can have its own heading; Impact is not shown.
- */
-function splitDescription(text: string | null): {
-  description: string | null;
-  favorable: string[];
-} {
-  if (!text) return { description: null, favorable: [] };
-  const rest: string[] = [];
-  let favorable: string[] = [];
-  for (const paragraph of text.split(/\n{2,}/)) {
-    const match = paragraph.match(
-      /^(?:Favorable conditions|Kahimtang nga paborable sa sakit)\s*:\s*([\s\S]+)$/i,
-    );
-    if (match) favorable = match[1].split('\n').map((line) => line.trim()).filter(Boolean);
-    else if (!/^(?:Impact|Epekto)\s*:/i.test(paragraph)) rest.push(paragraph);
-  }
-  return { description: rest.join('\n\n') || null, favorable };
-}
+import { splitDescription, toBullets } from '../../src/utils/diseaseText';
 
 /** Groups consecutive treatments that share a control level under one pill. */
 function groupByLevel(treatments: DiseaseTreatment[]): DiseaseTreatment[][] {
@@ -213,16 +183,5 @@ export default function DiseaseDetailScreen() {
         </View>
       </ScrollView>
     </SafeAreaView>
-  );
-}
-
-function Bullet({ text }: { text: string }) {
-  return (
-    <View className="flex-row">
-      <Text className="text-[13px] text-[#2F6D46]">•</Text>
-      <Text className="ml-2 flex-1 text-[13px] leading-5 text-[#6C8073]">
-        {text}
-      </Text>
-    </View>
   );
 }

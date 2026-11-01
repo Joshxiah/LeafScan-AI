@@ -27,9 +27,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { uploadLeafImage, UploadResult } from '../../src/services/upload.service';
 import { getErrorMessage, ApiError } from '../../src/services/api';
 import { goToDiagnosis } from '../../src/navigation/diagnosis';
-import { ScanClassLabel } from '../../src/data/scanStats';
 import { addScan, ScanEntry } from '../../src/services/scanLog';
-import { scanLeaf } from '../../src/services/detection.service';
+import { scanLeaf, ScanLeafResult } from '../../src/services/detection.service';
 import { useLanguage } from '../../src/context/LanguageContext';
 import { useAuth } from '../../src/context/AuthContext';
 import { withAuthToken } from '../../src/utils/media';
@@ -47,12 +46,12 @@ export default function PreviewScreen() {
 
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  // The server read the photo fine but it is not a corn leaf. Shown as a
+  // gentle "try again" note instead of a red error.
+  const [notCornLeaf, setNotCornLeaf] = useState(false);
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   // The server's verdict. Set once the photo has been classified.
-  const [scanResult, setScanResult] = useState<{
-    classLabel: ScanClassLabel;
-    confidence: number;
-  } | null>(null);
+  const [scanResult, setScanResult] = useState<ScanLeafResult | null>(null);
 
   if (!imageUri) {
     return (
@@ -69,6 +68,7 @@ export default function PreviewScreen() {
 
   async function handleUpload() {
     setErrorMessage(null);
+    setNotCornLeaf(false);
     setIsUploading(true);
 
     try {
@@ -79,6 +79,7 @@ export default function PreviewScreen() {
 
       setScanResult(await scanLeaf(uploaded.imagePath));
     } catch (error) {
+      setNotCornLeaf(error instanceof ApiError && error.code === 'NOT_A_CORN_LEAF');
       setErrorMessage(getErrorMessage(error, t.preview.errorGeneric, t.apiErrors));
     } finally {
       setIsUploading(false);
@@ -103,6 +104,8 @@ export default function PreviewScreen() {
       id: `${Date.now()}`,
       classLabel: scanResult.classLabel,
       confidence: scanResult.confidence,
+      confidenceLevel: scanResult.confidenceLevel,
+      riskLevel: scanResult.riskLevel,
       scannedAt: new Date(),
       imagePath: uploadResult?.imagePath,
       imageUrl: uploadResult?.imageUrl,
@@ -144,14 +147,19 @@ export default function PreviewScreen() {
         </View>
 
         {/* ---------- Error ---------- */}
-        {errorMessage && (
-          <View className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-            <Text className="text-sm text-red-700">{errorMessage}</Text>
-          </View>
-        )}
+        {errorMessage &&
+          (notCornLeaf ? (
+            <View className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+              <Text className="text-sm text-amber-800">{errorMessage}</Text>
+            </View>
+          ) : (
+            <View className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+              <Text className="text-sm text-red-700">{errorMessage}</Text>
+            </View>
+          ))}
 
         {/* ---------- Upload details ---------- */}
-        {uploadResult && (
+        {uploadResult && !notCornLeaf && (
           <View className="mt-5 rounded-2xl bg-white p-5">
             <Text className="mb-3 text-base font-semibold text-gray-900">
               {t.preview.uploadDetails}

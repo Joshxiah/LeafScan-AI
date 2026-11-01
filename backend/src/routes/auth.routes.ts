@@ -6,6 +6,8 @@
  *   POST  /api/auth/login
  *   POST  /api/auth/forgot-password
  *   POST  /api/auth/reset-password
+ *   POST  /api/auth/admin/forgot-password
+ *   POST  /api/auth/admin/reset-password
  *   POST  /api/auth/change-password
  *   GET   /api/auth/me
  *   PATCH /api/auth/me
@@ -20,6 +22,7 @@ import {
   forgotPasswordRateLimiter,
   resetPasswordRateLimiter,
   changePasswordRateLimiter,
+  profilePasswordCheckRateLimiter,
 } from '../middleware/rateLimit.middleware';
 
 const router = Router();
@@ -49,6 +52,26 @@ router.post('/forgot-password', forgotPasswordRateLimiter, authController.forgot
 router.post('/reset-password', resetPasswordRateLimiter, authController.resetPassword);
 
 /**
+ * POST /api/auth/admin/forgot-password
+ * PUBLIC - a locked-out CAO admin has no token. Emails a reset code.
+ */
+router.post(
+  '/admin/forgot-password',
+  forgotPasswordRateLimiter,
+  authController.adminForgotPassword
+);
+
+/**
+ * POST /api/auth/admin/reset-password
+ * PUBLIC - the emailed code is the credential here.
+ */
+router.post(
+  '/admin/reset-password',
+  resetPasswordRateLimiter,
+  authController.adminResetPassword
+);
+
+/**
  * GET /api/auth/me
  * PROTECTED - authenticate runs first and rejects the request
  * with 401 if no valid token is present.
@@ -59,7 +82,12 @@ router.get('/me', authenticate, authController.getCurrentUser);
  * PATCH /api/auth/me
  * PROTECTED - a user editing their own profile from Settings.
  */
-router.patch('/me', authenticate, authController.updateProfile);
+router.patch(
+  '/me',
+  profilePasswordCheckRateLimiter,
+  authenticate,
+  authController.updateProfile
+);
 
 /**
  * POST /api/auth/change-password

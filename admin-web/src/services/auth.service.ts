@@ -28,9 +28,35 @@ export async function getCurrentUser(): Promise<User> {
   return result.user;
 }
 
+/**
+ * POST /api/auth/admin/forgot-password
+ * Step 1 of a password reset: emails a 6-digit code to the CAO account
+ * that owns this address. Resolves the same way whether or not the
+ * address is registered, so the page cannot be used to probe accounts.
+ */
+export async function requestPasswordReset(email: string): Promise<void> {
+  await api.post<void>('/auth/admin/forgot-password', { email }, false);
+}
+
+/**
+ * POST /api/auth/admin/reset-password
+ * Step 2: checks the emailed code and sets the new password.
+ */
+export async function resetPassword(
+  email: string,
+  code: string,
+  password: string
+): Promise<void> {
+  await api.post<void>('/auth/admin/reset-password', { email, code, password }, false);
+}
+
 export interface UpdateProfilePayload {
   fullName?: string;
   phoneNumber?: string;
+  /** The address the password-reset code is emailed to. Needs `currentPassword`. */
+  email?: string;
+  /** Required by the backend whenever `email` is being changed. */
+  currentPassword?: string;
   /** From uploadImage() in upload.service.ts, or '' to remove the photo. */
   avatarPath?: string;
 }

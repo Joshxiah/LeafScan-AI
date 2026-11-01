@@ -124,14 +124,17 @@ export async function syncPendingScans(
         // Only a scan the server can NEVER accept is dropped, so it does not
         // block the whole queue forever: the photo is gone from the server
         // (IMAGE_NOT_FOUND), the scan time is out of range (older than 30
-        // days), or the local file no longer exists. These are matched by
+        // days), the photo is not a corn leaf (NOT_A_CORN_LEAF - retrying
+        // gets the same answer), or the local file no longer exists. These are matched by
         // the error's `code`, never by status alone: a plain 404 can also
         // mean "Route not found" (a server that has no /scan yet), and any
         // other 400 could be a bug - both keep the scan queued. Drops are
         // counted so the farmer is told (see PendingScanSync).
         const neverAccepted =
           error instanceof ApiError &&
-          (error.code === 'IMAGE_NOT_FOUND' || error.code === 'SCAN_TIME_OUT_OF_RANGE');
+          (error.code === 'IMAGE_NOT_FOUND' ||
+            error.code === 'SCAN_TIME_OUT_OF_RANGE' ||
+            error.code === 'NOT_A_CORN_LEAF');
         if (neverAccepted || (!(error instanceof ApiError) && !photoExists(scan.localUri))) {
           await removePending(userId, scan.id);
           dropped += 1;

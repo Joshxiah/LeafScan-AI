@@ -17,6 +17,7 @@ import { ApiError } from '../utils/ApiError';
 import { hashPassword, verifyPassword } from '../utils/password';
 import { generateToken } from '../utils/jwt';
 import { sendSms } from '../utils/sms';
+import { sendMail } from '../utils/mailer';
 import {
   RegisterInput,
   LoginInput,
@@ -239,6 +240,46 @@ export async function updateProfile(
       ]);
     }
 
+    // Admin-only: the address their password-reset code is sent to.
+    // Farmers have no email, so it is quietly ignored for them.
+    if (role === 'admin' && input.email !== undefined) {
+      const [self] = await connection.query<UserRow[]>(
+        'SELECT email, password_hash FROM users WHERE id = ? LIMIT 1',
+        [userId]
+      );
+
+      const current = self[0];
+
+      if (current && current.email?.toLowerCase() !== input.email) {
+        // Without this, a stolen session token could point the reset
+        // code at the thief's inbox and then take the account over.
+        const passwordOk =
+          !!input.currentPassword &&
+          (await verifyPassword(input.currentPassword, current.password_hash));
+
+        if (!passwordOk) {
+          throw ApiError.badRequest(
+            'Enter your current password to change your email',
+            'INVALID_CURRENT_PASSWORD'
+          );
+        }
+
+        const [taken] = await connection.query<UserRow[]>(
+          'SELECT id FROM users WHERE email = ? AND id != ? LIMIT 1',
+          [input.email, userId]
+        );
+
+        if (taken.length > 0) {
+          throw ApiError.conflict('That email is already registered', 'EMAIL_TAKEN');
+        }
+
+        await connection.query('UPDATE users SET email = ? WHERE id = ?', [
+          input.email,
+          userId,
+        ]);
+      }
+    }
+
     if (input.avatarPath !== undefined) {
       await connection.query('UPDATE users SET avatar_path = ? WHERE id = ?', [
         input.avatarPath || null,
@@ -367,6 +408,105 @@ function sha256Hex(value: string): string {
   return crypto.createHash('sha256').update(value).digest('hex');
 }
 
+/** The vague 400 that wrong-account and wrong-code failures share. */
+function invalidResetCode(): ApiError {
+  return ApiError.badRequest(
+    'That reset code is not valid. Request a new one and try again.'
+  );
+}
+
+/**
+ * Creates a fresh code for this user and returns it in plain text so
+ * the caller can send it. Only its hash is stored.
+ */
+async function issueResetCode(userId: number): Promise<string> {
+  // A fresh request invalidates any earlier unused code.
+  await pool.query('DELETE FROM password_reset_codes WHERE user_id = ?', [userId]);
+
+  // Six digits, zero-padded. randomInt is cryptographically sound.
+  const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
+  const expiresAt = new Date(Date.now() + env.passwordResetTtlMinutes * 60_000);
+
+  await pool.query<ResultSetHeader>(
+    `INSERT INTO password_reset_codes (user_id, code_hash, expires_at)
+     VALUES (?, ?, ?)`,
+    [userId, sha256Hex(code), expiresAt]
+  );
+
+  return code;
+}
+
+/**
+ * Checks `code` against the user's latest unused code. If it is right,
+ * sets the new password and burns every code for the user. Throws a
+ * deliberately vague 400 for every failure mode except an expired or
+ * locked code.
+ */
+async function consumeResetCode(
+  userId: number,
+  code: string,
+  newPassword: string
+): Promise<void> {
+  const [codeRows] = await pool.query<ResetCodeRow[]>(
+    `SELECT * FROM password_reset_codes
+     WHERE user_id = ? AND consumed_at IS NULL
+     ORDER BY created_at DESC
+     LIMIT 1`,
+    [userId]
+  );
+
+  const record = codeRows[0];
+
+  if (!record) {
+    throw invalidResetCode();
+  }
+
+  if (record.attempts >= MAX_RESET_ATTEMPTS) {
+    throw ApiError.badRequest(
+      'Too many incorrect attempts. Please request a new reset code.'
+    );
+  }
+
+  if (new Date(record.expires_at).getTime() < Date.now()) {
+    throw ApiError.badRequest(
+      'That reset code has expired. Please request a new one.'
+    );
+  }
+
+  if (sha256Hex(code) !== record.code_hash) {
+    await pool.query(
+      'UPDATE password_reset_codes SET attempts = attempts + 1 WHERE id = ?',
+      [record.id]
+    );
+    throw invalidResetCode();
+  }
+
+  // Correct. Swap the password and burn every code for this user.
+  const passwordHash = await hashPassword(newPassword);
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    await connection.query('UPDATE users SET password_hash = ? WHERE id = ?', [
+      passwordHash,
+      userId,
+    ]);
+
+    await connection.query(
+      'DELETE FROM password_reset_codes WHERE user_id = ?',
+      [userId]
+    );
+
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
+
 /**
  * Step 1. Generates a code for the account with this phone number
  * and texts it. Returns nothing useful on purpose: the caller must
@@ -387,18 +527,7 @@ export async function requestPasswordReset(rawPhoneNumber: string): Promise<void
     return;
   }
 
-  // A fresh request invalidates any earlier unused code.
-  await pool.query('DELETE FROM password_reset_codes WHERE user_id = ?', [user.id]);
-
-  // Six digits, zero-padded. randomInt is cryptographically sound.
-  const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
-  const expiresAt = new Date(Date.now() + env.passwordResetTtlMinutes * 60_000);
-
-  await pool.query<ResultSetHeader>(
-    `INSERT INTO password_reset_codes (user_id, code_hash, expires_at)
-     VALUES (?, ?, ?)`,
-    [user.id, sha256Hex(code), expiresAt]
-  );
+  const code = await issueResetCode(user.id);
 
   await sendSms({
     to: phoneNumber,
@@ -420,10 +549,6 @@ export async function resetPassword(
   code: string,
   newPassword: string
 ): Promise<void> {
-  const invalid = ApiError.badRequest(
-    'That reset code is not valid. Request a new one and try again.'
-  );
-
   const phoneNumber = normalizePhone(rawPhoneNumber);
 
   const [userRows] = await pool.query<UserRow[]>(
@@ -434,65 +559,78 @@ export async function resetPassword(
   const user = userRows[0];
 
   if (!user) {
-    throw invalid;
+    throw invalidResetCode();
   }
 
-  const [codeRows] = await pool.query<ResetCodeRow[]>(
-    `SELECT * FROM password_reset_codes
-     WHERE user_id = ? AND consumed_at IS NULL
-     ORDER BY created_at DESC
-     LIMIT 1`,
-    [user.id]
+  await consumeResetCode(user.id, code, newPassword);
+}
+
+// ============================================================
+// CAO PASSWORD RESET BY EMAIL
+//
+// Same code-and-hash scheme as above, but for admin accounts only
+// (farmers have no email) and the code goes to the admin's inbox.
+// The address must already be on the account - the admin sets it
+// from the Profile page while signed in.
+// ============================================================
+
+/** The message every CAO reset request returns, whether or not the email exists. */
+export const ADMIN_RESET_REQUEST_MESSAGE =
+  'If a CAO account with that email exists, a reset code has been sent to it.';
+
+/**
+ * Step 1. Emails a code to the admin account that owns this address.
+ * Returns nothing useful on purpose: the caller must not be able to
+ * tell whether the address is registered.
+ */
+export async function requestAdminPasswordReset(email: string): Promise<void> {
+  const [rows] = await pool.query<UserRow[]>(
+    "SELECT id, is_active FROM users WHERE email = ? AND role = 'admin' LIMIT 1",
+    [email]
   );
 
-  const record = codeRows[0];
+  const user = rows[0];
 
-  if (!record) {
-    throw invalid;
+  // No account, a farmer, or a deactivated one: do nothing, silently.
+  if (!user || user.is_active !== 1) {
+    return;
   }
 
-  if (record.attempts >= MAX_RESET_ATTEMPTS) {
-    throw ApiError.badRequest(
-      'Too many incorrect attempts. Please request a new reset code.'
-    );
+  const code = await issueResetCode(user.id);
+
+  // Deliberately not awaited. An SMTP round trip takes seconds, and
+  // waiting for it only when the account exists would let a caller tell
+  // registered addresses from unknown ones by response time.
+  // sendMail never rejects - failures are logged server-side.
+  void sendMail({
+    to: email,
+    subject: `${env.appName}: your password reset code`,
+    text:
+      `Your ${env.appName} password reset code is ${code}.\n\n` +
+      `It expires in ${env.passwordResetTtlMinutes} minutes. ` +
+      `Did not request this? Ignore this email - your password has not changed.`,
+  });
+}
+
+/**
+ * Step 2. Verifies the emailed code and sets the new password.
+ * Wrong address and wrong code fail identically (see consumeResetCode).
+ */
+export async function resetAdminPassword(
+  email: string,
+  code: string,
+  newPassword: string
+): Promise<void> {
+  const [rows] = await pool.query<UserRow[]>(
+    "SELECT id FROM users WHERE email = ? AND role = 'admin' AND is_active = 1 LIMIT 1",
+    [email]
+  );
+
+  const user = rows[0];
+
+  if (!user) {
+    throw invalidResetCode();
   }
 
-  if (new Date(record.expires_at).getTime() < Date.now()) {
-    throw ApiError.badRequest(
-      'That reset code has expired. Please request a new one.'
-    );
-  }
-
-  if (sha256Hex(code) !== record.code_hash) {
-    await pool.query(
-      'UPDATE password_reset_codes SET attempts = attempts + 1 WHERE id = ?',
-      [record.id]
-    );
-    throw invalid;
-  }
-
-  // Correct. Swap the password and burn every code for this user.
-  const passwordHash = await hashPassword(newPassword);
-  const connection = await pool.getConnection();
-
-  try {
-    await connection.beginTransaction();
-
-    await connection.query('UPDATE users SET password_hash = ? WHERE id = ?', [
-      passwordHash,
-      user.id,
-    ]);
-
-    await connection.query(
-      'DELETE FROM password_reset_codes WHERE user_id = ?',
-      [user.id]
-    );
-
-    await connection.commit();
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
+  await consumeResetCode(user.id, code, newPassword);
 }

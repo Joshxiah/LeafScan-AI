@@ -1,15 +1,16 @@
 /**
  * Diagnosis - the result of one scan.
  *
- * Route: /diagnosis?classLabel=...&confidence=...&scannedAt=...
+ * Route: /diagnosis?classLabel=...&confidence=...&confidenceLevel=...&scannedAt=...
  *
- * Reached by tapping a scan on Home or in History. The verdict
- * (which disease, what confidence) came from a mock classifier at
- * scan time - see pickMockDiagnosis() in src/data/scanStats.ts -
- * because the AI model is not wired up yet (Phase 13), but the
- * scan itself is real: it is read back from src/services/scanLog.ts.
- * Everything below the confidence card is also real: the
- * description and "Recommended Actions" are read live from
+ * Reached right after a scan, and by tapping a scan on Home or in
+ * History. The verdict comes from the server's MobileNetV2 model
+ * (POST /api/detections/scan, read back from GET /api/detections for
+ * earlier scans). confidenceLevel (how sure the AI is: low / moderate /
+ * high) is shown with it. It comes from the server and is left out -
+ * never guessed - for a scan still waiting to upload and for older scans
+ * that never had it.
+ * The description and treatment plan are read live from
  * GET /api/diseases, the same source the Disease Library uses.
  */
 
@@ -20,22 +21,35 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { listDiseases } from '../../src/services/disease.service';
-import { ControlLevel, Disease } from '../../src/types';
+import { ConfidenceLevel, ControlLevel, Disease } from '../../src/types';
 import { useLanguage } from '../../src/context/LanguageContext';
 import { brand, shadows } from '../../src/constants/theme';
 import { ScanClassLabel } from '../../src/data/scanStats';
 import { useAuth } from '../../src/context/AuthContext';
 import { mediaUrl } from '../../src/utils/media';
+import { Bullet } from '../../src/components/Bullet';
 import { ControlLevelPill } from '../../src/components/ControlLevelPill';
+import { splitDescription, toBullets } from '../../src/utils/diseaseText';
 import { CONTROL_LEVEL_STYLE, CONTROL_LEVEL_ORDER } from '../../src/constants/controlLevels';
+
+/** Route params arrive as plain strings, so each one is checked against these before use. */
+const CONFIDENCE_LEVELS: readonly ConfidenceLevel[] = ['low', 'moderate', 'high'];
 
 export default function DiagnosisScreen() {
   const router = useRouter();
   const { t, language } = useLanguage();
   const { token } = useAuth();
-  const { classLabel, confidence, imageUri, imagePath, pending } = useLocalSearchParams<{
+  const {
+    classLabel,
+    confidence,
+    confidenceLevel: confidenceLevelParam,
+    imageUri,
+    imagePath,
+    pending,
+  } = useLocalSearchParams<{
     classLabel: ScanClassLabel;
     confidence: string;
+    confidenceLevel?: string;
     imageUri?: string;
     imagePath?: string;
     pending?: string;
@@ -69,8 +83,23 @@ export default function DiagnosisScreen() {
     [diseases, classLabel]
   );
 
+  // Same split as the Disease detail screen: the stored description also
+  // carries "Favorable conditions" and "Impact", which belong to the full
+  // entry, so only the plain description and the symptoms are shown here.
+  const { description } = splitDescription(disease?.description ?? null);
+  const symptoms = toBullets(disease?.symptoms ?? null);
+
   const isHealthy = classLabel === 'healthy';
   const confidenceValue = Number(confidence) || 0;
+
+  // How sure the AI is. Undefined (so nothing is shown) when the scan is
+  // still waiting to upload, when the server never gave one, or when the
+  // value is not a known level.
+  const isPending = pending === '1';
+  const confidenceLevel = isPending
+    ? undefined
+    : CONFIDENCE_LEVELS.find((level) => level === confidenceLevelParam);
+
   const fallbackName =
     classLabel && classLabel in t.diseaseNames
       ? t.diseaseNames[classLabel as ScanClassLabel]
@@ -117,6 +146,15 @@ export default function DiagnosisScreen() {
           </View>
         )}
 
+        {confidenceLevel === 'low' && (
+          <View className="mb-4 flex-row items-center rounded-xl bg-[#FFF6E0] px-4 py-3">
+            <Ionicons name="alert-circle-outline" size={16} color="#9A6B00" />
+            <Text className="ml-2 flex-1 text-[12.5px] text-[#7A5600]">
+              {t.diagnosis.lowConfidenceNotice}
+            </Text>
+          </View>
+        )}
+
         {/* ---------- Verdict banner ---------- */}
         <View
           className="flex-row items-center self-start rounded-full px-3 py-1.5"
@@ -147,19 +185,39 @@ export default function DiagnosisScreen() {
           <Text className="text-[11px] font-bold tracking-wide text-[#5B8A6B]">
             {t.diagnosis.confidence}
           </Text>
-          <Text className="mt-1 text-3xl font-extrabold text-[#1F4E31]">
+          <Text
+            className="mt-1 text-3xl font-extrabold text-[#1F4E31]"
+            accessibilityLabel={
+              confidenceLevel
+                ? `${confidenceValue}%, ${t.diagnosis.confidenceLevelLabel}: ${t.diagnosis.confidenceLevels[confidenceLevel]}`
+                : undefined
+            }
+          >
             {confidenceValue}%
+            {confidenceLevel ? ` · ${t.diagnosis.confidenceLevels[confidenceLevel]}` : ''}
           </Text>
         </View>
 
         {/* ---------- Description ---------- */}
-        {disease?.description ? (
-          <Text className="mt-5 text-[13.5px] leading-5 text-[#3F5246]">
-            {disease.description}
-          </Text>
+        {description ? (
+          <Text className="mt-5 text-[13.5px] leading-5 text-[#3F5246]">{description}</Text>
         ) : !diseases && !loadError ? (
           <ActivityIndicator className="mt-5" color={brand.accent} />
         ) : null}
+
+        {/* ---------- Symptoms ---------- */}
+        {symptoms.length > 0 && (
+          <View className="mt-6">
+            <Text className="text-[11px] font-bold tracking-wide text-[#9BAAA1]">
+              {t.diseaseDetail.symptoms}
+            </Text>
+            <View className="mt-2 gap-1.5">
+              {symptoms.map((line, i) => (
+                <Bullet key={i} text={line} />
+              ))}
+            </View>
+          </View>
+        )}
 
         {isHealthy ? (
           /* ---------- Healthy leaf: NO treatment plan ---------- */

@@ -29,6 +29,8 @@ export function ProfilePage() {
 
   const [fullName, setFullName] = useState(user?.fullName ?? '');
   const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber ?? '');
+  const [email, setEmail] = useState(user?.email ?? '');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [avatarPath, setAvatarPath] = useState(user?.avatarPath ?? '');
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -51,9 +53,13 @@ export function ProfilePage() {
       .join('')
       .toUpperCase() || '?';
 
+  // The backend lowercases the address, so compare the same way.
+  const emailChanged = email.trim().toLowerCase() !== (user.email ?? '').toLowerCase();
+
   const dirty =
     fullName.trim() !== user.fullName ||
     phoneNumber.trim() !== (user.phoneNumber ?? '') ||
+    emailChanged ||
     avatarPath !== (user.avatarPath ?? '');
 
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -74,15 +80,30 @@ export function ProfilePage() {
   async function save() {
     setError(null);
     setJustSaved(false);
+
+    if (emailChanged) {
+      if (!/^\S+@\S+\.\S+$/.test(email.trim())) {
+        setError('Enter a valid email address.');
+        return;
+      }
+      if (!currentPassword) {
+        setError('Enter your current password to change your email.');
+        return;
+      }
+    }
+
     setIsSaving(true);
     try {
       await authService.updateProfile({
         fullName: fullName.trim() !== user!.fullName ? fullName.trim() : undefined,
         phoneNumber:
           phoneNumber.trim() !== (user!.phoneNumber ?? '') ? phoneNumber.trim() : undefined,
+        email: emailChanged ? email.trim() : undefined,
+        currentPassword: emailChanged ? currentPassword : undefined,
         avatarPath: avatarPath !== (user!.avatarPath ?? '') ? avatarPath : undefined,
       });
       await refreshUser();
+      setCurrentPassword('');
       setJustSaved(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not save your profile.');
@@ -131,13 +152,50 @@ export function ProfilePage() {
                 Mobile number
               </span>
               <input
-                type="text"
+                type="tel"
+                inputMode="numeric"
+                maxLength={11}
                 value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
+                onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 11))}
                 placeholder="09171234567"
                 className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
               />
             </label>
+
+            <label className="block">
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Email
+              </span>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@gmail.com"
+                autoComplete="email"
+                className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
+              />
+              <span className="mt-1 block text-xs text-gray-400">
+                Your password reset code is sent here. Use an email you can open.
+              </span>
+            </label>
+
+            {emailChanged && (
+              <label className="block">
+                <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Current password
+                </span>
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
+                />
+                <span className="mt-1 block text-xs text-gray-400">
+                  Needed to change your email.
+                </span>
+              </label>
+            )}
 
             <label className="block">
               <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
@@ -165,10 +223,6 @@ export function ProfilePage() {
                   Username
                 </p>
                 <p className="mt-1 text-gray-700">@{user.username}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Email</p>
-                <p className="mt-1 text-gray-700">{user.email ?? '—'}</p>
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Role</p>

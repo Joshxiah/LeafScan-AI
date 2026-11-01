@@ -17,6 +17,7 @@ import { NotificationsProvider } from './context/NotificationsContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { SplashPage } from './pages/SplashPage';
 import { LoginPage } from './pages/LoginPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { FarmersPage } from './pages/FarmersPage';
@@ -33,6 +34,7 @@ function App() {
         <NotificationsProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
           <Route
             path="/dashboard"

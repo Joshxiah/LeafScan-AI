@@ -99,3 +99,20 @@ export const changePasswordRateLimiter = rateLimit({
   skip: () => env.isDevelopment,
   handler: tooManyRequestsHandler,
 });
+
+/**
+ * PATCH /api/auth/me
+ *
+ * Only requests that carry a `currentPassword` (an admin changing
+ * their email) are counted; ordinary profile edits are never
+ * throttled. Same brake as change-password: it stops someone with a
+ * stolen token from guessing the password through this endpoint.
+ */
+export const profilePasswordCheckRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => env.isDevelopment || !req.body?.currentPassword,
+  handler: tooManyRequestsHandler,
+});

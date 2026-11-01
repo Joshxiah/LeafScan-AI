@@ -89,7 +89,20 @@ export const env = {
     senderName: optionalEnv('SEMAPHORE_SENDER_NAME', ''),
   },
 
-  // Shown in the reset SMS and used for the reset-code lifetime.
+  // ---------- Outgoing email (CAO password reset) ----------
+  // Optional. When GMAIL_USER / GMAIL_APP_PASSWORD are blank the code
+  // is printed to the server console instead of being emailed, so the
+  // CAO reset flow still works before a sender account is set up.
+  // The password must be a Google "App password" (Google Account ->
+  // Security -> 2-Step Verification -> App passwords), NOT the normal
+  // Gmail password. Google shows it in 4 groups of 4 letters; the
+  // spaces are ignored here.
+  mail: {
+    user: optionalEnv('GMAIL_USER', '').trim(),
+    appPassword: optionalEnv('GMAIL_APP_PASSWORD', '').replace(/\s+/g, ''),
+  },
+
+  // Shown in the reset SMS / email and used for the reset-code lifetime.
   appName: optionalEnv('APP_NAME', 'LeafScan AI'),
   passwordResetTtlMinutes: Number(optionalEnv('PASSWORD_RESET_TTL_MINUTES', '15')),
 

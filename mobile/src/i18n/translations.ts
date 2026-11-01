@@ -23,6 +23,8 @@
  * the safety-relevant bits (camera tips, password rules).
  */
 
+import { ConfidenceLevel, RiskLevel } from '../types';
+
 export type Language = 'en' | 'ceb';
 
 /**
@@ -53,6 +55,7 @@ export type ApiErrorCode =
   | 'SERVICE_UNAVAILABLE'
   | 'AI_UNAVAILABLE'
   | 'AI_REJECTED_IMAGE'
+  | 'NOT_A_CORN_LEAF'
   | 'AI_BAD_GATEWAY'
   | 'AI_BAD_RESPONSE'
   | 'IMAGE_NOT_FOUND'
@@ -327,6 +330,14 @@ export interface Translations {
     noTreatmentPublished: string;
     pendingUploadNote: string;
     viewTreatmentPlan: string;
+    /** How sure the AI is of the result (low / moderate / high). */
+    confidenceLevelLabel: string;
+    confidenceLevels: Record<ConfidenceLevel, string>;
+    /** How dangerous the disease is (from the CAO's default risk level). Not the same as confidence. */
+    riskLevelLabel: string;
+    riskLevels: Record<RiskLevel, string>;
+    /** Shown above a result whose confidence level is low. */
+    lowConfidenceNotice: string;
   };
 
   report: {
@@ -423,8 +434,8 @@ export const en: Translations = {
     scansNotSyncedTitle: 'Some scans could not be saved',
     scansNotSynced: (count) =>
       count === 1
-        ? '1 scan could not be saved because it is older than 30 days or its photo is gone.'
-        : `${count} scans could not be saved because they are older than 30 days or their photos are gone.`,
+        ? '1 scan could not be saved because it is older than 30 days, its photo is gone, or the photo is not a corn leaf.'
+        : `${count} scans could not be saved because they are older than 30 days, their photos are gone, or the photos are not corn leaves.`,
   },
 
   diseaseNames: {
@@ -689,6 +700,12 @@ export const en: Translations = {
     pendingUploadNote:
       'Saved on your phone. It will upload automatically when you are back online.',
     viewTreatmentPlan: 'View treatment plan →',
+    confidenceLevelLabel: 'Confidence level',
+    confidenceLevels: { low: 'Low', moderate: 'Moderate', high: 'High' },
+    riskLevelLabel: 'Risk level',
+    riskLevels: { none: 'No risk', low: 'Low', moderate: 'Moderate', high: 'High' },
+    lowConfidenceNotice:
+      'The result is uncertain. Try another clear, well-lit photo of the leaf.',
   },
 
   report: {
@@ -790,6 +807,7 @@ export const en: Translations = {
     SERVICE_UNAVAILABLE: 'The service is temporarily unavailable. Please try again shortly.',
     AI_UNAVAILABLE: 'The leaf scanner is unavailable right now. Please try again in a moment.',
     AI_REJECTED_IMAGE: 'This photo could not be read. Please take a clear photo of a corn leaf.',
+    NOT_A_CORN_LEAF: 'Try again. This does not look like a corn leaf. Please take a clear, close photo of a corn leaf.',
     AI_BAD_GATEWAY: 'The disease checker had a problem. Please try again in a moment.',
     AI_BAD_RESPONSE: 'The disease checker had a problem. Please try again in a moment.',
     IMAGE_NOT_FOUND: 'The uploaded photo could not be found. Please scan again.',
@@ -808,7 +826,7 @@ export const ceb: Translations = {
     waitingToUpload: 'Naghulat ma-upload',
     scansNotSyncedTitle: 'Dili ma-save ang ubang scan',
     scansNotSynced: (count) =>
-      `${count} ka scan wala ma-save kay lapas na sa 30 ka adlaw o nawala na ang litrato.`,
+      `${count} ka scan wala ma-save kay lapas na sa 30 ka adlaw, nawala na ang litrato, o dili dahon sa mais ang litrato.`,
   },
 
   diseaseNames: {
@@ -1074,6 +1092,17 @@ export const ceb: Translations = {
     pendingUploadNote:
       'Gitipigan sa imong telepono. Awtomatiko kini ma-upload inig naa na pud kay internet.',
     viewTreatmentPlan: 'Tan-awa ang plano sa tambal →',
+    confidenceLevelLabel: 'Lebel sa Kasigurohan',
+    confidenceLevels: { low: 'Ubos', moderate: 'Kasarangan', high: 'Taas' },
+    riskLevelLabel: 'Lebel sa Kakuyaw',
+    riskLevels: {
+      none: 'Walay kakuyaw',
+      low: 'Ubos',
+      moderate: 'Kasarangan',
+      high: 'Taas',
+    },
+    lowConfidenceNotice:
+      'Dili sigurado ang resulta. Sulayi pag-kuha og laing klaro ug hayag nga litrato sa dahon.',
   },
 
   report: {
@@ -1176,6 +1205,7 @@ export const ceb: Translations = {
     SERVICE_UNAVAILABLE: 'Dili karon ma-abot ang serbisyo. Palihug sulayi sa lain nga higayon.',
     AI_UNAVAILABLE: 'Dili karon magamit ang pag-scan sa dahon. Palihug sulayi pag-usab sa makadiyot.',
     AI_REJECTED_IMAGE: 'Dili mabasa kini nga litrato. Palihug kuhai og klaro nga litrato sa dahon sa mais.',
+    NOT_A_CORN_LEAF: 'Sulayi pag-usab. Dili ni murag dahon sa mais. Palihug kuhai og klaro ug suod nga litrato sa dahon sa mais.',
     AI_BAD_GATEWAY: 'Naay problema sa pag-check sa sakit. Palihug sulayi pag-usab human sa pipila ka gutlo.',
     AI_BAD_RESPONSE: 'Naay problema sa pag-check sa sakit. Palihug sulayi pag-usab human sa pipila ka gutlo.',
     IMAGE_NOT_FOUND: 'Wala makit-i ang na-upload nga litrato. Palihug pag-scan pag-usab.',

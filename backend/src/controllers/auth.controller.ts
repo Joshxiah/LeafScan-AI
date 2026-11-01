@@ -13,6 +13,8 @@ import {
   loginSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  adminForgotPasswordSchema,
+  adminResetPasswordSchema,
   updateProfileSchema,
   changePasswordSchema,
 } from '../utils/validation';
@@ -76,6 +78,38 @@ export async function resetPassword(req: Request, res: Response): Promise<void> 
   const input = validate(resetPasswordSchema, req.body);
 
   await authService.resetPassword(input.phoneNumber, input.code, input.password);
+
+  res.status(200).json({
+    success: true,
+    message: 'Your password has been updated. You can now sign in.',
+  });
+}
+
+/**
+ * POST /api/auth/admin/forgot-password
+ * Step 1 of a CAO reset. Emails a 6-digit code to the address if it
+ * belongs to an active admin account. Always returns 200 with the
+ * same message, so it cannot be used to probe which emails exist.
+ */
+export async function adminForgotPassword(req: Request, res: Response): Promise<void> {
+  const input = validate(adminForgotPasswordSchema, req.body);
+
+  await authService.requestAdminPasswordReset(input.email);
+
+  res.status(200).json({
+    success: true,
+    message: authService.ADMIN_RESET_REQUEST_MESSAGE,
+  });
+}
+
+/**
+ * POST /api/auth/admin/reset-password
+ * Step 2 of a CAO reset. Checks the emailed code and sets the new password.
+ */
+export async function adminResetPassword(req: Request, res: Response): Promise<void> {
+  const input = validate(adminResetPasswordSchema, req.body);
+
+  await authService.resetAdminPassword(input.email, input.code, input.password);
 
   res.status(200).json({
     success: true,

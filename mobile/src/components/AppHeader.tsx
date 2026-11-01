@@ -31,13 +31,11 @@ export function AppHeader() {
       />
 
       <View className="flex-row items-center">
-        <View className="h-12 w-12 items-center justify-center rounded-full bg-white">
-          <Image
-            source={require('../../assets/images/logo.png')}
-            style={{ width: 34, height: 34 }}
-            resizeMode="contain"
-          />
-        </View>
+        <Image
+          source={require('../../assets/images/logo.png')}
+          style={{ width: 52, height: 52 }}
+          resizeMode="contain"
+        />
         <View className="ml-3 flex-1">
           <Text className="text-[20px] font-extrabold tracking-tight text-white">
             LeafScan AI
