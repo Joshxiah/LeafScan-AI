@@ -79,3 +79,6 @@ desktop.ini
 !.vscode/extensions.json
 .idea/
 *.swp
+
+# ---------- Local backups (DB dumps hold farmers' personal data) ----------
+docs/backups/
