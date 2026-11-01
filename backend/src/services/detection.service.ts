@@ -1,9 +1,10 @@
   /**
    * Leaf-scan detections for the CAO admin platform.
    *
-   * `detections` is the permanent record of every scan a farmer's
-   * phone has run. The mobile app writes here through createDetection()
-   * as soon as a scan finishes; the admin Detections page, the
+   * `detections` is the permanent record of every scan a farmer has
+   * run. The server writes here through createDetection() right after
+   * its own AI model classifies the photo (POST /api/detections/scan);
+   * a client can never supply the verdict. The admin Detections page, the
    * dashboard tiles and a farmer's "view this farmer's scans"
    * drill-down all read it through listDetections().
    */
@@ -11,7 +12,22 @@
   import { ResultSetHeader, RowDataPacket } from 'mysql2';
   import { pool } from '../config/database';
   import { ApiError } from '../utils/ApiError';
-  import { CreateDetectionInput, ReviewDetectionInput } from '../utils/validation';
+  import { ReviewDetectionInput } from '../utils/validation';
+
+  /** What detections.model_version records for every scan. */
+  const MODEL_VERSION = 'mobilenetv2-v2';
+
+  /** A scan result the server has produced itself - never client-supplied. */
+  export interface NewDetection {
+    /** Relative "uploads/xxx.jpg" from POST /api/uploads. */
+    imagePath: string;
+    /** A diseases.class_label, from the AI model. */
+    predictedClass: string;
+    /** 0-100, from the AI model. */
+    confidenceScore: number;
+    /** ISO time the leaf was scanned; defaults to now. */
+    detectedAt?: string;
+  }
 
   export type RiskLevel = 'none' | 'low' | 'moderate' | 'high';
   export type DetectionResult = 'healthy' | 'diseased';
@@ -228,20 +244,14 @@
   }
 
   /**
-   * The write side of `detections`: the mobile app posts a finished
-   * scan here. `disease_id` and `risk_level` are resolved from the
+   * The write side of `detections`: called with the AI model's verdict. `disease_id` and `risk_level` are resolved from the
    * `diseases` row for the predicted class, so a scan lines up with
    * the live Disease Library. The AI fields are stored exactly as
    * sent - the CAO review layer never edits them.
-   *
-   * `modelVersion` is what gets stored in detections.model_version. It
-   * defaults to 'mobile-stand-in' so the original JSON endpoint behaves
-   * exactly as before; the server-side scan passes the real model name.
    */
   export async function createDetection(
     userId: number,
-    input: CreateDetectionInput,
-    modelVersion = 'mobile-stand-in'
+    input: NewDetection
   ): Promise<DetectionSummary> {
     const [diseaseRows] = await pool.query<RowDataPacket[]>(
       'SELECT id, default_risk_level, is_healthy FROM diseases WHERE class_label = ? LIMIT 1',
@@ -279,7 +289,7 @@
         input.confidenceScore,
         confidenceLevelFor(input.confidenceScore),
         riskLevel,
-        modelVersion,
+        MODEL_VERSION,
         scannedAt,
       ]
     );

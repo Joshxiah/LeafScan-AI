@@ -50,7 +50,13 @@ export type ApiErrorCode =
   | 'UPLOAD_UNEXPECTED_FIELD'
   | 'UPLOAD_FAILED'
   | 'TOO_MANY_REQUESTS'
-  | 'SERVICE_UNAVAILABLE';
+  | 'SERVICE_UNAVAILABLE'
+  | 'AI_UNAVAILABLE'
+  | 'AI_REJECTED_IMAGE'
+  | 'AI_BAD_GATEWAY'
+  | 'AI_BAD_RESPONSE'
+  | 'IMAGE_NOT_FOUND'
+  | 'SCAN_TIME_OUT_OF_RANGE';
 
 export interface Translations {
   common: {
@@ -61,6 +67,8 @@ export interface Translations {
     bucketYesterday: string;
     bucketLastWeek: string;
     waitingToUpload: string;
+    scansNotSyncedTitle: string;
+    scansNotSynced: (count: number) => string;
   };
 
   /**
@@ -412,6 +420,11 @@ export const en: Translations = {
     bucketYesterday: 'Yesterday',
     bucketLastWeek: 'Last Week',
     waitingToUpload: 'Waiting to upload',
+    scansNotSyncedTitle: 'Some scans could not be saved',
+    scansNotSynced: (count) =>
+      count === 1
+        ? '1 scan could not be saved because it is older than 30 days or its photo is gone.'
+        : `${count} scans could not be saved because they are older than 30 days or their photos are gone.`,
   },
 
   diseaseNames: {
@@ -775,6 +788,12 @@ export const en: Translations = {
     UPLOAD_FAILED: 'The photo could not be processed. Please try another one.',
     TOO_MANY_REQUESTS: 'Too many attempts. Please wait a while before trying again.',
     SERVICE_UNAVAILABLE: 'The service is temporarily unavailable. Please try again shortly.',
+    AI_UNAVAILABLE: 'The leaf scanner is unavailable right now. Please try again in a moment.',
+    AI_REJECTED_IMAGE: 'This photo could not be read. Please take a clear photo of a corn leaf.',
+    AI_BAD_GATEWAY: 'The disease checker had a problem. Please try again in a moment.',
+    AI_BAD_RESPONSE: 'The disease checker had a problem. Please try again in a moment.',
+    IMAGE_NOT_FOUND: 'The uploaded photo could not be found. Please scan again.',
+    SCAN_TIME_OUT_OF_RANGE: 'This saved scan is older than 30 days and can no longer be uploaded.',
   },
 };
 
@@ -787,6 +806,9 @@ export const ceb: Translations = {
     bucketYesterday: 'Kagahapon',
     bucketLastWeek: 'Miaging Semana',
     waitingToUpload: 'Naghulat ma-upload',
+    scansNotSyncedTitle: 'Dili ma-save ang ubang scan',
+    scansNotSynced: (count) =>
+      `${count} ka scan wala ma-save kay lapas na sa 30 ka adlaw o nawala na ang litrato.`,
   },
 
   diseaseNames: {
@@ -1152,6 +1174,12 @@ export const ceb: Translations = {
     UPLOAD_FAILED: 'Wala maproseso ang litrato. Palihug sulayi og lain.',
     TOO_MANY_REQUESTS: 'Sobra na ka daghan ang sulay. Palihug hulat una ug sulayi pag-usab.',
     SERVICE_UNAVAILABLE: 'Dili karon ma-abot ang serbisyo. Palihug sulayi sa lain nga higayon.',
+    AI_UNAVAILABLE: 'Dili karon magamit ang pag-scan sa dahon. Palihug sulayi pag-usab sa makadiyot.',
+    AI_REJECTED_IMAGE: 'Dili mabasa kini nga litrato. Palihug kuhai og klaro nga litrato sa dahon sa mais.',
+    AI_BAD_GATEWAY: 'Naay problema sa pag-check sa sakit. Palihug sulayi pag-usab human sa pipila ka gutlo.',
+    AI_BAD_RESPONSE: 'Naay problema sa pag-check sa sakit. Palihug sulayi pag-usab human sa pipila ka gutlo.',
+    IMAGE_NOT_FOUND: 'Wala makit-i ang na-upload nga litrato. Palihug pag-scan pag-usab.',
+    SCAN_TIME_OUT_OF_RANGE: 'Kini nga na-save nga scan kay sobra na sa 30 ka adlaw, dili na ma-upload.',
   },
 };
 

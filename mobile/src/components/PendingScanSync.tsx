@@ -7,15 +7,17 @@
  */
 
 import { useEffect } from 'react';
-import { AppState } from 'react-native';
+import { Alert, AppState } from 'react-native';
 
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import { getPendingScans, syncPendingScans } from '../services/pendingScans';
 
 const RETRY_MS = 20000;
 
 export function PendingScanSync() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const userId = user?.id;
 
   useEffect(() => {
@@ -25,7 +27,10 @@ export function PendingScanSync() {
       if (userId === undefined) return;
       const queue = await getPendingScans(userId);
       if (queue.length > 0) {
-        await syncPendingScans(userId);
+        const { dropped } = await syncPendingScans(userId);
+        if (dropped > 0) {
+          Alert.alert(t.common.scansNotSyncedTitle, t.common.scansNotSynced(dropped));
+        }
       }
     }
 
@@ -39,7 +44,7 @@ export function PendingScanSync() {
       clearInterval(timer);
       subscription.remove();
     };
-  }, [userId]);
+  }, [userId, t]);
 
   return null;
 }

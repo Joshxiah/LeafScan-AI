@@ -421,19 +421,31 @@ export const updateRecommendationSchema = z.object({
 });
 
 /**
- * A completed leaf scan the mobile app is recording. Until the
- * server-side model exists (Phase 13) the phone runs a stand-in
- * classifier and posts its verdict here, so every scan a farmer
- * runs lands in the same `detections` table the CAO's Detections
- * page and dashboard read. `predictedClass` is a diseases.class_label.
+ * When a leaf was actually scanned. A scan queued offline reaches the
+ * server later, so a past time is fine - but not in the future (5 min
+ * of slack for a phone clock that runs a little fast) and not older
+ * than 30 days, so a wrong or tampered clock cannot back-date records.
  */
-export const createDetectionSchema = z.object({
-  imagePath: z.string().trim().min(1).max(255),
-  predictedClass: z.string().trim().min(1).max(50),
-  confidenceScore: z.number().min(0).max(100),
-  /** When the leaf was actually scanned - set by scans queued offline and uploaded later. Defaults to now. */
-  detectedAt: z.string().datetime().optional(),
-});
+/** ApiError.code sent when `detectedAt` is outside the allowed window. */
+export const SCAN_TIME_OUT_OF_RANGE = 'SCAN_TIME_OUT_OF_RANGE';
+const MAX_SCAN_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+const CLOCK_SKEW_MS = 5 * 60 * 1000;
+
+const scanTimeSchema = z
+  .string()
+  .datetime()
+  .refine(
+    (value) => {
+      const time = Date.parse(value);
+      const now = Date.now();
+      return time <= now + CLOCK_SKEW_MS && time >= now - MAX_SCAN_AGE_MS;
+    },
+    {
+      message: 'Scan time must be within the last 30 days and not in the future',
+      // Lets the phone tell "too old, drop it" apart from any other 400.
+      params: { code: SCAN_TIME_OUT_OF_RANGE },
+    }
+  );
 
 /**
  * A leaf scan the server classifies itself (Phase 13). The phone has
@@ -451,7 +463,7 @@ export const scanDetectionSchema = z.object({
     .regex(/^uploads\/[A-Za-z0-9._-]+$/, 'Invalid image path')
     .refine((value) => !value.includes('..'), 'Invalid image path'),
   /** When the leaf was actually scanned. Defaults to now. */
-  detectedAt: z.string().datetime().optional(),
+  detectedAt: scanTimeSchema.optional(),
 });
 
 /**
@@ -475,7 +487,6 @@ export type UpdateAgriculturistInput = z.infer<typeof updateAgriculturistSchema>
 export type UpdateDiseaseInput = z.infer<typeof updateDiseaseSchema>;
 export type CreateRecommendationInput = z.infer<typeof createRecommendationSchema>;
 export type UpdateRecommendationInput = z.infer<typeof updateRecommendationSchema>;
-export type CreateDetectionInput = z.infer<typeof createDetectionSchema>;
 export type ScanDetectionInput = z.infer<typeof scanDetectionSchema>;
 export type ReviewDetectionInput = z.infer<typeof reviewDetectionSchema>;
 
@@ -496,7 +507,11 @@ export function validate<T>(schema: z.ZodType<T>, data: unknown): T {
     const field = firstIssue.path.join('.');
     const message = field ? `${field}: ${firstIssue.message}` : firstIssue.message;
 
-    throw ApiError.badRequest(message);
+    // A refinement can attach its own stable code (see scanTimeSchema).
+    const params = (firstIssue as { params?: { code?: unknown } }).params;
+    const code = typeof params?.code === 'string' ? params.code : undefined;
+
+    throw ApiError.badRequest(message, code);
   }
 
   return result.data;

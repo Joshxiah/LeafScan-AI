@@ -12,7 +12,6 @@ import type { RiskLevel, DetectionResult } from '../services/detection.service';
 import { ApiError } from '../utils/ApiError';
 import {
   validate,
-  createDetectionSchema,
   scanDetectionSchema,
   reviewDetectionSchema,
 } from '../utils/validation';
@@ -20,8 +19,9 @@ import {
 /** Absolute path to backend/uploads - the same folder the upload middleware writes to. */
 const UPLOAD_DIRECTORY = path.resolve(__dirname, '../../', env.upload.dir);
 
-/** What detections.model_version records for scans classified by the server. */
-const SERVER_MODEL_VERSION = 'mobilenetv2-v2';
+/** ApiError.code for a scan request whose uploaded photo is not on disk. */
+const IMAGE_NOT_FOUND = 'IMAGE_NOT_FOUND';
+
 
 /** A 'YYYY-MM-DD' query param, or undefined when absent. Anything else is a 400. */
 function parseDateParam(value: unknown): string | undefined {
@@ -33,29 +33,13 @@ function parseDateParam(value: unknown): string | undefined {
 }
 
 /**
- * POST /api/detections
- * Farmer only. Records a scan the mobile app just finished, so it
- * shows on the CAO's Detections page and dashboard.
- */
-export async function createDetection(req: Request, res: Response): Promise<void> {
-  if (!req.user) {
-    throw ApiError.unauthorized('Authentication required');
-  }
-
-  const input = validate(createDetectionSchema, req.body);
-  const detection = await detectionService.createDetection(req.user.userId, input);
-
-  res.status(201).json({
-    success: true,
-    message: 'Detection recorded',
-    data: { detection },
-  });
-}
-
-/**
  * Turns the relative "uploads/xxx.jpg" a client sent into an absolute
  * path, guaranteed to sit directly inside the uploads folder.
  * 400 if it escapes the folder, 404 if the file is not there.
+ *
+ * The 404 carries code IMAGE_NOT_FOUND. The phone's offline queue keys
+ * off that code, not the status, to tell "this photo is gone for good"
+ * from any other 404 (e.g. a server that has no /scan route yet).
  */
 async function resolveUploadedImage(imagePath: string): Promise<string> {
   // The schema already allows only "uploads/<safe name>"; basename +
@@ -69,11 +53,11 @@ async function resolveUploadedImage(imagePath: string): Promise<string> {
   try {
     const stats = await fs.stat(absolutePath);
     if (!stats.isFile()) {
-      throw ApiError.notFound('Image not found');
+      throw ApiError.notFound('Image not found', IMAGE_NOT_FOUND);
     }
   } catch (error) {
     if (error instanceof ApiError) throw error;
-    throw ApiError.notFound('Image not found');
+    throw ApiError.notFound('Image not found', IMAGE_NOT_FOUND);
   }
 
   return absolutePath;
@@ -97,16 +81,12 @@ export async function scanDetection(req: Request, res: Response): Promise<void> 
 
   // Risk level is NOT decided here - createDetection() reads it from
   // diseases.default_risk_level for the predicted class.
-  const detection = await detectionService.createDetection(
-    req.user.userId,
-    {
-      imagePath: input.imagePath,
-      predictedClass: prediction.classLabel,
-      confidenceScore: prediction.confidence,
-      detectedAt: input.detectedAt,
-    },
-    SERVER_MODEL_VERSION
-  );
+  const detection = await detectionService.createDetection(req.user.userId, {
+    imagePath: input.imagePath,
+    predictedClass: prediction.classLabel,
+    confidenceScore: prediction.confidence,
+    detectedAt: input.detectedAt,
+  });
 
   res.status(201).json({
     success: true,

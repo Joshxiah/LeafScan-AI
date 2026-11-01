@@ -1,11 +1,11 @@
 /**
  * Scans taken while offline, waiting to be uploaded.
  *
- * The (stand-in) diagnosis is made on the phone, so a farmer with no
- * signal can still scan a leaf and read the result. The photo is
- * copied somewhere permanent and the scan is queued here;
- * syncPendingScans() uploads the photo and records the detection on
- * the server the next time the phone can reach it. Queues are scoped
+ * Only scans queued by older app versions can be here: the app no
+ * longer queues new ones, because classifying now needs the server.
+ * Their stored verdict was a stand-in guess, so syncPendingScans()
+ * uploads the photo and has the server classify it the next time the
+ * phone can reach it. Queues are scoped
  * per userId for the same reason scanLog.ts is.
  */
 
@@ -15,7 +15,7 @@ import { Directory, File as LocalFile, Paths } from 'expo-file-system';
 
 import { ApiError } from './api';
 import { uploadLeafImage } from './upload.service';
-import { recordDetection } from './detection.service';
+import { scanLeaf } from './detection.service';
 import { ScanClassLabel } from '../data/scanStats';
 
 const KEY_PREFIX = 'leafscan_pending_scans';
@@ -100,31 +100,41 @@ let isSyncing = false;
 /**
  * Uploads every queued scan, oldest first. Stops at the first
  * failure (almost always "still offline") and leaves the rest queued.
- * Returns how many were uploaded.
+ * Returns how many were uploaded and how many had to be dropped.
  */
-export async function syncPendingScans(userId: number): Promise<number> {
-  if (isSyncing) return 0;
+export async function syncPendingScans(
+  userId: number
+): Promise<{ uploaded: number; dropped: number }> {
+  if (isSyncing) return { uploaded: 0, dropped: 0 };
   isSyncing = true;
 
   let uploaded = 0;
+  let dropped = 0;
   try {
     const queue = [...(await getPendingScans(userId))].reverse();
 
     for (const scan of queue) {
       try {
         const imagePath = scan.imagePath ?? (await uploadLeafImage(scan.localUri)).imagePath;
-        await recordDetection({
-          imagePath,
-          predictedClass: scan.classLabel,
-          confidenceScore: scan.confidence,
-          detectedAt: scan.scannedAt,
-        });
+        // Scans queued by older app versions carry a stand-in verdict made
+        // on the phone. Ignore it: the server classifies the photo itself.
+        await scanLeaf(imagePath, scan.scannedAt);
       } catch (error) {
         console.log('[pendingScans] Upload deferred:', error);
-        // A file that no longer exists will never upload - drop it
-        // rather than blocking the whole queue forever.
-        if (!(error instanceof ApiError) && !photoExists(scan.localUri)) {
+        // Only a scan the server can NEVER accept is dropped, so it does not
+        // block the whole queue forever: the photo is gone from the server
+        // (IMAGE_NOT_FOUND), the scan time is out of range (older than 30
+        // days), or the local file no longer exists. These are matched by
+        // the error's `code`, never by status alone: a plain 404 can also
+        // mean "Route not found" (a server that has no /scan yet), and any
+        // other 400 could be a bug - both keep the scan queued. Drops are
+        // counted so the farmer is told (see PendingScanSync).
+        const neverAccepted =
+          error instanceof ApiError &&
+          (error.code === 'IMAGE_NOT_FOUND' || error.code === 'SCAN_TIME_OUT_OF_RANGE');
+        if (neverAccepted || (!(error instanceof ApiError) && !photoExists(scan.localUri))) {
           await removePending(userId, scan.id);
+          dropped += 1;
           continue;
         }
         break;
@@ -137,8 +147,8 @@ export async function syncPendingScans(userId: number): Promise<number> {
   } finally {
     isSyncing = false;
   }
-  if (uploaded > 0) listeners.forEach((callback) => callback());
-  return uploaded;
+  if (uploaded > 0 || dropped > 0) listeners.forEach((callback) => callback());
+  return { uploaded, dropped };
 }
 
 async function removePending(userId: number, id: string): Promise<void> {

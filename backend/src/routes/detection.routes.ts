@@ -2,7 +2,6 @@
  * Detection (leaf-scan) routes for LeafScan AI.
  *
  * Mounted at /api/detections in app.ts.
- *   - POST /            farmer only        - the mobile app records a scan
  *   - POST /scan        farmer only        - the server classifies an uploaded photo and records it
  *   - GET  /            admin or farmer    - CAO: the Detections page + drill-down (any farmerId);
  *                                             farmer: their own Home/History/report numbers only (see controller)
@@ -16,10 +15,11 @@ import { authenticate, requireAdmin, requireFarmer } from '../middleware/auth.mi
 
 const router = Router();
 
-/** POST /api/detections - the mobile app records a finished scan. */
-router.post('/', authenticate, requireFarmer, detectionController.createDetection);
-
-/** POST /api/detections/scan - the server classifies an uploaded photo, then records the scan. */
+/**
+ * POST /api/detections/scan - the server classifies an uploaded photo,
+ * then records the scan. This is the ONLY way a detection is created:
+ * the phone never supplies a class or confidence of its own.
+ */
 router.post('/scan', authenticate, requireFarmer, detectionController.scanDetection);
 
 /**

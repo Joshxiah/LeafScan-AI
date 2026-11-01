@@ -4,10 +4,8 @@
  * scanLeaf() sends an uploaded photo to the server, which classifies
  * it with the real MobileNetV2 model and records the scan in the
  * `detections` table (CAO Detections page and dashboard).
- * recordDetection() is the older path that only records a verdict the
- * phone already has - it now serves scans queued before the server
- * classified them. loadFarmerScans() reads the rows back
- * for Home / History / the CAO report - the exact same rows the CAO
+ * The phone never sends its own verdict. loadFarmerScans() reads the
+ * rows back for Home / History / the CAO report - the exact same rows the CAO
  * sees, rather than the on-device log, which only ever reflects this
  * one phone and can drift (or leak between accounts on a shared
  * device - see scanLog.ts).
@@ -19,20 +17,6 @@ import { api } from './api';
 import { ScanClassLabel } from '../data/scanStats';
 import { ScanEntry, getScanLog } from './scanLog';
 import { getPendingScans } from './pendingScans';
-
-export interface RecordDetectionPayload {
-  /** Relative path from a prior POST /api/uploads ("uploads/xxx.jpg"). */
-  imagePath: string;
-  predictedClass: ScanClassLabel;
-  /** 0-100, as shown on the Diagnosis screen. */
-  confidenceScore: number;
-  /** ISO time the leaf was scanned - only set when uploading a scan queued offline. */
-  detectedAt?: string;
-}
-
-export async function recordDetection(payload: RecordDetectionPayload): Promise<void> {
-  await api.post<unknown>('/detections', payload);
-}
 
 /** What POST /api/detections/scan returns inside "data" (only the parts the phone uses). */
 interface ScanLeafResponse {
@@ -50,9 +34,14 @@ interface ScanLeafResponse {
  * is gone, 0 / 408 with no connection.
  */
 export async function scanLeaf(
-  imagePath: string
+  imagePath: string,
+  /** ISO time the leaf was actually scanned - only for scans queued before they could be sent. */
+  detectedAt?: string
 ): Promise<{ classLabel: ScanClassLabel; confidence: number }> {
-  const result = await api.post<ScanLeafResponse>('/detections/scan', { imagePath });
+  const result = await api.post<ScanLeafResponse>('/detections/scan', {
+    imagePath,
+    ...(detectedAt ? { detectedAt } : {}),
+  });
   return {
     classLabel: result.prediction.classLabel,
     confidence: Math.round(result.prediction.confidence),
