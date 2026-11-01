@@ -3,6 +3,7 @@
  *
  * Mounted at /api/detections in app.ts.
  *   - POST /            farmer only        - the mobile app records a scan
+ *   - POST /scan        farmer only        - the server classifies an uploaded photo and records it
  *   - GET  /            admin or farmer    - CAO: the Detections page + drill-down (any farmerId);
  *                                             farmer: their own Home/History/report numbers only (see controller)
  *   - PATCH /:id/review admin only         - the CAO confirm/correct verdict
@@ -17,6 +18,9 @@ const router = Router();
 
 /** POST /api/detections - the mobile app records a finished scan. */
 router.post('/', authenticate, requireFarmer, detectionController.createDetection);
+
+/** POST /api/detections/scan - the server classifies an uploaded photo, then records the scan. */
+router.post('/scan', authenticate, requireFarmer, detectionController.scanDetection);
 
 /**
  * GET /api/detections - the scan list, optionally filtered.

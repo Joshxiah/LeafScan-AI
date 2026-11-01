@@ -49,7 +49,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import EmptyState from '../../../src/components/EmptyState';
 import { SearchInput } from '../../../src/components/SearchInput';
-import { listDiseases } from '../../../src/services/disease.service';
+import { getCachedDiseases, listDiseases } from '../../../src/services/disease.service';
 import { useLanguage } from '../../../src/context/LanguageContext';
 import { Disease } from '../../../src/types';
 import { brand, shadows } from '../../../src/constants/theme';
@@ -75,6 +75,15 @@ export default function LibraryScreen() {
 
   const load = useCallback(async (isRetry = false) => {
     if (isRetry) setState('loading');
+
+    // Show the saved copy straight away so a weak or missing connection
+    // never leaves the farmer on a spinner; the fresh list replaces it.
+    const cached = await getCachedDiseases(language);
+    if (cached) {
+      setDiseases(cached.filter((d) => !d.isHealthy));
+      setState('ready');
+    }
+
     try {
       const result = await listDiseases(language);
       setDiseases(result.filter((d) => !d.isHealthy));

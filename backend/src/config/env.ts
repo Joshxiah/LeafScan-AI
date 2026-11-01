@@ -100,5 +100,9 @@ export const env = {
   },
 
   // ---------- AI service (used in Phase 13) ----------
-  aiServiceUrl: optionalEnv('AI_SERVICE_URL', 'http://localhost:8000'),
+  // 127.0.0.1 rather than "localhost": Node may resolve localhost to
+  // IPv6 (::1) while uvicorn listens on IPv4 only.
+  aiServiceUrl: optionalEnv('AI_SERVICE_URL', 'http://127.0.0.1:8000'),
+  // How long Express waits for the Python service before giving up.
+  aiServiceTimeoutMs: Number(optionalEnv('AI_SERVICE_TIMEOUT_MS', '30000')),
 };

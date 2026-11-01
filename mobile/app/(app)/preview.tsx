@@ -4,12 +4,12 @@
  * Route: /preview?imageUri=...&source=camera|gallery
  *
  * Shows the chosen image and lets the farmer retake it or send it.
- * In Phase 13 the upload here is replaced by a call to
- * POST /api/detections, which uploads AND runs the AI model in one
- * request. Until then, "View Diagnosis" hands off to a mock
- * classifier - see pickMockDiagnosis() in src/data/scanStats.ts -
- * and the result is logged to src/services/scanLog.ts, so it is
- * still there the next time Home or History load.
+ * "Use this image" uploads the photo (POST /api/uploads), then asks
+ * the server to classify it (POST /api/detections/scan), which runs
+ * the real model and records the scan. The verdict is also logged to
+ * src/services/scanLog.ts. Classifying needs the server, so with no
+ * connection the farmer is asked to try again rather than shown a
+ * made-up result.
  */
 
 import { useState } from 'react';
@@ -27,10 +27,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { uploadLeafImage, UploadResult } from '../../src/services/upload.service';
 import { getErrorMessage, ApiError } from '../../src/services/api';
 import { goToDiagnosis } from '../../src/navigation/diagnosis';
-import { pickMockDiagnosis } from '../../src/data/scanStats';
+import { ScanClassLabel } from '../../src/data/scanStats';
 import { addScan, ScanEntry } from '../../src/services/scanLog';
-import { queuePendingScan } from '../../src/services/pendingScans';
-import { recordDetection } from '../../src/services/detection.service';
+import { scanLeaf } from '../../src/services/detection.service';
 import { useLanguage } from '../../src/context/LanguageContext';
 import { useAuth } from '../../src/context/AuthContext';
 import { withAuthToken } from '../../src/utils/media';
@@ -49,9 +48,11 @@ export default function PreviewScreen() {
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
-  // Set when there was no connection: the scan is saved on the phone
-  // and uploaded automatically once the phone is back online.
-  const [offlineScan, setOfflineScan] = useState<ScanEntry | null>(null);
+  // The server's verdict. Set once the photo has been classified.
+  const [scanResult, setScanResult] = useState<{
+    classLabel: ScanClassLabel;
+    confidence: number;
+  } | null>(null);
 
   if (!imageUri) {
     return (
@@ -71,32 +72,13 @@ export default function PreviewScreen() {
     setIsUploading(true);
 
     try {
-      const result = await uploadLeafImage(imageUri);
-      setUploadResult(result);
-    } catch (error) {
-      const isOffline = error instanceof ApiError && (error.status === 0 || error.status === 408);
+      // Keep an earlier successful upload, so a retry after a failed
+      // scan does not upload the same photo twice.
+      const uploaded = uploadResult ?? (await uploadLeafImage(imageUri));
+      setUploadResult(uploaded);
 
-      if (isOffline && user) {
-        try {
-          const { classLabel, confidence } = pickMockDiagnosis();
-          const queued = await queuePendingScan(user.id, {
-            imageUri,
-            classLabel,
-            confidence,
-          });
-          setOfflineScan({
-            id: `pending-${queued.id}`,
-            classLabel,
-            confidence,
-            scannedAt: new Date(queued.scannedAt),
-            localUri: queued.localUri,
-            pending: true,
-          });
-          return;
-        } catch (queueError) {
-          console.error('[preview] Could not save the scan offline:', queueError);
-        }
-      }
+      setScanResult(await scanLeaf(uploaded.imagePath));
+    } catch (error) {
       setErrorMessage(getErrorMessage(error, t.preview.errorGeneric, t.apiErrors));
     } finally {
       setIsUploading(false);
@@ -113,52 +95,19 @@ export default function PreviewScreen() {
   }
 
   async function handleDone() {
-    if (offlineScan) {
-      goToDiagnosis(router, offlineScan, { replace: true });
-      return;
-    }
+    if (!scanResult) return;
 
-    const { classLabel, confidence } = pickMockDiagnosis();
-
-    // Send the scan to the backend so the CAO's Detections page and
-    // dashboard see it. If that fails, queue it (the photo is already
-    // uploaded) so it is retried later and History never disagrees
-    // with the server.
+    // The server already recorded this scan when it classified it; the
+    // on-device log is just the offline fallback for Home / History.
     let scan: ScanEntry = {
       id: `${Date.now()}`,
-      classLabel,
-      confidence,
+      classLabel: scanResult.classLabel,
+      confidence: scanResult.confidence,
       scannedAt: new Date(),
       imagePath: uploadResult?.imagePath,
       imageUrl: uploadResult?.imageUrl,
     };
-
-    if (uploadResult?.imagePath) {
-      try {
-        await recordDetection({
-          imagePath: uploadResult.imagePath,
-          predictedClass: classLabel,
-          confidenceScore: confidence,
-        });
-        if (user) scan = await addScan(user.id, scan);
-      } catch (error) {
-        console.warn('[preview] Could not record the detection on the server:', error);
-        if (user) {
-          const queued = await queuePendingScan(user.id, {
-            imageUri,
-            classLabel,
-            confidence,
-            imagePath: uploadResult.imagePath,
-          });
-          scan = {
-            ...scan,
-            id: `pending-${queued.id}`,
-            scannedAt: new Date(queued.scannedAt),
-            pending: true,
-          };
-        }
-      }
-    }
+    if (user) scan = await addScan(user.id, scan);
 
     // Show the farmer's own photo on the Diagnosis screen.
     goToDiagnosis(router, { ...scan, localUri: imageUri }, { replace: true });
@@ -175,18 +124,10 @@ export default function PreviewScreen() {
         </Pressable>
 
         <Text className="mt-5 text-2xl font-bold text-gray-900">
-          {offlineScan
-            ? t.preview.savedOfflineTitle
-            : uploadResult
-              ? t.preview.uploadedTitle
-              : t.preview.reviewTitle}
+          {scanResult ? t.preview.uploadedTitle : t.preview.reviewTitle}
         </Text>
         <Text className="mt-1 text-sm text-gray-500">
-          {offlineScan
-            ? t.preview.savedOfflineSubtitle
-            : uploadResult
-              ? t.preview.uploadedSubtitle
-              : t.preview.reviewSubtitle}
+          {scanResult ? t.preview.uploadedSubtitle : t.preview.reviewSubtitle}
         </Text>
 
         {/* ---------- The image ---------- */}
@@ -227,7 +168,7 @@ export default function PreviewScreen() {
         )}
 
         {/* ---------- Actions ---------- */}
-        {!uploadResult && !offlineScan ? (
+        {!scanResult ? (
           <View className="mt-7">
             <Pressable
               onPress={handleUpload}

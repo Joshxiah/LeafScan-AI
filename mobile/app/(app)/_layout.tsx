@@ -6,16 +6,26 @@
  * without a valid session.
  */
 
+import { useEffect } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { Stack, Redirect } from 'expo-router';
 
 import { useAuth } from '../../src/context/AuthContext';
 import { NotificationsProvider } from '../../src/context/NotificationsContext';
 import { PendingScanSync } from '../../src/components/PendingScanSync';
+import { useLanguage } from '../../src/context/LanguageContext';
+import { listDiseases } from '../../src/services/disease.service';
 import { colors } from '../../src/constants/theme';
 
 export default function ProtectedLayout() {
   const { isAuthenticated, isLoading } = useAuth();
+  const { language } = useLanguage();
+
+  // Save the disease library on the device while there is a connection,
+  // so the Library tab and diagnosis screen work later with none.
+  useEffect(() => {
+    if (isAuthenticated) listDiseases(language).catch(() => {});
+  }, [isAuthenticated, language]);
 
   // Still checking the saved token - show a spinner rather than
   // briefly flashing the login screen.

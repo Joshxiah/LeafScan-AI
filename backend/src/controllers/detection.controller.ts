@@ -2,11 +2,26 @@
  * HTTP handlers for leaf-scan detections.
  */
 
+import fs from 'fs/promises';
+import path from 'path';
 import { Request, Response } from 'express';
+import { env } from '../config/env';
+import * as aiService from '../services/ai.service';
 import * as detectionService from '../services/detection.service';
 import type { RiskLevel, DetectionResult } from '../services/detection.service';
 import { ApiError } from '../utils/ApiError';
-import { validate, createDetectionSchema, reviewDetectionSchema } from '../utils/validation';
+import {
+  validate,
+  createDetectionSchema,
+  scanDetectionSchema,
+  reviewDetectionSchema,
+} from '../utils/validation';
+
+/** Absolute path to backend/uploads - the same folder the upload middleware writes to. */
+const UPLOAD_DIRECTORY = path.resolve(__dirname, '../../', env.upload.dir);
+
+/** What detections.model_version records for scans classified by the server. */
+const SERVER_MODEL_VERSION = 'mobilenetv2-v2';
 
 /** A 'YYYY-MM-DD' query param, or undefined when absent. Anything else is a 400. */
 function parseDateParam(value: unknown): string | undefined {
@@ -34,6 +49,77 @@ export async function createDetection(req: Request, res: Response): Promise<void
     success: true,
     message: 'Detection recorded',
     data: { detection },
+  });
+}
+
+/**
+ * Turns the relative "uploads/xxx.jpg" a client sent into an absolute
+ * path, guaranteed to sit directly inside the uploads folder.
+ * 400 if it escapes the folder, 404 if the file is not there.
+ */
+async function resolveUploadedImage(imagePath: string): Promise<string> {
+  // The schema already allows only "uploads/<safe name>"; basename +
+  // the containment check below are a second, independent guard.
+  const absolutePath = path.resolve(UPLOAD_DIRECTORY, path.basename(imagePath));
+
+  if (path.dirname(absolutePath) !== UPLOAD_DIRECTORY) {
+    throw ApiError.badRequest('Invalid image path');
+  }
+
+  try {
+    const stats = await fs.stat(absolutePath);
+    if (!stats.isFile()) {
+      throw ApiError.notFound('Image not found');
+    }
+  } catch (error) {
+    if (error instanceof ApiError) throw error;
+    throw ApiError.notFound('Image not found');
+  }
+
+  return absolutePath;
+}
+
+/**
+ * POST /api/detections/scan
+ * Farmer only. The photo was already uploaded via POST /api/uploads;
+ * the server classifies it with the Python AI service, then records
+ * the result exactly like POST /api/detections does.
+ */
+export async function scanDetection(req: Request, res: Response): Promise<void> {
+  if (!req.user) {
+    throw ApiError.unauthorized('Authentication required');
+  }
+
+  const input = validate(scanDetectionSchema, req.body);
+  const absolutePath = await resolveUploadedImage(input.imagePath);
+
+  const prediction = await aiService.predictLeaf(absolutePath);
+
+  // Risk level is NOT decided here - createDetection() reads it from
+  // diseases.default_risk_level for the predicted class.
+  const detection = await detectionService.createDetection(
+    req.user.userId,
+    {
+      imagePath: input.imagePath,
+      predictedClass: prediction.classLabel,
+      confidenceScore: prediction.confidence,
+      detectedAt: input.detectedAt,
+    },
+    SERVER_MODEL_VERSION
+  );
+
+  res.status(201).json({
+    success: true,
+    message: 'Leaf scanned',
+    data: {
+      detection,
+      prediction: {
+        classLabel: prediction.classLabel,
+        confidence: prediction.confidence,
+        confidenceLevel: prediction.confidenceLevel,
+        probabilities: prediction.probabilities,
+      },
+    },
   });
 }
 

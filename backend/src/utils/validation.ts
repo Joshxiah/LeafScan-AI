@@ -436,6 +436,25 @@ export const createDetectionSchema = z.object({
 });
 
 /**
+ * A leaf scan the server classifies itself (Phase 13). The phone has
+ * already uploaded the photo via POST /api/uploads and sends back the
+ * relative path it got. Only a bare filename directly inside uploads/
+ * is accepted - no "..", no subfolders, no leading slash - so the path
+ * can never point at anything outside the uploads folder. (The
+ * controller also re-checks the resolved path on disk.)
+ */
+export const scanDetectionSchema = z.object({
+  imagePath: z
+    .string()
+    .trim()
+    .max(255)
+    .regex(/^uploads\/[A-Za-z0-9._-]+$/, 'Invalid image path')
+    .refine((value) => !value.includes('..'), 'Invalid image path'),
+  /** When the leaf was actually scanned. Defaults to now. */
+  detectedAt: z.string().datetime().optional(),
+});
+
+/**
  * A CAO agronomist reviewing a leaf scan. This never edits the
  * model's output - it records a parallel verdict: leave it
  * 'unreviewed', mark it 'confirmed', or mark it 'corrected' and name
@@ -457,6 +476,7 @@ export type UpdateDiseaseInput = z.infer<typeof updateDiseaseSchema>;
 export type CreateRecommendationInput = z.infer<typeof createRecommendationSchema>;
 export type UpdateRecommendationInput = z.infer<typeof updateRecommendationSchema>;
 export type CreateDetectionInput = z.infer<typeof createDetectionSchema>;
+export type ScanDetectionInput = z.infer<typeof scanDetectionSchema>;
 export type ReviewDetectionInput = z.infer<typeof reviewDetectionSchema>;
 
 export type RegisterInput = z.infer<typeof registerSchema>;

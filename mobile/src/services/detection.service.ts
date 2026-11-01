@@ -1,10 +1,12 @@
 /**
  * Records and reads the farmer's leaf scans on the backend.
  *
- * The phone still runs the stand-in classifier (pickMockDiagnosis
- * in src/data/scanStats.ts); recordDetection() writes the result to
- * the server's `detections` table so it shows up on the CAO's
- * Detections page and dashboard, and loadFarmerScans() reads it back
+ * scanLeaf() sends an uploaded photo to the server, which classifies
+ * it with the real MobileNetV2 model and records the scan in the
+ * `detections` table (CAO Detections page and dashboard).
+ * recordDetection() is the older path that only records a verdict the
+ * phone already has - it now serves scans queued before the server
+ * classified them. loadFarmerScans() reads the rows back
  * for Home / History / the CAO report - the exact same rows the CAO
  * sees, rather than the on-device log, which only ever reflects this
  * one phone and can drift (or leak between accounts on a shared
@@ -30,6 +32,31 @@ export interface RecordDetectionPayload {
 
 export async function recordDetection(payload: RecordDetectionPayload): Promise<void> {
   await api.post<unknown>('/detections', payload);
+}
+
+/** What POST /api/detections/scan returns inside "data" (only the parts the phone uses). */
+interface ScanLeafResponse {
+  prediction: {
+    classLabel: ScanClassLabel;
+    /** 0-100 */
+    confidence: number;
+  };
+}
+
+/**
+ * Has the server classify an already-uploaded photo and record the
+ * scan. `imagePath` is the "uploads/xxx.jpg" from POST /api/uploads.
+ * Throws ApiError: 503 when the AI service is down, 404 if the photo
+ * is gone, 0 / 408 with no connection.
+ */
+export async function scanLeaf(
+  imagePath: string
+): Promise<{ classLabel: ScanClassLabel; confidence: number }> {
+  const result = await api.post<ScanLeafResponse>('/detections/scan', { imagePath });
+  return {
+    classLabel: result.prediction.classLabel,
+    confidence: Math.round(result.prediction.confidence),
+  };
 }
 
 /** One row of GET /api/detections, trimmed to what a farmer's own screens need. */
