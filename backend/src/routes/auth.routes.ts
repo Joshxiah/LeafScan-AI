@@ -13,6 +13,8 @@
  *   PATCH /api/auth/me
  */
 
+
+import { forgotPassword, verifyResetCode, resetPassword } from '../controllers/passwordResetController';
 import { Router } from 'express';
 import * as authController from '../controllers/auth.controller';
 import { authenticate } from '../middleware/auth.middleware';
@@ -43,6 +45,9 @@ router.post('/login', loginRateLimiter, authController.login);
  * POST /api/auth/forgot-password
  * PUBLIC - a locked-out user has no token. Texts a reset code by SMS.
  */
+router.post('/forgot-password', forgotPassword);
+router.post('/verify-reset-code', verifyResetCode);
+router.post('/reset-password', resetPassword);
 router.post('/forgot-password', forgotPasswordRateLimiter, authController.forgotPassword);
 
 /**

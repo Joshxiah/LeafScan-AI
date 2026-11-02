@@ -55,13 +55,19 @@ interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   requiresAuth?: boolean;
+  /**
+   * Return the whole JSON body instead of its `data` field. For the few
+   * endpoints that reply with a bare `{ message }` / `{ resetToken }`
+   * rather than the usual `{ success, data }` envelope.
+   */
+  rawBody?: boolean;
 }
 
 async function request<T>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<T> {
-  const { method = 'GET', body, requiresAuth = true } = options;
+  const { method = 'GET', body, requiresAuth = true, rawBody = false } = options;
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -118,6 +124,10 @@ async function request<T>(
     );
   }
 
+  if (rawBody) {
+    return payload as T;
+  }
+
   if (!payload || payload.data === undefined) {
     return undefined as T;
   }
@@ -131,6 +141,10 @@ export const api = {
 
   post: <T>(endpoint: string, body?: unknown, requiresAuth = true) =>
     request<T>(endpoint, { method: 'POST', body, requiresAuth }),
+
+  /** POST for endpoints that do not wrap their reply in `{ success, data }`. */
+  postRaw: <T>(endpoint: string, body?: unknown, requiresAuth = true) =>
+    request<T>(endpoint, { method: 'POST', body, requiresAuth, rawBody: true }),
 
   put: <T>(endpoint: string, body?: unknown, requiresAuth = true) =>
     request<T>(endpoint, { method: 'PUT', body, requiresAuth }),
