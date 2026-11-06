@@ -59,7 +59,10 @@ export type ApiErrorCode =
   | 'AI_BAD_GATEWAY'
   | 'AI_BAD_RESPONSE'
   | 'IMAGE_NOT_FOUND'
-  | 'SCAN_TIME_OUT_OF_RANGE';
+  | 'SCAN_TIME_OUT_OF_RANGE'
+  // Raised by the phone itself (src/services/api.ts), not the backend.
+  | 'NETWORK_ERROR'
+  | 'REQUEST_TIMEOUT';
 
 export interface Translations {
   common: {
@@ -72,6 +75,8 @@ export interface Translations {
     waitingToUpload: string;
     scansNotSyncedTitle: string;
     scansNotSynced: (count: number) => string;
+    scansSyncedTitle: string;
+    scansSynced: (count: number) => string;
   };
 
   /**
@@ -196,6 +201,8 @@ export interface Translations {
     emptyMessage: string;
     emptyAction: string;
     libraryTeaser: string;
+    /** Photos taken offline that are still waiting to be sent to the server. */
+    pendingScans: (count: number) => string;
   };
 
   history: {
@@ -247,6 +254,9 @@ export interface Translations {
     chooseFromGallery: string;
     openingGallery: string;
     chooseFromGalleryDesc: string;
+    /** Corn-only disclaimer card, shown before the farmer picks camera or gallery. */
+    cornOnlyTitle: string;
+    cornOnlyBody: string;
     tipsTitle: string;
     tip1: string;
     tip2: string;
@@ -293,6 +303,8 @@ export interface Translations {
     chooseImageLink: string;
     savedOfflineTitle: string;
     savedOfflineSubtitle: string;
+    scanAnother: string;
+    backToHome: string;
   };
 
   treatmentLevels: {
@@ -357,6 +369,8 @@ export interface Translations {
     submit: string;
     submitting: string;
     errorGeneric: string;
+    allSentTitle: string;
+    allSentMessage: string;
   };
 
   reportSuccess: {
@@ -436,6 +450,11 @@ export const en: Translations = {
       count === 1
         ? '1 scan could not be saved because it is older than 30 days, its photo is gone, or the photo is not a corn leaf.'
         : `${count} scans could not be saved because they are older than 30 days, their photos are gone, or the photos are not corn leaves.`,
+    scansSyncedTitle: 'Your photos have been scanned',
+    scansSynced: (count) =>
+      count === 1
+        ? '1 photo saved offline has been uploaded and scanned. Open History to see the result.'
+        : `${count} photos saved offline have been uploaded and scanned. Open History to see the results.`,
   },
 
   diseaseNames: {
@@ -557,6 +576,10 @@ export const en: Translations = {
       'Scan a corn leaf to see your first diagnosis. Your scan activity and history will build up here.',
     emptyAction: 'Scan Your First Leaf',
     libraryTeaser: 'See what LeafScan AI can identify',
+    pendingScans: (count) =>
+      count === 1
+        ? '1 photo is saved on your phone and waiting for internet. It will be scanned automatically once you are back online.'
+        : `${count} photos are saved on your phone and waiting for internet. They will be scanned automatically once you are back online.`,
   },
 
   history: {
@@ -610,6 +633,9 @@ export const en: Translations = {
     chooseFromGallery: 'Choose from Gallery',
     openingGallery: 'Opening gallery...',
     chooseFromGalleryDesc: 'Select a corn leaf photo you already have',
+    cornOnlyTitle: 'Corn leaves only',
+    cornOnlyBody:
+      'LeafScan AI can only scan corn leaves. Other crops are not supported, and photos that are not corn leaves will be disregarded.',
     tipsTitle: 'For the best results',
     tip1: 'Photograph a single leaf, filling most of the frame.',
     tip2: 'Use natural daylight. Avoid deep shadow.',
@@ -640,7 +666,7 @@ export const en: Translations = {
   preview: {
     backLink: '‹ Back',
     reviewTitle: 'Review Your Image',
-    reviewSubtitle: 'Make sure the leaf is clearly visible before sending.',
+    reviewSubtitle: 'Make sure this is a corn leaf and clearly visible before sending.',
     uploadedTitle: 'Image Uploaded',
     uploadedSubtitle: 'The image below is being served from the server.',
     errorGeneric: 'The image could not be uploaded. Please try again.',
@@ -657,7 +683,10 @@ export const en: Translations = {
     noImage: 'No image was provided.',
     chooseImageLink: 'Choose an Image',
     savedOfflineTitle: 'Saved on Your Phone',
-    savedOfflineSubtitle: 'No internet right now. This scan will upload automatically once you are back online.',
+    savedOfflineSubtitle:
+      'No internet right now. Your photo is saved on this phone and will be uploaded and scanned automatically once you are back online. You will find the result in History.',
+    scanAnother: 'Scan Another Leaf',
+    backToHome: 'Back to Home',
   },
 
   treatmentLevels: {
@@ -725,6 +754,9 @@ export const en: Translations = {
     submit: 'Submit Report to CAO',
     submitting: 'Sending...',
     errorGeneric: 'We could not send your report. Please try again.',
+    allSentTitle: 'All scans reported',
+    allSentMessage:
+      'Your scans have already been sent to the CAO. Scan more leaves to send a new report.',
   },
 
   reportSuccess: {
@@ -812,6 +844,8 @@ export const en: Translations = {
     AI_BAD_RESPONSE: 'The disease checker had a problem. Please try again in a moment.',
     IMAGE_NOT_FOUND: 'The uploaded photo could not be found. Please scan again.',
     SCAN_TIME_OUT_OF_RANGE: 'This saved scan is older than 30 days and can no longer be uploaded.',
+    NETWORK_ERROR: 'No internet connection. Please turn on your mobile data or Wi-Fi, then try again.',
+    REQUEST_TIMEOUT: 'The connection is too slow or unstable. Please check your internet and try again.',
   },
 };
 
@@ -827,6 +861,9 @@ export const ceb: Translations = {
     scansNotSyncedTitle: 'Dili ma-save ang ubang scan',
     scansNotSynced: (count) =>
       `${count} ka scan wala ma-save kay lapas na sa 30 ka adlaw, nawala na ang litrato, o dili dahon sa mais ang litrato.`,
+    scansSyncedTitle: 'Na-scan na ang imong mga litrato',
+    scansSynced: (count) =>
+      `${count} ka litrato nga gitipigan offline ang na-upload ug na-scan na. Ablihi ang History aron makita ang resulta.`,
   },
 
   diseaseNames: {
@@ -949,6 +986,10 @@ export const ceb: Translations = {
       'I-scan ang usa ka dahon sa mais aron makita ang imong unang diagnosis. Dinhi motubo ang imong kalihokan ug kasaysayan sa scan.',
     emptyAction: 'I-scan ang Unang Dahon',
     libraryTeaser: 'Tan-awa kung unsa ang mahibaloan sa LeafScan AI',
+    pendingScans: (count) =>
+      count === 1
+        ? '1 ka litrato ang gitipigan sa imong telepono ug naghulat og internet. Awtomatiko kini i-scan inig naa na pud kay internet.'
+        : `${count} ka litrato ang gitipigan sa imong telepono ug naghulat og internet. Awtomatiko kini i-scan inig naa na pud kay internet.`,
   },
 
   history: {
@@ -1002,6 +1043,9 @@ export const ceb: Translations = {
     chooseFromGallery: 'Pagpili gikan sa Gallery',
     openingGallery: 'Ginaabli ang gallery...',
     chooseFromGalleryDesc: 'Pagpili og litrato sa dahon sa mais nga naa na nimo',
+    cornOnlyTitle: 'Dahon sa mais lang',
+    cornOnlyBody:
+      'Ang LeafScan AI para lang sa pag-scan sa dahon sa mais. Dili kini magamit sa ubang tanom, ug ang mga litrato nga dili dahon sa mais dili tagdon.',
     tipsTitle: 'Para sa labing maayong resulta',
     tip1: 'Kuhaa ang usa lang ka dahon, punua ang kadaghanan sa frame.',
     tip2: 'Gamita ang natural nga suga sa adlaw. Likayi ang lawom nga landong.',
@@ -1032,7 +1076,7 @@ export const ceb: Translations = {
   preview: {
     backLink: '‹ Balik',
     reviewTitle: 'Susiha ang Imong Litrato',
-    reviewSubtitle: 'Siguroha nga klaro ang dahon sa wala pa ipadala.',
+    reviewSubtitle: 'Siguroha nga dahon kini sa mais ug klaro kini sa wala pa ipadala.',
     uploadedTitle: 'Na-upload na ang Litrato',
     uploadedSubtitle: 'Ang litrato sa ubos gikan na sa server.',
     errorGeneric: 'Wala ma-upload ang litrato. Palihug sulayi pag-usab.',
@@ -1049,7 +1093,10 @@ export const ceb: Translations = {
     noImage: 'Walay litrato nga gihatag.',
     chooseImageLink: 'Pagpili og Litrato',
     savedOfflineTitle: 'Gitipigan sa Imong Telepono',
-    savedOfflineSubtitle: 'Walay internet karon. Awtomatiko ma-upload kini nga scan inig naa na pud kay internet.',
+    savedOfflineSubtitle:
+      'Walay internet karon. Gitipigan ang imong litrato ug awtomatiko kini i-upload ug i-scan inig naa na pud kay internet. Makita nimo ang resulta sa History.',
+    scanAnother: 'Mag-scan og Lain nga Dahon',
+    backToHome: 'Balik sa Home',
   },
 
   treatmentLevels: {
@@ -1122,6 +1169,9 @@ export const ceb: Translations = {
     submit: 'Ipadala ang Report sa CAO',
     submitting: 'Ginapadala...',
     errorGeneric: 'Dili namo mapadala ang imong report. Palihug sulayi pag-usab.',
+    allSentTitle: 'Naipadala na tanang scan',
+    allSentMessage:
+      'Ang imong mga scan gipadala na sa CAO. Mag-scan og dugang dahon aron makapadala og bag-ong report.',
   },
 
   reportSuccess: {
@@ -1210,6 +1260,8 @@ export const ceb: Translations = {
     AI_BAD_RESPONSE: 'Naay problema sa pag-check sa sakit. Palihug sulayi pag-usab human sa pipila ka gutlo.',
     IMAGE_NOT_FOUND: 'Wala makit-i ang na-upload nga litrato. Palihug pag-scan pag-usab.',
     SCAN_TIME_OUT_OF_RANGE: 'Kini nga na-save nga scan kay sobra na sa 30 ka adlaw, dili na ma-upload.',
+    NETWORK_ERROR: 'Walay koneksyon sa internet. Palihug ablihi ang imong mobile data o Wi-Fi, dayon sulayi pag-usab.',
+    REQUEST_TIMEOUT: 'Hinay o dili lig-on ang koneksyon. Palihug susiha ang imong internet ug sulayi pag-usab.',
   },
 };
 

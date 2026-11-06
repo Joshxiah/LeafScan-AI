@@ -7,14 +7,13 @@
  *   POST  /api/auth/forgot-password
  *   POST  /api/auth/reset-password
  *   POST  /api/auth/admin/forgot-password
+ *   POST  /api/auth/admin/verify-reset-code
  *   POST  /api/auth/admin/reset-password
  *   POST  /api/auth/change-password
  *   GET   /api/auth/me
  *   PATCH /api/auth/me
  */
 
-
-import { forgotPassword, verifyResetCode, resetPassword } from '../controllers/passwordResetController';
 import { Router } from 'express';
 import * as authController from '../controllers/auth.controller';
 import { authenticate } from '../middleware/auth.middleware';
@@ -45,9 +44,6 @@ router.post('/login', loginRateLimiter, authController.login);
  * POST /api/auth/forgot-password
  * PUBLIC - a locked-out user has no token. Texts a reset code by SMS.
  */
-router.post('/forgot-password', forgotPassword);
-router.post('/verify-reset-code', verifyResetCode);
-router.post('/reset-password', resetPassword);
 router.post('/forgot-password', forgotPasswordRateLimiter, authController.forgotPassword);
 
 /**
@@ -64,6 +60,17 @@ router.post(
   '/admin/forgot-password',
   forgotPasswordRateLimiter,
   authController.adminForgotPassword
+);
+
+/**
+ * POST /api/auth/admin/verify-reset-code
+ * PUBLIC - checks the emailed code before the new-password step.
+ * Wrong guesses count toward the same 5-attempt lock as reset-password.
+ */
+router.post(
+  '/admin/verify-reset-code',
+  resetPasswordRateLimiter,
+  authController.adminVerifyResetCode
 );
 
 /**

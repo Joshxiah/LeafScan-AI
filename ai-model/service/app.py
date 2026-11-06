@@ -145,7 +145,10 @@ def preprocess(raw_bytes: bytes) -> np.ndarray:
     img = ImageOps.exif_transpose(img).convert("RGB")
     reject_if_not_a_leaf(img)
 
-    arr = np.asarray(img, dtype=np.float32)
+    # uint8 ang i-pasa, DILI float32: ang bilinear resize mismo mo-convert ngadto sa float32
+    # (parehas ra gyud ang resulta), pero ang float32 nga kopya sa 12MP nga litrato kay
+    # 140 MB (ug usa pa ka kopya sulod sa TensorFlow) - mapakyas kini sa PC nga gamay ang libre nga memory.
+    arr = np.asarray(img)
     # Parehas nga resize method sa image_dataset_from_directory sa training
     arr = tf.image.resize(arr, (IMG_H, IMG_W), method="bilinear").numpy()
     return np.expand_dims(arr, axis=0)       # shape: (1, 224, 224, 3)
@@ -157,7 +160,7 @@ def preprocess(raw_bytes: bytes) -> np.ndarray:
 app = FastAPI(title="LeafScan AI Prediction Service", version="1.0.0")
 
 
-@app.get("/health")
+@app.get("/health") 
 def health():
     return {
         "status": "ok",

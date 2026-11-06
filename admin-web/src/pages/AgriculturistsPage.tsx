@@ -19,6 +19,7 @@ import * as agriculturistService from '../services/agriculturist.service';
 import * as farmerService from '../services/farmer.service';
 import * as uploadService from '../services/upload.service';
 import { mediaUrl } from '../services/media';
+import { PHONE_MAX_LENGTH, sanitizePhone } from '../utils/phone';
 import type { AgriculturistAccountStatus, AgriculturistSummary } from '../types';
 
 const PAGE_SIZE = 20;
@@ -363,9 +364,10 @@ function CreateAgriculturistModal({
         <Field label="Full name" value={fullName} onChange={setFullName} placeholder="Grace Villaruz" />
         <Field
           label="Phone (optional)"
+          type="tel"
           value={phoneNumber}
           onChange={setPhoneNumber}
-          placeholder="09171234567 or office landline"
+          placeholder="09171234567"
         />
         <Field
           label="Email (optional)"
@@ -526,7 +528,13 @@ function AgriculturistDetailModal({
 
       <div className="mt-4 space-y-3">
         <Field label="Full name" value={fullName} onChange={setFullName} />
-        <Field label="Phone" value={phoneNumber} onChange={setPhoneNumber} />
+        <Field
+          label="Phone"
+          type="tel"
+          value={phoneNumber}
+          onChange={setPhoneNumber}
+          placeholder="09171234567"
+        />
         <Field label="Email" value={email} onChange={setEmail} />
         <BarangayInput value={barangay} onChange={setBarangay} barangays={barangays} />
 
@@ -693,19 +701,24 @@ function Field({
   value,
   onChange,
   placeholder,
+  type = 'text',
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
+  /** 'tel' accepts digits only (see sanitizePhone). */
+  type?: 'text' | 'tel';
 }) {
   return (
     <label className="block">
       <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</span>
       <input
-        type="text"
+        type={type}
+        inputMode={type === 'tel' ? 'numeric' : undefined}
+        maxLength={type === 'tel' ? PHONE_MAX_LENGTH : undefined}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => onChange(type === 'tel' ? sanitizePhone(e.target.value) : e.target.value)}
         placeholder={placeholder}
         className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
       />

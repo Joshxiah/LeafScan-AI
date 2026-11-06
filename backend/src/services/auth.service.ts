@@ -437,16 +437,12 @@ async function issueResetCode(userId: number): Promise<string> {
 }
 
 /**
- * Checks `code` against the user's latest unused code. If it is right,
- * sets the new password and burns every code for the user. Throws a
- * deliberately vague 400 for every failure mode except an expired or
- * locked code.
+ * Checks `code` against the user's latest unused code without using it
+ * up, so a screen can confirm the code before asking for a new password.
+ * A wrong guess counts toward the 5-attempt lock. Throws a deliberately
+ * vague 400 for every failure mode except an expired or locked code.
  */
-async function consumeResetCode(
-  userId: number,
-  code: string,
-  newPassword: string
-): Promise<void> {
+async function checkResetCode(userId: number, code: string): Promise<void> {
   const [codeRows] = await pool.query<ResetCodeRow[]>(
     `SELECT * FROM password_reset_codes
      WHERE user_id = ? AND consumed_at IS NULL
@@ -480,6 +476,18 @@ async function consumeResetCode(
     );
     throw invalidResetCode();
   }
+}
+
+/**
+ * Checks `code` (see checkResetCode). If it is right, sets the new
+ * password and burns every code for the user.
+ */
+async function consumeResetCode(
+  userId: number,
+  code: string,
+  newPassword: string
+): Promise<void> {
+  await checkResetCode(userId, code);
 
   // Correct. Swap the password and burn every code for this user.
   const passwordHash = await hashPassword(newPassword);
@@ -613,7 +621,28 @@ export async function requestAdminPasswordReset(email: string): Promise<void> {
 }
 
 /**
- * Step 2. Verifies the emailed code and sets the new password.
+ * Step 2. Confirms the emailed code is right, without using it up, so
+ * the page can move on to the new-password step. The code is sent again
+ * with the new password in step 3. Wrong address and wrong code fail
+ * identically (see checkResetCode).
+ */
+export async function verifyAdminResetCode(email: string, code: string): Promise<void> {
+  const [rows] = await pool.query<UserRow[]>(
+    "SELECT id FROM users WHERE email = ? AND role = 'admin' AND is_active = 1 LIMIT 1",
+    [email]
+  );
+
+  const user = rows[0];
+
+  if (!user) {
+    throw invalidResetCode();
+  }
+
+  await checkResetCode(user.id, code);
+}
+
+/**
+ * Step 3. Verifies the emailed code and sets the new password.
  * Wrong address and wrong code fail identically (see consumeResetCode).
  */
 export async function resetAdminPassword(

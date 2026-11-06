@@ -274,15 +274,6 @@ export default function SettingsScreen() {
             >
               {user?.fullName ?? 'Farmer'}
             </Text>
-            <Pressable
-              onPress={() => router.push('/report')}
-              className="mt-1.5 flex-row items-center self-start rounded-full bg-[#E7F4EA] px-3 py-1 active:opacity-80"
-            >
-              <Ionicons name="paper-plane-outline" size={12} color={brand.accent} />
-              <Text className="ml-1 text-[12px] font-semibold text-[#2F6D46]">
-                {t.settings.submitReport}
-              </Text>
-            </Pressable>
           </View>
         </View>
 
@@ -325,6 +316,22 @@ export default function SettingsScreen() {
             isLast
           />
         </View>
+
+        {/* ---------- Submit report to the CAO ---------- */}
+        <Pressable
+          onPress={() => router.push('/report')}
+          accessibilityRole="button"
+          className="mt-4 flex-row items-center rounded-2xl border border-[#EEF5EF] bg-white px-4 py-3 active:bg-[#F5FAF6]"
+          style={shadows.card}
+        >
+          <View className="h-9 w-9 items-center justify-center rounded-xl bg-[#E7F4EA]">
+            <Ionicons name="paper-plane-outline" size={17} color={brand.accent} />
+          </View>
+          <Text className="ml-3 flex-1 text-[14px] font-semibold text-[#16241B]">
+            {t.settings.submitReport}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={brand.faint} />
+        </Pressable>
 
         {/* ---------- Security ---------- */}
         <SectionLabel text={t.settings.changePassword} />

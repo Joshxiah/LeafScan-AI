@@ -13,6 +13,7 @@ import { View, Text, Pressable, ActivityIndicator, Linking, StyleSheet } from 'r
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 
 import { useLanguage } from '../../src/context/LanguageContext';
 import { colors } from '../../src/constants/theme';
@@ -128,9 +129,11 @@ export default function CameraScreen() {
           <View className="flex-row items-center justify-between px-5 pt-2">
             <Pressable
               onPress={() => router.back()}
-              className="h-10 w-10 items-center justify-center rounded-full bg-black/40"
+              hitSlop={8}
+              accessibilityLabel={t.common.back}
+              className="h-10 w-10 items-center justify-center rounded-full bg-black/50 active:bg-black/70"
             >
-              <Text className="text-lg text-white">✕</Text>
+              <Ionicons name="close" size={22} color={colors.white} />
             </Pressable>
 
             <Text className="text-sm font-medium text-white">
@@ -139,9 +142,10 @@ export default function CameraScreen() {
 
             <Pressable
               onPress={() => setFacing((f) => (f === 'back' ? 'front' : 'back'))}
-              className="h-10 w-10 items-center justify-center rounded-full bg-black/40"
+              hitSlop={8}
+              className="h-10 w-10 items-center justify-center rounded-full bg-black/50 active:bg-black/70"
             >
-              <Text className="text-base text-white">⟳</Text>
+              <Ionicons name="camera-reverse-outline" size={22} color={colors.white} />
             </Pressable>
           </View>
 

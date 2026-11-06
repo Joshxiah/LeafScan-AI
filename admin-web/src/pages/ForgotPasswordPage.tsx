@@ -4,11 +4,12 @@
  * Route: /forgot-password
  *
  * Three steps on one page:
- *   1. enter the account's email -> POST /api/auth/forgot-password
+ *   1. enter the account's email -> POST /api/auth/admin/forgot-password
  *      emails a 6-digit code
- *   2. enter the code -> POST /api/auth/verify-reset-code
- *      returns a short-lived resetToken, kept in component state only
- *   3. enter a new password -> POST /api/auth/reset-password
+ *   2. enter the code -> POST /api/auth/admin/verify-reset-code
+ *      confirms it without using it up
+ *   3. enter a new password -> POST /api/auth/admin/reset-password
+ *      sent with the email and code kept in component state
  *
  * Step 2 is always shown after step 1, whether or not the address is
  * registered, so the page does not reveal which emails have accounts.
@@ -26,6 +27,9 @@ const EMAIL_PATTERN = /^\S+@\S+\.\S+$/;
 
 /** The backend sends at most one code a minute per account. */
 const RESEND_COOLDOWN_SECONDS = 60;
+
+/** Reads the same whether or not the address is registered. */
+const CODE_SENT_NOTICE = 'If a CAO account with that email exists, a reset code has been sent to it.';
 
 type Step = 'email' | 'code' | 'password';
 
@@ -47,7 +51,6 @@ export function ForgotPasswordPage() {
   const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
-  const [resetToken, setResetToken] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -81,9 +84,9 @@ export function ForgotPasswordPage() {
     setIsSubmitting(true);
 
     try {
-      const message = await authService.sendResetCode(cleanEmail);
+      await authService.requestPasswordReset(cleanEmail);
       setEmail(cleanEmail);
-      setNotice(message);
+      setNotice(CODE_SENT_NOTICE);
       setResendSeconds(RESEND_COOLDOWN_SECONDS);
 
       if (isResend) {
@@ -117,8 +120,7 @@ export function ForgotPasswordPage() {
     setIsSubmitting(true);
 
     try {
-      const token = await authService.verifyResetCode(email, code);
-      setResetToken(token);
+      await authService.verifyResetCode(email, code);
       setStep('password');
     } catch (error) {
       setErrorMessage(messageFor(error));
@@ -146,7 +148,7 @@ export function ForgotPasswordPage() {
     setIsSubmitting(true);
 
     try {
-      await authService.resetPasswordWithToken(resetToken, password);
+      await authService.resetPassword(email, code, password);
       navigate('/login', { replace: true, state: { resetDone: true } });
     } catch (error) {
       setErrorMessage(messageFor(error));
@@ -158,7 +160,6 @@ export function ForgotPasswordPage() {
   function changeEmail() {
     setStep('email');
     setCode('');
-    setResetToken('');
     setPassword('');
     setConfirmPassword('');
     setErrorMessage(null);

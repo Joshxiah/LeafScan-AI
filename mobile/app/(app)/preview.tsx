@@ -8,8 +8,10 @@
  * the server to classify it (POST /api/detections/scan), which runs
  * the real model and records the scan. The verdict is also logged to
  * src/services/scanLog.ts. Classifying needs the server, so with no
- * connection the farmer is asked to try again rather than shown a
- * made-up result.
+ * connection the photo is saved on the phone instead
+ * (src/services/pendingScans.ts) and uploaded + classified
+ * automatically once the phone is back online - the farmer is never
+ * shown a made-up result in the meantime.
  */
 
 import { useState } from 'react';
@@ -28,6 +30,7 @@ import { uploadLeafImage, UploadResult } from '../../src/services/upload.service
 import { getErrorMessage, ApiError } from '../../src/services/api';
 import { goToDiagnosis } from '../../src/navigation/diagnosis';
 import { addScan, ScanEntry } from '../../src/services/scanLog';
+import { queuePendingScan } from '../../src/services/pendingScans';
 import { scanLeaf, ScanLeafResult } from '../../src/services/detection.service';
 import { useLanguage } from '../../src/context/LanguageContext';
 import { useAuth } from '../../src/context/AuthContext';
@@ -52,6 +55,9 @@ export default function PreviewScreen() {
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   // The server's verdict. Set once the photo has been classified.
   const [scanResult, setScanResult] = useState<ScanLeafResult | null>(null);
+  // There was no connection: the photo is saved on the phone and goes to
+  // the server by itself once the phone is back online.
+  const [savedOffline, setSavedOffline] = useState(false);
 
   if (!imageUri) {
     return (
@@ -71,14 +77,40 @@ export default function PreviewScreen() {
     setNotCornLeaf(false);
     setIsUploading(true);
 
+    // Where the photo already is on the server, if the upload got through
+    // before the connection dropped.
+    let uploadedPath = uploadResult?.imagePath;
+
     try {
       // Keep an earlier successful upload, so a retry after a failed
       // scan does not upload the same photo twice.
       const uploaded = uploadResult ?? (await uploadLeafImage(imageUri));
+      uploadedPath = uploaded.imagePath;
       setUploadResult(uploaded);
 
       setScanResult(await scanLeaf(uploaded.imagePath));
     } catch (error) {
+      // No connection at all: keep the photo on the phone and let
+      // PendingScanSync send it later, instead of showing an error.
+      // Wi-Fi with no internet behind it does not fail fast, it just hangs
+      // until the upload times out - treated the same, but only while the
+      // photo was still uploading. A timeout during the scan itself may
+      // already have been recorded by the server, so that stays an error
+      // the farmer can retry (queuing it could scan the same photo twice).
+      const noConnection =
+        error instanceof ApiError &&
+        (error.code === 'NETWORK_ERROR' ||
+          (error.code === 'REQUEST_TIMEOUT' && uploadedPath === undefined));
+      if (user && noConnection) {
+        try {
+          await queuePendingScan(user.id, { imageUri, imagePath: uploadedPath });
+          setSavedOffline(true);
+          return;
+        } catch (queueError) {
+          console.error('[preview] Could not save the scan offline:', queueError);
+        }
+      }
+
       setNotCornLeaf(error instanceof ApiError && error.code === 'NOT_A_CORN_LEAF');
       setErrorMessage(getErrorMessage(error, t.preview.errorGeneric, t.apiErrors));
     } finally {
@@ -127,19 +159,31 @@ export default function PreviewScreen() {
         </Pressable>
 
         <Text className="mt-5 text-2xl font-bold text-gray-900">
-          {scanResult ? t.preview.uploadedTitle : t.preview.reviewTitle}
+          {savedOffline
+            ? t.preview.savedOfflineTitle
+            : scanResult
+              ? t.preview.uploadedTitle
+              : t.preview.reviewTitle}
         </Text>
         <Text className="mt-1 text-sm text-gray-500">
-          {scanResult ? t.preview.uploadedSubtitle : t.preview.reviewSubtitle}
+          {savedOffline
+            ? t.preview.savedOfflineSubtitle
+            : scanResult
+              ? t.preview.uploadedSubtitle
+              : t.preview.reviewSubtitle}
         </Text>
 
         {/* ---------- The image ---------- */}
         <View className="mt-6 overflow-hidden rounded-2xl bg-white">
           <Image
             // Once uploaded, show the SERVER copy. If this renders,
-            // the file genuinely arrived and is readable.
+            // the file genuinely arrived and is readable. Saved offline,
+            // the server copy cannot be loaded, so show the local photo.
             source={{
-              uri: uploadResult ? withAuthToken(uploadResult.imageUrl, token) : imageUri,
+              uri:
+                uploadResult && !savedOffline
+                  ? withAuthToken(uploadResult.imageUrl, token)
+                  : imageUri,
             }}
             className="aspect-square w-full"
             resizeMode="cover"
@@ -159,7 +203,7 @@ export default function PreviewScreen() {
           ))}
 
         {/* ---------- Upload details ---------- */}
-        {uploadResult && !notCornLeaf && (
+        {uploadResult && !notCornLeaf && !savedOffline && (
           <View className="mt-5 rounded-2xl bg-white p-5">
             <Text className="mb-3 text-base font-semibold text-gray-900">
               {t.preview.uploadDetails}
@@ -176,7 +220,27 @@ export default function PreviewScreen() {
         )}
 
         {/* ---------- Actions ---------- */}
-        {!scanResult ? (
+        {savedOffline ? (
+          <View className="mt-7">
+            <Pressable
+              onPress={() => router.replace('/scan')}
+              className="items-center rounded-xl bg-leaf-600 py-4 active:bg-leaf-700"
+            >
+              <Text className="text-base font-semibold text-white">
+                {t.preview.scanAnother}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => router.replace('/home')}
+              className="mt-3 items-center rounded-xl border-2 border-leaf-600 py-4 active:bg-leaf-50"
+            >
+              <Text className="text-base font-semibold text-leaf-700">
+                {t.preview.backToHome}
+              </Text>
+            </Pressable>
+          </View>
+        ) : !scanResult ? (
           <View className="mt-7">
             <Pressable
               onPress={handleUpload}

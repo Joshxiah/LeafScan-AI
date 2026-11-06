@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 import {
   validate,
   adminForgotPasswordSchema,
+  adminVerifyResetCodeSchema,
   adminResetPasswordSchema,
   updateProfileSchema,
 } from './validation';
@@ -25,6 +26,21 @@ describe('adminForgotPasswordSchema', () => {
   test('rejects something that is not an email', () => {
     assert.throws(() => validate(adminForgotPasswordSchema, { email: 'admins' }), ApiError);
     assert.throws(() => validate(adminForgotPasswordSchema, {}), ApiError);
+  });
+});
+
+describe('adminVerifyResetCodeSchema', () => {
+  test('trims and lowercases the email, keeping leading zeros in the code', () => {
+    const input = validate(adminVerifyResetCodeSchema, { email: ' CAO@Gmail.com ', code: ' 012345 ' });
+    assert.equal(input.email, 'cao@gmail.com');
+    assert.equal(input.code, '012345');
+  });
+
+  test('rejects a code that is not exactly 6 digits, or a missing email', () => {
+    for (const code of ['12345', '1234567', 'abcdef', '12 345']) {
+      assert.throws(() => validate(adminVerifyResetCodeSchema, { email: 'cao@gmail.com', code }), ApiError);
+    }
+    assert.throws(() => validate(adminVerifyResetCodeSchema, { code: '012345' }), ApiError);
   });
 });
 

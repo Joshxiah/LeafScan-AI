@@ -10,10 +10,12 @@
 import { useState } from 'react';
 
 import { AdminLayout } from '../components/layout/AdminLayout';
+import { PasswordField } from '../components/PasswordField';
 import { ApiError } from '../services/api';
 import * as authService from '../services/auth.service';
 import * as uploadService from '../services/upload.service';
 import { mediaUrl } from '../services/media';
+import { PHONE_MAX_LENGTH, sanitizePhone } from '../utils/phone';
 import { useAuth } from '../context/AuthContext';
 
 function formatDate(iso: string): string {
@@ -114,7 +116,7 @@ export function ProfilePage() {
 
   return (
     <AdminLayout title="Profile">
-      <div className="max-w-xl space-y-4">
+      <div className="space-y-4">
         <section className="rounded-xl border border-gray-200 bg-white p-6">
           <div className="flex items-center gap-4">
             {mediaUrl(avatarPath) ? (
@@ -134,7 +136,7 @@ export function ProfilePage() {
             </div>
           </div>
 
-          <div className="mt-6 space-y-4">
+          <div className="mt-6 grid gap-x-6 gap-y-4 md:grid-cols-2">
             <label className="block">
               <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                 Full name
@@ -154,9 +156,9 @@ export function ProfilePage() {
               <input
                 type="tel"
                 inputMode="numeric"
-                maxLength={11}
+                maxLength={PHONE_MAX_LENGTH}
                 value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                onChange={(e) => setPhoneNumber(sanitizePhone(e.target.value))}
                 placeholder="09171234567"
                 className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
               />
@@ -179,24 +181,6 @@ export function ProfilePage() {
               </span>
             </label>
 
-            {emailChanged && (
-              <label className="block">
-                <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-                  Current password
-                </span>
-                <input
-                  type="password"
-                  autoComplete="current-password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
-                />
-                <span className="mt-1 block text-xs text-gray-400">
-                  Needed to change your email.
-                </span>
-              </label>
-            )}
-
             <label className="block">
               <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                 Profile image
@@ -217,7 +201,24 @@ export function ProfilePage() {
               )}
             </label>
 
-            <div className="grid grid-cols-2 gap-4 pt-1 text-sm">
+            {emailChanged && (
+              <label className="block">
+                <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                  Current password
+                </span>
+                <PasswordField
+                  compact
+                  autoComplete="current-password"
+                  value={currentPassword}
+                  onChange={setCurrentPassword}
+                />
+                <span className="mt-1 block text-xs text-gray-400">
+                  Needed to change your email.
+                </span>
+              </label>
+            )}
+
+            <div className="grid grid-cols-1 gap-4 pt-1 text-sm sm:grid-cols-3 md:col-span-2">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
                   Username
@@ -311,17 +312,16 @@ function ChangePasswordCard() {
         Enter your current password, then choose a new one only you know.
       </p>
 
-      <div className="mt-4 space-y-4">
+      <div className="mt-4 grid gap-x-6 gap-y-4 md:grid-cols-3">
         <label className="block">
           <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
             Current password
           </span>
-          <input
-            type="password"
+          <PasswordField
+            compact
             autoComplete="current-password"
             value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
+            onChange={setCurrentPassword}
           />
         </label>
 
@@ -329,12 +329,11 @@ function ChangePasswordCard() {
           <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
             New password
           </span>
-          <input
-            type="password"
+          <PasswordField
+            compact
             autoComplete="new-password"
             value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
+            onChange={setNewPassword}
           />
         </label>
 
@@ -342,12 +341,11 @@ function ChangePasswordCard() {
           <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">
             Confirm new password
           </span>
-          <input
-            type="password"
+          <PasswordField
+            compact
             autoComplete="new-password"
             value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
+            onChange={setConfirmPassword}
           />
         </label>
       </div>

@@ -150,13 +150,22 @@ export const adminForgotPasswordSchema = z.object({
   email: emailRule,
 });
 
-/** Step 2 of a CAO reset: "here is the code and my new password". */
+/** The 6-digit code emailed for a CAO reset; leading zeros are kept. */
+const adminResetCodeRule = z
+  .string()
+  .trim()
+  .regex(/^\d{6}$/, 'Enter the 6-digit code from the email');
+
+/** Step 2 of a CAO reset: "is this the code you emailed me?" */
+export const adminVerifyResetCodeSchema = z.object({
+  email: emailRule,
+  code: adminResetCodeRule,
+});
+
+/** Step 3 of a CAO reset: "here is the code and my new password". */
 export const adminResetPasswordSchema = z.object({
   email: emailRule,
-  code: z
-    .string()
-    .trim()
-    .regex(/^\d{6}$/, 'Enter the 6-digit code from the email'),
+  code: adminResetCodeRule,
   password: z
     .string()
     .min(8, 'Password must be at least 8 characters')
@@ -528,6 +537,7 @@ export type LoginInput = z.infer<typeof loginSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
 export type AdminForgotPasswordInput = z.infer<typeof adminForgotPasswordSchema>;
+export type AdminVerifyResetCodeInput = z.infer<typeof adminVerifyResetCodeSchema>;
 export type AdminResetPasswordInput = z.infer<typeof adminResetPasswordSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
 export type CreateReportInput = z.infer<typeof createReportSchema>;

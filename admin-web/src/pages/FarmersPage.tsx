@@ -5,7 +5,7 @@
  *
  * The CAO owns farmer accounts here: create one (and hand the
  * farmer the generated credentials), search the list, edit details,
- * reset a password, or activate / deactivate an account. Farmers do
+ * change a password, or activate / deactivate an account. Farmers do
  * not self-register.
  */
 
@@ -15,11 +15,13 @@ import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '../components/layout/AdminLayout';
 import { AddressCascade, EMPTY_ADDRESS } from '../components/AddressCascade';
 import type { AddressNames } from '../components/AddressCascade';
+import { PasswordField } from '../components/PasswordField';
 import { ApiError } from '../services/api';
 import * as farmerService from '../services/farmer.service';
 import type { FarmPlotPayload } from '../services/farmer.service';
 import * as uploadService from '../services/upload.service';
 import { mediaUrl } from '../services/media';
+import { PHONE_MAX_LENGTH, sanitizePhone } from '../utils/phone';
 import type {
   AccountRole,
   AreaUnit,
@@ -450,11 +452,9 @@ function CreateAccountModal({
       setError('Select a barangay.');
       return;
     }
-    if (
-      role === 'farmer' &&
-      plots.some((plot) => plot.area.trim() !== '' && !(Number(plot.area) > 0))
-    ) {
-      setError('Every plot needs an area greater than zero, or remove the row.');
+    const plotError = role === 'farmer' ? plotsProblem(plots) : null;
+    if (plotError) {
+      setError(plotError);
       return;
     }
 
@@ -518,8 +518,10 @@ function CreateAccountModal({
           />
           <Field
             label="Contact number"
+            type="tel"
             value={phoneNumber}
             onChange={setPhoneNumber}
+            placeholder="09171234567"
           />
         </div>
 
@@ -649,7 +651,8 @@ function FarmerDetailModal({
   const [plots, setPlots] = useState<PlotDraft[]>(() => draftsFromPlots(farmer.plots));
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resetPassword, setResetPassword] = useState<string | null>(null);
+  const [passwordChanged, setPasswordChanged] = useState(false);
+  const [askPasswordChange, setAskPasswordChange] = useState(false);
   const [askDelete, setAskDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -658,7 +661,9 @@ function FarmerDetailModal({
   // genuine pick counts as a change the Save button will act on.
   const genderChanged =
     gender !== '' && gender !== ((current.gender as typeof gender) ?? '');
-  const plotsChanged = !plotsUnchanged(plots, current.plots);
+  // A half-filled row counts as a change so Save enables and can
+  // explain what is missing, instead of the row quietly not saving.
+  const plotsChanged = !plotsUnchanged(plots, current.plots) || plotsProblem(plots) !== null;
   const dirty =
     fullName.trim() !== current.fullName ||
     phoneNumber.trim() !== (current.phoneNumber ?? '') ||
@@ -687,8 +692,9 @@ function FarmerDetailModal({
     extra: Parameters<typeof farmerService.updateFarmer>[1] = {}
   ): Promise<boolean> {
     setError(null);
-    if (plotsChanged && plots.some((plot) => plot.area.trim() !== '' && !(Number(plot.area) > 0))) {
-      setError('Every plot needs an area greater than zero, or remove the row.');
+    const plotError = plotsProblem(plots);
+    if (plotError) {
+      setError(plotError);
       return false;
     }
     setIsSaving(true);
@@ -721,7 +727,6 @@ function FarmerDetailModal({
         barangay: result.farmer.barangay ?? '',
       });
       setAddressTouched(false);
-      if (result.newPassword) setResetPassword(result.newPassword);
       onChanged();
       return true;
     } catch (err) {
@@ -730,6 +735,16 @@ function FarmerDetailModal({
     } finally {
       setIsSaving(false);
     }
+  }
+
+  // Sends the new password on its own, so changing it never saves (or
+  // discards) edits the admin has half-typed in the form above. Errors
+  // are thrown back to the dialog, which shows them next to the fields.
+  async function changePassword(password: string) {
+    await farmerService.updateFarmer(current.id, { password });
+    setError(null);
+    setPasswordChanged(true);
+    setAskPasswordChange(false);
   }
 
   async function remove() {
@@ -764,7 +779,13 @@ function FarmerDetailModal({
       <div className="mt-4 space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Full name" value={fullName} onChange={setFullName} />
-          <Field label="Mobile number" value={phoneNumber} onChange={setPhoneNumber} />
+          <Field
+            label="Mobile number"
+            type="tel"
+            value={phoneNumber}
+            onChange={setPhoneNumber}
+            placeholder="09171234567"
+          />
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
@@ -880,6 +901,15 @@ function FarmerDetailModal({
         <button
           type="button"
           disabled={isSaving}
+          onClick={onClose}
+          className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+        >
+          Cancel
+        </button>
+
+        <button
+          type="button"
+          disabled={isSaving}
           onClick={() => save({ isActive: !current.isActive })}
           className={`rounded-lg px-3 py-2 text-sm font-medium disabled:opacity-40 ${
             current.isActive
@@ -894,10 +924,13 @@ function FarmerDetailModal({
           <button
             type="button"
             disabled={isSaving}
-            onClick={() => save({ password: Math.random().toString(36).slice(2, 12) })}
+            onClick={() => {
+              setPasswordChanged(false);
+              setAskPasswordChange(true);
+            }}
             className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-40"
           >
-            Reset password
+            Change password
           </button>
         )}
 
@@ -911,38 +944,163 @@ function FarmerDetailModal({
         </button>
       </div>
 
+      {askPasswordChange && (
+        <ChangePasswordDialog
+          fullName={current.fullName}
+          onSubmit={changePassword}
+          onCancel={() => setAskPasswordChange(false)}
+        />
+      )}
+
       {askDelete && (
-        <ConfirmDeleteDialog
+        <ConfirmDialog
+          title="Confirm delete"
           message={
             current.role === 'farmer'
               ? 'This permanently deletes the account and everything tied to it - farm plots, scan history, and outbreak reports. There is no undo; consider Deactivate instead if you just want to disable sign-in.'
               : 'This permanently deletes the admin account. There is no undo.'
           }
-          isDeleting={isDeleting}
+          confirmLabel="Confirm delete"
+          busyLabel="Deleting…"
+          tone="danger"
+          isBusy={isDeleting}
           onConfirm={remove}
           onCancel={() => setAskDelete(false)}
         />
       )}
 
-      {resetPassword && (
-        <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
-          <p className="text-xs font-semibold text-amber-800">New password (shown once)</p>
-          <p className="mt-0.5 font-mono text-sm text-amber-900">{resetPassword}</p>
+      {passwordChanged && (
+        <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5">
+          <p className="text-xs font-semibold text-green-800">Password changed</p>
+          <p className="mt-0.5 text-sm text-green-900">
+            {current.fullName} must now sign in with the new password. Give it to them directly.
+          </p>
         </div>
       )}
     </ModalShell>
   );
 }
 
-/** Pops up over the Farmer/Admin Details modal to confirm a permanent delete. */
-function ConfirmDeleteDialog({
+/**
+ * Pops up over the Farmer Details modal so the admin can type a new
+ * password and confirm it. Validation mirrors the create form (8-72
+ * characters, trimmed) and the API's own rule.
+ */
+function ChangePasswordDialog({
+  fullName,
+  onSubmit,
+  onCancel,
+}: {
+  fullName: string;
+  /** Throws if the API rejects the change; resolves when it went through. */
+  onSubmit: (password: string) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [isBusy, setIsBusy] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const next = password.trim();
+    if (next.length < 8) {
+      setError('Enter a password of at least 8 characters.');
+      return;
+    }
+    if (next.length > 72) {
+      setError('Password must be at most 72 characters.');
+      return;
+    }
+    if (next !== confirm.trim()) {
+      setError('The two passwords do not match.');
+      return;
+    }
+    setError(null);
+    setIsBusy(true);
+    try {
+      await onSubmit(next);
+      // Success unmounts this dialog, so there is nothing to reset.
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not change this password.');
+      setIsBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4"
+      onClick={isBusy ? undefined : onCancel}
+    >
+      <form
+        onSubmit={submit}
+        className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-base font-semibold text-gray-900">Change password</h3>
+        <p className="mt-2 text-sm text-gray-600">
+          Set a new password for {fullName}. Their current password stops working right away, so
+          only continue if they asked for a new one.
+        </p>
+
+        <div className="mt-4 space-y-3">
+          <Field
+            label="New password"
+            type="password"
+            value={password}
+            onChange={setPassword}
+            placeholder="Enter new password"
+          />
+          <Field
+            label="Confirm password"
+            type="password"
+            value={confirm}
+            onChange={setConfirm}
+            placeholder="Confirm new password"
+          />
+        </div>
+
+        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+
+        <div className="mt-4 flex gap-3">
+          <button
+            type="button"
+            disabled={isBusy}
+            onClick={onCancel}
+            className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={isBusy}
+            className="flex-1 rounded-lg bg-amber-600 py-2.5 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-60"
+          >
+            {isBusy ? 'Changing…' : 'Change password'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+/** Pops up over the Farmer/Admin Details modal to confirm a delete. */
+function ConfirmDialog({
+  title,
   message,
-  isDeleting,
+  confirmLabel,
+  busyLabel,
+  tone,
+  isBusy,
   onConfirm,
   onCancel,
 }: {
+  title: string;
   message: string;
-  isDeleting: boolean;
+  confirmLabel: string;
+  busyLabel: string;
+  tone: 'danger' | 'warning';
+  isBusy: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -955,12 +1113,12 @@ function ConfirmDeleteDialog({
         className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-base font-semibold text-gray-900">Confirm delete</h3>
+        <h3 className="text-base font-semibold text-gray-900">{title}</h3>
         <p className="mt-2 text-sm text-gray-600">{message}</p>
         <div className="mt-4 flex gap-3">
           <button
             type="button"
-            disabled={isDeleting}
+            disabled={isBusy}
             onClick={onCancel}
             className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40"
           >
@@ -968,11 +1126,15 @@ function ConfirmDeleteDialog({
           </button>
           <button
             type="button"
-            disabled={isDeleting}
+            disabled={isBusy}
             onClick={onConfirm}
-            className="flex-1 rounded-lg bg-red-600 py-2.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-60"
+            className={`flex-1 rounded-lg py-2.5 text-sm font-medium text-white disabled:opacity-60 ${
+              tone === 'danger'
+                ? 'bg-red-600 hover:bg-red-700'
+                : 'bg-amber-600 hover:bg-amber-700'
+            }`}
           >
-            {isDeleting ? 'Deleting…' : 'Confirm delete'}
+            {isBusy ? busyLabel : confirmLabel}
           </button>
         </div>
       </div>
@@ -1082,18 +1244,31 @@ function Field({
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
-  type?: 'text' | 'date' | 'password';
+  /** 'tel' accepts digits only (see sanitizePhone). */
+  type?: 'text' | 'date' | 'password' | 'tel';
 }) {
   return (
     <label className="block">
       <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</span>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
-      />
+      {type === 'password' ? (
+        <PasswordField
+          compact
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          autoComplete="new-password"
+        />
+      ) : (
+        <input
+          type={type}
+          inputMode={type === 'tel' ? 'numeric' : undefined}
+          maxLength={type === 'tel' ? PHONE_MAX_LENGTH : undefined}
+          value={value}
+          onChange={(e) => onChange(type === 'tel' ? sanitizePhone(e.target.value) : e.target.value)}
+          placeholder={placeholder}
+          className="mt-1 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-leaf-500 focus:outline-none"
+        />
+      )}
     </label>
   );
 }
@@ -1166,6 +1341,25 @@ function summarizeByPurok(plots: FarmPlot[]): string {
   return [...byPurok.entries()]
     .map(([purok, hectares]) => `${purok} — ${formatHectares(hectares)}`)
     .join(' · ');
+}
+
+/**
+ * Why these drafts can't be saved yet, or null when they can. A row
+ * with neither a purok nor an area is just an unused "Add plot" click
+ * and is ignored; a row with only one of the two would be dropped by
+ * plotsPayloadFrom without a word, so it is reported instead.
+ */
+function plotsProblem(drafts: PlotDraft[]): string | null {
+  for (const draft of drafts) {
+    const hasArea = draft.area.trim() !== '';
+    if (!hasArea && draft.purok.trim() !== '') {
+      return `Enter an area for ${draft.purok.trim()}, or remove the row.`;
+    }
+    if (hasArea && !(Number(draft.area) > 0)) {
+      return 'Every plot needs an area greater than zero, or remove the row.';
+    }
+  }
+  return null;
 }
 
 /** True when the drafts describe the same plots already saved on the farmer. */

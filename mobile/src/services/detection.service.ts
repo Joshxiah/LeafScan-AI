@@ -156,14 +156,24 @@ function toScanEntry(detection: RemoteDetection): ScanEntry {
  */
 export async function loadFarmerScans(userId: number): Promise<ScanEntry[]> {
   // Scans taken offline that have not reached the server yet.
-  const pending: ScanEntry[] = (await getPendingScans(userId)).map((scan) => ({
-    id: `pending-${scan.id}`,
-    classLabel: scan.classLabel,
-    confidence: scan.confidence,
-    scannedAt: new Date(scan.scannedAt),
-    localUri: scan.localUri,
-    pending: true,
-  }));
+  // Only entries queued by older app versions have a verdict to list. A photo
+  // saved offline by this version has none yet, so Home shows it as a
+  // "waiting for internet" notice instead (see countWaitingScans).
+  const pending: ScanEntry[] = (await getPendingScans(userId)).flatMap(
+    (scan): ScanEntry[] =>
+      scan.classLabel === undefined || scan.confidence === undefined
+        ? []
+        : [
+            {
+              id: `pending-${scan.id}`,
+              classLabel: scan.classLabel,
+              confidence: scan.confidence,
+              scannedAt: new Date(scan.scannedAt),
+              localUri: scan.localUri,
+              pending: true,
+            },
+          ]
+  );
 
   let saved: ScanEntry[];
   try {

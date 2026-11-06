@@ -26,10 +26,11 @@ import { StatCard } from '../../../src/components/StatCard';
 import { WeeklyBarChart } from '../../../src/components/WeeklyBarChart';
 import { DonutChart } from '../../../src/components/DonutChart';
 import { ScanListItem } from '../../../src/components/ScanListItem';
+import { PendingScansNotice } from '../../../src/components/PendingScansNotice';
 import { FilterPills } from '../../../src/components/FilterPills';
 import { goToDiagnosis } from '../../../src/navigation/diagnosis';
 import { ScanEntry } from '../../../src/services/scanLog';
-import { onPendingSynced } from '../../../src/services/pendingScans';
+import { onPendingSynced, countWaitingScans } from '../../../src/services/pendingScans';
 import { loadFarmerScans } from '../../../src/services/detection.service';
 import {
   ActivityRange,
@@ -50,6 +51,8 @@ export default function HomeScreen() {
   const { t } = useLanguage();
   const [range, setRange] = useState<ActivityRange>('Weekly');
   const [scans, setScans] = useState<ScanEntry[] | null>(null);
+  // Photos saved offline that have not been scanned yet.
+  const [waitingCount, setWaitingCount] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -58,6 +61,9 @@ export default function HomeScreen() {
       const reload = () => {
         loadFarmerScans(user.id).then((log) => {
           if (isMounted) setScans(log);
+        });
+        countWaitingScans(user.id).then((count) => {
+          if (isMounted) setWaitingCount(count);
         });
       };
       reload();
@@ -132,6 +138,8 @@ export default function HomeScreen() {
             />
           </View>
 
+          <PendingScansNotice count={waitingCount} />
+
           <View className="flex-1 items-center justify-center py-10">
             <View
               className="h-24 w-24 items-center justify-center rounded-3xl bg-[#E7F4EA]"
@@ -205,6 +213,8 @@ export default function HomeScreen() {
             onBell={() => router.push('/notifications')}
           />
         </View>
+
+        <PendingScansNotice count={waitingCount} />
 
         {/* ---------- Range toggle ---------- */}
         <View className="mt-5">

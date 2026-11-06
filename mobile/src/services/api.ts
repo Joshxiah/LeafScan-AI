@@ -59,6 +59,14 @@ export function getErrorMessage(
   return fallback;
 }
 
+/**
+ * Developer-only pointer, logged (not shown to the farmer) when a dev
+ * build cannot reach the backend. The farmer sees the localized
+ * NETWORK_ERROR message instead - it must never talk about "the same
+ * network as the server", which means nothing to them.
+ */
+const DEV_UNREACHABLE_HINT = `[api] Cannot reach the server at ${config.backendOrigin}. In dev the phone and PC must share one Wi-Fi, and Windows Firewall must allow port 4000 (double-click scripts\\allow-lan-dev.bat on the PC, then fully reload the app).`;
+
 /** Options accepted by the request helper. */
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
@@ -114,17 +122,18 @@ async function request<T>(
     if (error instanceof Error && error.name === 'AbortError') {
       throw new ApiError(
         408,
-        'The request took too long. Please check your connection and try again.'
+        'The request took too long. Please check your connection and try again.',
+        'REQUEST_TIMEOUT'
       );
     }
 
     console.error('[api] Network failure:', url, error);
+    if (__DEV__) console.warn(DEV_UNREACHABLE_HINT);
 
     throw new ApiError(
       0,
-      __DEV__
-        ? `Cannot reach the server at ${config.backendOrigin}. Check the phone and PC share one Wi-Fi, and that Windows Firewall allows port 4000 (double-click scripts\\allow-lan-dev.bat on the PC).`
-        : 'Cannot reach the server. Please check your internet connection and try again.'
+      'Cannot reach the server. Please check your internet connection and try again.',
+      'NETWORK_ERROR'
     );
   }
 
@@ -214,17 +223,18 @@ export async function uploadFile<T>(
     if (error instanceof Error && error.name === 'AbortError') {
       throw new ApiError(
         408,
-        'The upload took too long. Please check your connection and try again.'
+        'The upload took too long. Please check your connection and try again.',
+        'REQUEST_TIMEOUT'
       );
     }
 
     console.error('[api] Upload failed:', url, error);
+    if (__DEV__) console.warn(DEV_UNREACHABLE_HINT);
 
     throw new ApiError(
       0,
-      __DEV__
-        ? `Cannot reach the server at ${config.backendOrigin}. On a phone this is almost always Windows Firewall blocking port 4000 - double-click scripts\\allow-lan-dev.bat on the PC, then fully reload the app. Also check the phone and PC share one Wi-Fi.`
-        : 'Cannot reach the server. Make sure you are connected to the same network as the server.'
+      'Cannot reach the server. Please check your internet connection and try again.',
+      'NETWORK_ERROR'
     );
   }
 

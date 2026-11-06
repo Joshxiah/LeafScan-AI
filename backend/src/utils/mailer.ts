@@ -66,5 +66,12 @@ export async function sendMail(message: MailMessage): Promise<void> {
     });
   } catch (error) {
     console.error('[mail] Failed to send email to', message.to, error);
+    if ((error as { code?: string }).code === 'EAUTH') {
+      console.error(
+        '[mail] Gmail rejected the login. GMAIL_APP_PASSWORD must be a Google App Password ' +
+          '(16 letters, https://myaccount.google.com/apppasswords), not the normal Gmail password. ' +
+          'Check it with: npm run test:mail'
+      );
+    }
   }
 }

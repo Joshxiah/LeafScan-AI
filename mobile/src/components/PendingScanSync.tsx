@@ -1,9 +1,11 @@
 /**
  * Uploads scans taken offline as soon as the phone can reach the
- * server again. Renders nothing; mounted once inside the signed-in
- * layout. Tries on start, whenever the app returns to the foreground,
- * and every 20 seconds while the app is open (no-op when the queue
- * is empty).
+ * server again, and has the server classify them. Renders nothing;
+ * mounted once inside the signed-in layout. Tries on start, whenever
+ * the app returns to the foreground, and every 20 seconds while the
+ * app is open (no-op when the queue is empty). Syncing only happens
+ * while the app is open. Tells the farmer when queued photos have
+ * been scanned.
  */
 
 import { useEffect } from 'react';
@@ -27,9 +29,12 @@ export function PendingScanSync() {
       if (userId === undefined) return;
       const queue = await getPendingScans(userId);
       if (queue.length > 0) {
-        const { dropped } = await syncPendingScans(userId);
+        const { uploaded, dropped } = await syncPendingScans(userId);
         if (dropped > 0) {
           Alert.alert(t.common.scansNotSyncedTitle, t.common.scansNotSynced(dropped));
+        } else if (uploaded > 0) {
+          // Tell the farmer their offline photos now have a result.
+          Alert.alert(t.common.scansSyncedTitle, t.common.scansSynced(uploaded));
         }
       }
     }

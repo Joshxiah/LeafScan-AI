@@ -2,7 +2,7 @@
  * Authentication calls for the CAO admin platform.
  */
 
-import { api, ApiError } from './api';
+import { api } from './api';
 import type { AuthResult, User } from '../types';
 
 /**
@@ -39,8 +39,18 @@ export async function requestPasswordReset(email: string): Promise<void> {
 }
 
 /**
+ * POST /api/auth/admin/verify-reset-code
+ * Step 2: checks the emailed code without using it up, so the page can
+ * ask for the new password. The same code is sent again, with the new
+ * password, to resetPassword().
+ */
+export async function verifyResetCode(email: string, code: string): Promise<void> {
+  await api.post<void>('/auth/admin/verify-reset-code', { email, code }, false);
+}
+
+/**
  * POST /api/auth/admin/reset-password
- * Step 2: checks the emailed code and sets the new password.
+ * Step 3: checks the emailed code and sets the new password.
  */
 export async function resetPassword(
   email: string,
@@ -48,54 +58,6 @@ export async function resetPassword(
   password: string
 ): Promise<void> {
   await api.post<void>('/auth/admin/reset-password', { email, code, password }, false);
-}
-
-/**
- * POST /api/auth/forgot-password
- * Step 1 of the three-step reset: emails a 6-digit code to the account
- * that owns this address. Returns the server's message, which reads the
- * same whether or not the address is registered.
- */
-export async function sendResetCode(email: string): Promise<string> {
-  const result = await api.postRaw<{ message?: string }>(
-    '/auth/forgot-password',
-    { email },
-    false
-  );
-  return result?.message ?? 'If that email is registered, a reset code has been sent.';
-}
-
-/**
- * POST /api/auth/verify-reset-code
- * Step 2: checks the emailed code and returns a short-lived reset token.
- */
-export async function verifyResetCode(email: string, code: string): Promise<string> {
-  const result = await api.postRaw<{ resetToken?: string }>(
-    '/auth/verify-reset-code',
-    { email, code },
-    false
-  );
-
-  if (!result?.resetToken) {
-    throw new ApiError(500, 'The server sent an unexpected response.');
-  }
-
-  return result.resetToken;
-}
-
-/**
- * POST /api/auth/reset-password
- * Step 3: sets the new password. The reset token from step 2 is the credential.
- */
-export async function resetPasswordWithToken(
-  resetToken: string,
-  newPassword: string
-): Promise<void> {
-  await api.postRaw<{ message?: string }>(
-    '/auth/reset-password',
-    { resetToken, newPassword },
-    false
-  );
 }
 
 export interface UpdateProfilePayload {

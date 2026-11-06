@@ -1,12 +1,13 @@
 /**
  * Scans taken while offline, waiting to be uploaded.
  *
- * Only scans queued by older app versions can be here: the app no
- * longer queues new ones, because classifying now needs the server.
- * Their stored verdict was a stand-in guess, so syncPendingScans()
- * uploads the photo and has the server classify it the next time the
- * phone can reach it. Queues are scoped
- * per userId for the same reason scanLog.ts is.
+ * With no connection the Preview screen saves the photo here instead of
+ * failing. Classifying needs the server, so nothing is classified on the
+ * phone and no verdict is stored: syncPendingScans() uploads the photo
+ * and has the server classify it the next time the phone can reach it,
+ * and the result then shows up in History. (Entries queued by older app
+ * versions also carry a stand-in verdict; it is ignored.) Queues are
+ * scoped per userId for the same reason scanLog.ts is.
  */
 
 import { Platform } from 'react-native';
@@ -25,8 +26,9 @@ export interface PendingScan {
   id: string;
   /** Permanent on-device copy of the photo. */
   localUri: string;
-  classLabel: ScanClassLabel;
-  confidence: number;
+  /** Stand-in guess made on the phone by older app versions. Never set for new scans. */
+  classLabel?: ScanClassLabel;
+  confidence?: number;
   scannedAt: string;
   /** Set when the photo already reached the server and only the detection record is missing. */
   imagePath?: string;
@@ -43,6 +45,15 @@ export function onPendingSynced(callback: () => void): () => void {
 }
 
 const keyFor = (userId: number) => `${KEY_PREFIX}_${userId}`;
+
+/**
+ * How many queued photos have no verdict yet - the ones the farmer can
+ * only be told are "waiting". (Entries from older app versions have a
+ * stand-in verdict and are listed in Home / History instead.)
+ */
+export async function countWaitingScans(userId: number): Promise<number> {
+  return (await getPendingScans(userId)).filter((scan) => scan.classLabel === undefined).length;
+}
 
 export async function getPendingScans(userId: number): Promise<PendingScan[]> {
   try {
@@ -78,14 +89,12 @@ function persistPhoto(uri: string, id: string): string {
 /** Queues one scan for upload and returns it. */
 export async function queuePendingScan(
   userId: number,
-  scan: { imageUri: string; classLabel: ScanClassLabel; confidence: number; imagePath?: string }
+  scan: { imageUri: string; imagePath?: string }
 ): Promise<PendingScan> {
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const entry: PendingScan = {
     id,
     localUri: persistPhoto(scan.imageUri, id),
-    classLabel: scan.classLabel,
-    confidence: scan.confidence,
     scannedAt: new Date().toISOString(),
     imagePath: scan.imagePath,
   };

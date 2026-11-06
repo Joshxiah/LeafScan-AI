@@ -56,3 +56,13 @@ body {
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+
+/*
+ * Edge paints its own show-password eye inside every password input
+ * once something is typed. PasswordField draws the toggle itself, so
+ * leave the native one off or the field shows two eyes.
+ */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}

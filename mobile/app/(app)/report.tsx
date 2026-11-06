@@ -15,7 +15,7 @@
  * their Reports page, filed under the signed-in farmer's account.
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -38,7 +38,11 @@ import { StatCard } from '../../src/components/StatCard';
 import EmptyState from '../../src/components/EmptyState';
 import { ScanEntry } from '../../src/services/scanLog';
 import { summariseScans, CLASS_DISPLAY_NAME, CLASS_RISK_LEVEL } from '../../src/data/scanStats';
-import { submitReport } from '../../src/services/report.service';
+import {
+  submitReport,
+  getReportedScanIds,
+  markScansReported,
+} from '../../src/services/report.service';
 import { loadFarmerScans } from '../../src/services/detection.service';
 import { getErrorMessage } from '../../src/services/api';
 
@@ -50,17 +54,28 @@ export default function ReportScreen() {
 
   const [estimatedArea, setEstimatedArea] = useState('');
   const [remarks, setRemarks] = useState('');
+  // Only the scans no earlier report has covered yet.
   const [scans, setScans] = useState<ScanEntry[] | null>(null);
+  // How many scans were left out because a report already covered them.
+  const [reportedCount, setReportedCount] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // State alone cannot stop a fast double tap: a second press can land
+  // before the re-render that disables the button.
+  const isSubmittingRef = useRef(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       if (!user) return;
       let isMounted = true;
-      loadFarmerScans(user.id).then((log) => {
-        if (isMounted) setScans(log);
-      });
+      Promise.all([loadFarmerScans(user.id), getReportedScanIds(user.id)]).then(
+        ([log, reportedIds]) => {
+          if (!isMounted) return;
+          const unreported = log.filter((scan) => !reportedIds.has(scan.id));
+          setScans(unreported);
+          setReportedCount(log.length - unreported.length);
+        }
+      );
       return () => {
         isMounted = false;
       };
@@ -139,14 +154,17 @@ export default function ReportScreen() {
   }
 
   if (scans.length === 0) {
+    // Either nothing was ever scanned, or every scan is already in a
+    // report that was sent - nothing new to submit in both cases.
+    const allSent = reportedCount > 0;
     return (
       <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={['bottom']}>
         <StatusBar style="light" />
         {header}
         <EmptyState
-          icon="paper-plane-outline"
-          title={t.home.emptyTitle}
-          message={t.home.emptyMessage}
+          icon={allSent ? 'checkmark-done-outline' : 'paper-plane-outline'}
+          title={allSent ? t.report.allSentTitle : t.home.emptyTitle}
+          message={allSent ? t.report.allSentMessage : t.home.emptyMessage}
           actionLabel={t.home.emptyAction}
           onAction={() => router.push('/scan')}
         />
@@ -157,6 +175,8 @@ export default function ReportScreen() {
   const summary = summariseScans(scans);
 
   async function handleSubmit() {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setErrorMessage(null);
     setIsSubmitting(true);
 
@@ -186,10 +206,15 @@ export default function ReportScreen() {
         estimatedAreaHectares: estimatedArea ? Number(estimatedArea) : undefined,
         remarks: remarks.trim() || undefined,
       });
+      // Remember these scans went out, so the next visit starts empty
+      // instead of offering the same report again.
+      if (user) await markScansReported(user.id, (scans ?? []).map((s) => s.id));
       router.replace('/report-success');
     } catch (error) {
       setErrorMessage(getErrorMessage(error, t.report.errorGeneric, t.apiErrors));
-    } finally {
+      // Unlocked only on failure: after a success the button stays
+      // locked while the screen transitions to /report-success.
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   }

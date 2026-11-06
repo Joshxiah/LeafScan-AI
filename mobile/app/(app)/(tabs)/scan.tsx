@@ -33,10 +33,10 @@ export default function ScanScreen() {
         return;
       }
 
+      // No crop step: picking a photo goes straight to /preview, same as
+      // the camera. The model resizes the photo itself.
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
         quality: 0.8,
       });
 
@@ -76,10 +76,28 @@ export default function ScanScreen() {
           {t.scan.subtitle}
         </Text>
 
+        {/* ---------- Corn-only disclaimer ----------
+            Above both options on purpose: picking from the gallery never
+            passes through the camera screen, so this is the one place
+            every farmer sees before choosing a photo. */}
+        <View className="mt-5 flex-row rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <View className="h-9 w-9 items-center justify-center rounded-full bg-amber-100">
+            <Ionicons name="information-circle-outline" size={20} color="#B45309" />
+          </View>
+          <View className="ml-3 flex-1">
+            <Text className="text-[13px] font-bold text-amber-900">
+              {t.scan.cornOnlyTitle}
+            </Text>
+            <Text className="mt-0.5 text-[12.5px] leading-5 text-amber-800">
+              {t.scan.cornOnlyBody}
+            </Text>
+          </View>
+        </View>
+
         {/* ---------- Camera ---------- */}
         <Pressable
           onPress={() => router.push('/camera')}
-          className="mt-6 flex-row items-center rounded-2xl border border-[#EEF5EF] bg-white p-5 active:bg-[#F5FAF6]"
+          className="mt-4 flex-row items-center rounded-2xl border border-[#EEF5EF] bg-white p-5 active:bg-[#F5FAF6]"
           style={shadows.card}
         >
           <View className="h-14 w-14 items-center justify-center rounded-2xl bg-[#2F6D46]">

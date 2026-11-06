@@ -14,6 +14,7 @@ import {
   forgotPasswordSchema,
   resetPasswordSchema,
   adminForgotPasswordSchema,
+  adminVerifyResetCodeSchema,
   adminResetPasswordSchema,
   updateProfileSchema,
   changePasswordSchema,
@@ -103,8 +104,24 @@ export async function adminForgotPassword(req: Request, res: Response): Promise<
 }
 
 /**
+ * POST /api/auth/admin/verify-reset-code
+ * Step 2 of a CAO reset. Confirms the emailed code is right without
+ * using it up; the code is sent again with the new password in step 3.
+ */
+export async function adminVerifyResetCode(req: Request, res: Response): Promise<void> {
+  const input = validate(adminVerifyResetCodeSchema, req.body);
+
+  await authService.verifyAdminResetCode(input.email, input.code);
+
+  res.status(200).json({
+    success: true,
+    message: 'Code verified. Choose a new password.',
+  });
+}
+
+/**
  * POST /api/auth/admin/reset-password
- * Step 2 of a CAO reset. Checks the emailed code and sets the new password.
+ * Step 3 of a CAO reset. Checks the emailed code and sets the new password.
  */
 export async function adminResetPassword(req: Request, res: Response): Promise<void> {
   const input = validate(adminResetPasswordSchema, req.body);
