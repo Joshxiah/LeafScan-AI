@@ -78,15 +78,28 @@ export const env = {
   },
 
   // ---------- Outgoing SMS (password reset) ----------
-  // Optional. When SEMAPHORE_API_KEY is blank the code is printed
-  // to the server console instead of being texted, so the reset
-  // flow still works before an SMS account is set up.
-  // Sign up at https://semaphore.co to get an API key.
+  // Optional. Two providers, tried in this order:
+  //   1. An Android phone running the free, open-source "SMS Gateway
+  //      for Android" app (SMS_GATEWAY_*): the text goes out from that
+  //      phone's own SIM, so there is no service fee.
+  //   2. Semaphore (SEMAPHORE_*), a paid service.
+  // When neither is set the code is printed to the server console
+  // instead of being texted, so the reset flow still works before an
+  // SMS account or gateway phone is set up.
   sms: {
     apiKey: optionalEnv('SEMAPHORE_API_KEY', ''),
     // Must be a sender name already approved on the Semaphore
     // account. Left blank, Semaphore uses its shared default sender.
     senderName: optionalEnv('SEMAPHORE_SENDER_NAME', ''),
+    // Full URL of the gateway's send endpoint, e.g.
+    // http://192.168.1.50:8080/message (Local Server mode, phone and
+    // PC on the same Wi-Fi) or
+    // https://api.sms-gate.app/3rdparty/v1/messages (Cloud mode).
+    gatewayUrl: optionalEnv('SMS_GATEWAY_URL', '').trim(),
+    // The username / password the app shows in its Local Server or
+    // Cloud Server section.
+    gatewayUsername: optionalEnv('SMS_GATEWAY_USERNAME', '').trim(),
+    gatewayPassword: optionalEnv('SMS_GATEWAY_PASSWORD', '').trim(),
   },
 
   // ---------- Outgoing email (CAO password reset) ----------

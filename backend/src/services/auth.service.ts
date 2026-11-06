@@ -537,7 +537,12 @@ export async function requestPasswordReset(rawPhoneNumber: string): Promise<void
 
   const code = await issueResetCode(user.id);
 
-  await sendSms({
+  // Deliberately not awaited (same reason as requestAdminPasswordReset):
+  // a gateway phone on Wi-Fi can take seconds to answer or time out, and
+  // waiting only when the account exists would let a caller tell
+  // registered numbers from unknown ones by response time.
+  // sendSms never rejects - failures are logged server-side.
+  void sendSms({
     to: phoneNumber,
     text:
       `${env.appName}: your password reset code is ${code}. ` +

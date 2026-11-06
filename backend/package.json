@@ -8,7 +8,8 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
     "test": "tsx --test",
-    "test:mail": "node scripts/test-mail.js"
+    "test:mail": "node scripts/test-mail.js",
+    "test:sms": "node scripts/check-sms.js"
   },
   "keywords": [],
   "type": "commonjs",
