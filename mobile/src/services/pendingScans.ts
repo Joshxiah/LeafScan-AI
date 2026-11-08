@@ -219,8 +219,9 @@ async function updatePending(
 }
 
 /**
- * Uploads every queued scan, oldest first. Stops at the first
- * failure (almost always "still offline") and leaves the rest queued.
+ * Uploads every queued scan, oldest first. Stops at the first failure
+ * worth retrying (almost always "still offline", see isWorthRetrying) and
+ * leaves the rest queued; a scan the server refuses is never retried.
  * Returns how many were uploaded, how many had to be dropped, and how many
  * the server's model found are not corn leaves (NOT_CORN: removed from the
  * queue, photo and all, and never saved to the history).
@@ -256,26 +257,18 @@ export async function syncPendingScans(
           continue;
         }
 
-        // Only a scan the server can NEVER accept is dropped, so it does not
-        // block the whole queue forever: the photo is gone from the server
-        // (IMAGE_NOT_FOUND), the scan time is out of range (older than 30
-        // days), the photo is not a corn leaf (NOT_A_CORN_LEAF - retrying
-        // gets the same answer), or the local file no longer exists. These are matched by
-        // the error's `code`, never by status alone: a plain 404 can also
-        // mean "Route not found" (a server that has no /scan yet), and any
-        // other 400 could be a bug - both keep the scan queued. Drops are
-        // counted so the farmer is told (see PendingScanSync).
-        const neverAccepted =
-          error instanceof ApiError &&
-          (error.code === 'IMAGE_NOT_FOUND' ||
-            error.code === 'SCAN_TIME_OUT_OF_RANGE' ||
-            error.code === 'NOT_A_CORN_LEAF');
-        if (neverAccepted || (!(error instanceof ApiError) && !photoExists(scan.localUri))) {
-          await removePending(userId, scan.id);
-          dropped += 1;
-          continue;
-        }
-        break;
+        // No connection (or the server is having a problem): keep this scan and
+        // everything behind it, and try again on the next sync.
+        if (isWorthRetrying(error, scan.localUri)) break;
+
+        // Anything else is a "no" to THIS scan - the server answered with a 4xx
+        // (photo gone from the server, older than 30 days, not a corn leaf, ...)
+        // or the local photo is gone - and asking again gets the same answer. Drop
+        // it so it does not block the rest of the queue, and count it so the
+        // farmer is told (see PendingScanSync).
+        await removePending(userId, scan.id);
+        dropped += 1;
+        continue;
       }
 
       await removePending(userId, scan.id);
@@ -293,6 +286,25 @@ async function removePending(userId: number, id: string): Promise<void> {
   // Re-read so a scan queued during the upload is not lost.
   const current = await getPendingScans(userId);
   await savePending(userId, current.filter((scan) => scan.id !== id));
+}
+
+/**
+ * Whether a failed upload should be tried again on the next sync.
+ *
+ *   - No answer from the server (NETWORK_ERROR, REQUEST_TIMEOUT): offline or a weak signal.
+ *   - The server itself failing (5xx, e.g. 503 while its AI service restarts): the scan is
+ *     fine. Dropping here would wipe the whole queue in one pass during any server hiccup.
+ *   - 401 / 403: the sign-in was rejected. AuthContext signs the farmer out, and the scan is
+ *     still good for when they sign in again (the queue is kept per account).
+ *
+ * Every other 4xx is the server refusing this particular scan, so it is NOT retried.
+ * A failure that did not come from the server at all (e.g. reading the photo) is retried
+ * unless the photo itself is gone.
+ */
+function isWorthRetrying(error: unknown, localUri: string): boolean {
+  if (!(error instanceof ApiError)) return photoExists(localUri);
+  if (error.code === 'NETWORK_ERROR' || error.code === 'REQUEST_TIMEOUT') return true;
+  return error.status >= 500 || error.status === 401 || error.status === 403;
 }
 
 function photoExists(uri: string): boolean {

@@ -8,7 +8,7 @@
  *
  *   - the "is this even a plant?" colour check (reject_if_not_a_leaf),
  *   - the model input (raw 0-255 pixels - preprocess_input is INSIDE the model),
- *   - how the model's 4 scores become one verdict and a confidence level.
+ *   - how the model's scores (one per class) become one verdict and a confidence level.
  *
  * If a threshold changes in app.py, change it here too.
  */

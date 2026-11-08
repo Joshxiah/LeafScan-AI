@@ -479,8 +479,8 @@ export const en: Translations = {
     scansNotSyncedTitle: 'Some scans could not be saved',
     scansNotSynced: (count) =>
       count === 1
-        ? '1 scan could not be saved because it is older than 30 days, its photo is gone, or the photo is not a corn leaf.'
-        : `${count} scans could not be saved because they are older than 30 days, their photos are gone, or the photos are not corn leaves.`,
+        ? '1 scan could not be saved because the server did not accept it (for example, it is older than 30 days, its photo is gone, or the photo is not a corn leaf).'
+        : `${count} scans could not be saved because the server did not accept them (for example, they are older than 30 days, their photos are gone, or the photos are not corn leaves).`,
     scansNotCornTitle: 'Not a corn leaf',
     scansNotCorn: (count) =>
       count === 1
@@ -917,7 +917,7 @@ export const ceb: Translations = {
     waitingForResult: 'Naghulat og internet',
     scansNotSyncedTitle: 'Dili ma-save ang ubang scan',
     scansNotSynced: (count) =>
-      `${count} ka scan wala ma-save kay lapas na sa 30 ka adlaw, nawala na ang litrato, o dili dahon sa mais ang litrato.`,
+      `${count} ka scan wala ma-save kay wala kini gidawat sa server (pananglitan, lapas na sa 30 ka adlaw, nawala na ang litrato, o dili dahon sa mais ang litrato).`,
     scansNotCornTitle: 'Dili dahon sa mais',
     scansNotCorn: (count) =>
       `${count} ka litrato nga gitipigan offline dili dahon sa mais, busa gitangtang kini ug wala i-save sa imong History.`,

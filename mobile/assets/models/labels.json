@@ -1,24 +1,28 @@
 {
-  "model_name": "MobileNetV2 (transfer learning, fine-tuned) - mobilenetv2_corn_v2",
+  "model_name": "MobileNetV2 (transfer learning, fine-tuned) \u2014 5 classes with not_corn",
+  "model_version": "mobilenetv2-5class",
   "class_labels": [
     "southern_rust",
     "gray_leaf_spot",
     "healthy",
-    "northern_leaf_blight"
+    "northern_leaf_blight",
+    "not_corn"
   ],
   "training_folder_names": [
     "Corn Rust",
     "Gray Leaf Spot",
     "Healthy",
-    "Northern Leaf Blight"
+    "Northern Leaf Blight",
+    "Not Corn Leaf"
   ],
+  "rejection_class": "not_corn",
   "input_size": [
     224,
     224
   ],
   "color_mode": "RGB",
   "input_range": "raw_0_255",
-  "note": "preprocess_input is INSIDE the model. Do NOT divide by 255 or normalize. Resize bilinear to 224x224, no crop.",
+  "note": "Preprocessing is INSIDE the model. Do NOT divide by 255 or normalize. Resize bilinear to 224x224, no crop.",
   "confidence_levels": {
     "low": [
       0,
@@ -34,11 +38,12 @@
     ]
   },
   "test_results": {
-    "test_images": 603,
-    "accuracy": 0.9138,
-    "macro_precision": 0.92,
-    "macro_recall": 0.91,
-    "macro_f1": 0.91
+    "test_images": 753,
+    "accuracy": 0.9429,
+    "macro_precision": 0.9448,
+    "macro_recall": 0.943,
+    "macro_f1": 0.9431,
+    "false_reject_rate": 0.0017
   },
   "tensorflow_version": "2.21.0",
   "keras_version": "3.13.2"

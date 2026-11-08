@@ -56,8 +56,16 @@ export class OnDeviceModelUnavailableError extends Error {
   }
 }
 
-// Same order as the model's outputs (ai-model/models/labels.json).
-const CLASS_LABELS = labelsFile.class_labels as readonly ScanClassLabel[];
+/**
+ * Everything the model can answer: the 4 corn classes plus "not_corn". `ScanClassLabel`
+ * stays the 4 real classes because those are the only ones a result screen, the history or
+ * the queue ever holds - "not_corn" is turned into a NOT_CORN error before it gets that far.
+ */
+type ModelLabel = ScanClassLabel | 'not_corn';
+
+// Same order as the model's outputs (assets/models/labels.json, a copy of
+// ai-model/models/labels.json): indexes 0-3 are the corn classes, index 4 is "not_corn".
+const CLASS_LABELS = labelsFile.class_labels as readonly ModelLabel[];
 
 interface Runtime {
   model: TensorflowModel;
@@ -172,8 +180,9 @@ async function readModelPixels(
 /**
  * Classifies the photo at `imageUri` (a local file) without any network.
  *
- * Throws ApiError(422, 'NOT_A_CORN_LEAF') for a photo that clearly is not a leaf, the same
- * error the server gives, so the screens already know how to show it.
+ * Throws ApiError(422, 'NOT_A_CORN_LEAF') for a photo that clearly is not a leaf (colour
+ * check), and ApiError(422, 'NOT_CORN') when the model itself answers "not_corn" - the same
+ * two errors the server gives, so the screens already know how to show them.
  * Throws OnDeviceModelUnavailableError when this build cannot scan on the phone.
  */
 export async function classifyOnDevice(imageUri: string): Promise<OnDeviceVerdict> {
@@ -200,11 +209,11 @@ export async function classifyOnDevice(imageUri: string): Promise<OnDeviceVerdic
 
   const top = pickTopClass(scores, CLASS_LABELS);
 
-  // A 5-class model (labels.json with "not_corn") has a "not corn" answer of its own. It is
-  // the same outcome as the server's, so it is thrown the same way: Preview shows the
-  // "not a corn leaf" screen and nothing is queued or saved. (The bundled 4-class model never
-  // gets here.)
-  if ((top.classLabel as string) === 'not_corn') {
+  // The model's own "not corn" answer is the same outcome as the server's, so it is thrown
+  // the same way (ApiError 422 NOT_CORN): Preview shows the "Not a Corn Leaf" screen, and
+  // because this throws BEFORE the caller queues anything, nothing is saved to the history or
+  // to the upload queue.
+  if (top.classLabel === 'not_corn') {
     throw new ApiError(
       422,
       'This does not look like a corn leaf. Please take a clear photo of a corn leaf.',
@@ -212,5 +221,10 @@ export async function classifyOnDevice(imageUri: string): Promise<OnDeviceVerdic
     );
   }
 
-  return top;
+  // TypeScript has narrowed top.classLabel to the 4 corn classes by here.
+  return {
+    classLabel: top.classLabel,
+    confidence: top.confidence,
+    confidenceLevel: top.confidenceLevel,
+  };
 }

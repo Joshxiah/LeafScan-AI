@@ -3,7 +3,7 @@
     "name": "LeafScan AI",
     "slug": "mobile",
     "owner": "xie.xia",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "mobile",
@@ -14,6 +14,7 @@
     },
     "android": {
       "package": "com.leafscanai.app",
+      "versionCode": 2,
       "adaptiveIcon": {
         "backgroundColor": "#022813",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
