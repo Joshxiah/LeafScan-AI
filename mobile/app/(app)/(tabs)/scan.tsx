@@ -80,15 +80,15 @@ export default function ScanScreen() {
             Above both options on purpose: picking from the gallery never
             passes through the camera screen, so this is the one place
             every farmer sees before choosing a photo. */}
-        <View className="mt-5 flex-row rounded-2xl border border-amber-200 bg-amber-50 p-4">
-          <View className="h-9 w-9 items-center justify-center rounded-full bg-amber-100">
-            <Ionicons name="information-circle-outline" size={20} color="#B45309" />
+        <View className="mt-5 flex-row rounded-2xl border border-red-200 bg-red-50 p-4">
+          <View className="h-9 w-9 items-center justify-center rounded-full bg-red-100">
+            <Ionicons name="alert-circle" size={22} color="#B91C1C" />
           </View>
           <View className="ml-3 flex-1">
-            <Text className="text-[13px] font-bold text-amber-900">
+            <Text className="text-[13px] font-bold text-red-900">
               {t.scan.cornOnlyTitle}
             </Text>
-            <Text className="mt-0.5 text-[12.5px] leading-5 text-amber-800">
+            <Text className="mt-0.5 text-[12.5px] leading-5 text-red-800">
               {t.scan.cornOnlyBody}
             </Text>
           </View>

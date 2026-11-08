@@ -198,5 +198,19 @@ export async function classifyOnDevice(imageUri: string): Promise<OnDeviceVerdic
   const scores = outputs[0] as Float32Array | undefined;
   if (!scores) throw new Error('The model returned no result.');
 
-  return pickTopClass(scores, CLASS_LABELS);
+  const top = pickTopClass(scores, CLASS_LABELS);
+
+  // A 5-class model (labels.json with "not_corn") has a "not corn" answer of its own. It is
+  // the same outcome as the server's, so it is thrown the same way: Preview shows the
+  // "not a corn leaf" screen and nothing is queued or saved. (The bundled 4-class model never
+  // gets here.)
+  if ((top.classLabel as string) === 'not_corn') {
+    throw new ApiError(
+      422,
+      'This does not look like a corn leaf. Please take a clear photo of a corn leaf.',
+      'NOT_CORN'
+    );
+  }
+
+  return top;
 }

@@ -165,14 +165,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     rememberedRef.current = rememberMe;
     await saveToken(result.token, rememberMe);
+
+    // The login response only carries the account itself - not the farming
+    // details (barangay, municipality, ...), which is why a fresh sign-in
+    // showed "Not set" until the profile was reloaded. Fetch the full profile
+    // now; if that fails (e.g. the connection dropped), sign in with what
+    // login returned rather than failing the whole sign-in.
+    let fullUser = result.user;
+    try {
+      fullUser = await authService.getCurrentUser();
+    } catch (error) {
+      console.log('[auth] Could not load the full profile after sign-in:', error);
+    }
+
     if (rememberMe) {
-      await saveCachedUser(result.user);
+      await saveCachedUser(fullUser);
     } else {
       await deleteCachedUser();
     }
 
     setToken(result.token);
-    setUser(result.user);
+    setUser(fullUser);
   }, []);
 
   /**

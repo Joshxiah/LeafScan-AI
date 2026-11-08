@@ -13,9 +13,7 @@
   import { pool } from '../config/database';
   import { ApiError } from '../utils/ApiError';
   import { ReviewDetectionInput } from '../utils/validation';
-
-  /** What detections.model_version records for every scan. */
-  const MODEL_VERSION = 'mobilenetv2-v2';
+  import { readModelLabels } from './modelLabels';
 
   /** A scan result the server has produced itself - never client-supplied. */
   export interface NewDetection {
@@ -276,6 +274,12 @@
         ? requested.toISOString().slice(0, 19).replace('T', ' ')
         : null;
 
+    // detections.model_version comes from the labels.json that ships with the
+    // model (e.g. "mobilenetv2-5class"), so it cannot drift from the deployed
+    // model. If that file cannot be read the scan is still saved, with NULL
+    // (unknown) rather than a made-up value.
+    const modelVersion = (await readModelLabels())?.modelVersion ?? null;
+
     const [result] = await pool.query<ResultSetHeader>(
       `INSERT INTO detections
         (user_id, disease_id, image_path, predicted_class,
@@ -289,12 +293,34 @@
         input.confidenceScore,
         confidenceLevelFor(input.confidenceScore),
         riskLevel,
-        MODEL_VERSION,
+        modelVersion,
         scannedAt,
       ]
     );
 
     return getDetectionById(result.insertId);
+  }
+
+  /**
+   * True when any record already points at this uploaded photo: a scan, a
+   * report snapshot, or a farmer / agriculturist profile photo. Everyone
+   * shares the one uploads folder, so this is checked before a photo is
+   * deleted. Matches on the unique file name (the stored value may or may not
+   * carry the "uploads/" prefix); at worst an extra match keeps a file.
+   */
+  export async function isUploadReferenced(imagePath: string): Promise<boolean> {
+    const fileName = imagePath.slice(imagePath.lastIndexOf('/') + 1);
+    const like = `%${fileName}`;
+
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT 1 AS used FROM detections WHERE image_path LIKE ?
+        UNION ALL SELECT 1 FROM report_images WHERE image_path LIKE ?
+        UNION ALL SELECT 1 FROM users WHERE avatar_path LIKE ?
+        UNION ALL SELECT 1 FROM agriculturists WHERE avatar_path LIKE ?
+        LIMIT 1`,
+      [like, like, like, like]
+    );
+    return rows.length > 0;
   }
 
   /** CAO admin only. One detection with its review layer. */

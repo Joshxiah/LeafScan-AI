@@ -180,6 +180,14 @@ export default function ReportScreen() {
 
   async function handleSubmit() {
     if (isSubmittingRef.current) return;
+
+    // The affected area is required: it has to be a number above zero.
+    const areaHectares = Number(estimatedArea);
+    if (!estimatedArea || !Number.isFinite(areaHectares) || areaHectares <= 0) {
+      setErrorMessage(t.report.areaRequired);
+      return;
+    }
+
     isSubmittingRef.current = true;
     setErrorMessage(null);
     setIsSubmitting(true);
@@ -207,7 +215,7 @@ export default function ReportScreen() {
         healthyScans: summary.healthy,
         diseaseBreakdown: summary.breakdown,
         images: images.length > 0 ? images : undefined,
-        estimatedAreaHectares: estimatedArea ? Number(estimatedArea) : undefined,
+        estimatedAreaHectares: areaHectares,
         remarks: remarks.trim() || undefined,
       });
       // Remember these scans went out, so the next visit starts empty
@@ -290,7 +298,10 @@ export default function ReportScreen() {
           </Text>
           <View className="rounded-2xl border border-[#EEF5EF] bg-white px-4" style={shadows.card}>
             <View className="flex-row items-center justify-between border-b border-[#EEF5EF] py-3.5">
-              <Text className="text-[13px] text-[#9BAAA1]">{t.report.estimatedArea}</Text>
+              <Text className="text-[13px] text-[#9BAAA1]">
+                {t.report.estimatedArea}
+                <Text className="font-bold text-[#D64545]"> *</Text>
+              </Text>
               <View className="flex-row items-center">
                 <TextInput
                   value={estimatedArea}

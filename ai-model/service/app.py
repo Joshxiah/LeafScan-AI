@@ -53,7 +53,7 @@ MIN_LUMA_STD = 8.0              # ubos aniini = blangko/solid nga hulagway
 with open(LABELS_PATH, encoding="utf-8") as f:
     META = json.load(f)
 
-CLASS_LABELS = META["class_labels"]       # southern_rust, gray_leaf_spot, healthy, northern_leaf_blight
+CLASS_LABELS = META["class_labels"]       # gikan ra sa labels.json; ang han-ay = han-ay sa output sa model (karon 5, apil ang not_corn)
 IMG_H, IMG_W = META["input_size"]         # 224, 224
 
 if META.get("input_range") != "raw_0_255":
@@ -93,15 +93,15 @@ def get_confidence_level(confidence_pct: float) -> str:
 
 def reject_if_not_a_leaf(img: Image.Image) -> None:
     """
-    Ang model naay 4 ra ka klase ug kinahanglan mopili og usa bisan unsa pa ang litrato,
-    mao nga ang selfie o itom nga frame mahimong "Healthy 53%" (ug ang solid nga hulagway
-    100% "Healthy"). Sala-on dinhi ang mga litrato nga klaro nga dili dahon, SA DILI pa
-    moabot sa model:
+    Sa dili pa ang 5-class model (walay not_corn), kinahanglan mopili ang model og usa sa
+    4 ka sakit bisan unsa pa ang litrato, mao nga ang selfie o itom nga frame mahimong
+    "Healthy 53%". Gisala-an gihapon dinhi ang mga litrato nga klaro nga dili dahon, SA DILI
+    pa moabot sa model:
       - blangko/solid nga hulagway (natabunan ang lens, itom, puti)
       - kulang ang kolor sa tanom (dilaw-berde ngadto sa berde)
 
-    Heuristic ra kini: dili niini madakpan ang berde nga dili corn (ubang tanom, bungbong).
-    Ang tinuod nga solusyon kay dugangan ang model og "not_corn_leaf" nga klase.
+    Heuristic ra kini: dili niini madakpan ang berde nga dili corn (ubang tanom, bungbong) -
+    kana na ang trabaho sa "not_corn" nga klase sa model (ibalik sa /predict isip class_label).
     """
     small = img.resize((IMG_W, IMG_H))
     luma_std = float(np.asarray(small.convert("L"), dtype=np.float32).std())

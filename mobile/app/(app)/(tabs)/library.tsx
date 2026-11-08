@@ -241,7 +241,7 @@ function DiseaseCard({
             <Text className="text-[10px] font-bold tracking-wide text-[#9BAAA1]">
               {symptomsLabel}
             </Text>
-            <Text className="mt-1 text-[12.5px] leading-5 text-[#6C8073]" numberOfLines={3}>
+            <Text className="mt-1 text-justify text-[12.5px] leading-5 text-[#6C8073]" numberOfLines={3}>
               {preview}
             </Text>
           </>

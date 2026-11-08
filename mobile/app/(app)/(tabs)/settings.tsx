@@ -37,6 +37,7 @@ import { useLanguage } from '../../../src/context/LanguageContext';
 import { Language } from '../../../src/i18n/translations';
 import { brand, shadows } from '../../../src/constants/theme';
 import { PartnerFooter } from '../../../src/components/PartnerFooter';
+import CropModal from '../../../src/components/CropModal';
 import { mediaUrl } from '../../../src/utils/media';
 import { uploadImage } from '../../../src/services/upload.service';
 import { updateProfile } from '../../../src/services/profile.service';
@@ -50,6 +51,11 @@ const LANGUAGE_OPTIONS: { code: Language; label: string }[] = [
 
 const PHONE_RULE = /^(09\d{9}|\+639\d{9})$/;
 
+// The photo picker has a crop step of its own on a phone (`allowsEditing`), but not in a
+// browser, where the option is ignored. There the app's own crop editor (the one the Scan
+// preview uses) opens after the photo is chosen.
+const CROP_IN_APP = Platform.OS === 'web';
+
 export default function SettingsScreen() {
   const router = useRouter();
   const { user, token, logout, refreshUser } = useAuth();
@@ -61,6 +67,8 @@ export default function SettingsScreen() {
   const [photoMenuVisible, setPhotoMenuVisible] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  // The chosen photo while it is being cropped (web only, see CROP_IN_APP).
+  const [cropUri, setCropUri] = useState<string | null>(null);
 
   // ---------- Edit profile ----------
   const [editVisible, setEditVisible] = useState(false);
@@ -182,7 +190,7 @@ export default function SettingsScreen() {
 
       const pickerOptions: ImagePicker.ImagePickerOptions = {
         mediaTypes: ['images'],
-        allowsEditing: true,
+        allowsEditing: !CROP_IN_APP,
         aspect: [1, 1],
         quality: 0.8,
         // A profile photo is a selfie, so open facing the farmer
@@ -200,8 +208,23 @@ export default function SettingsScreen() {
       const asset = result.assets[0];
       if (!asset?.uri) return;
 
-      setIsUploadingPhoto(true);
-      const uploaded = await uploadImage(asset.uri);
+      if (CROP_IN_APP) {
+        // Crop first; the upload happens in handlePhotoCropped (nothing is sent if cancelled).
+        setCropUri(asset.uri);
+        return;
+      }
+
+      await uploadPhoto(asset.uri);
+    } catch (error) {
+      setPhotoError(getErrorMessage(error, t.settings.photoErrorGeneric, t.apiErrors));
+    }
+  }
+
+  /** Uploads the picture (cropped, on the web) and makes it the profile photo. */
+  async function uploadPhoto(uri: string) {
+    setIsUploadingPhoto(true);
+    try {
+      const uploaded = await uploadImage(uri);
       await updateProfile({ avatarPath: uploaded.imagePath });
       await refreshUser();
     } catch (error) {
@@ -209,6 +232,11 @@ export default function SettingsScreen() {
     } finally {
       setIsUploadingPhoto(false);
     }
+  }
+
+  function handlePhotoCropped(croppedUri: string) {
+    setCropUri(null);
+    void uploadPhoto(croppedUri);
   }
 
   async function handleRemovePhoto() {
@@ -324,8 +352,8 @@ export default function SettingsScreen() {
           className="mt-4 flex-row items-center rounded-2xl border border-[#EEF5EF] bg-white px-4 py-3 active:bg-[#F5FAF6]"
           style={shadows.card}
         >
-          <View className="h-9 w-9 items-center justify-center rounded-xl bg-[#E7F4EA]">
-            <Ionicons name="paper-plane-outline" size={17} color={brand.accent} />
+          <View className="h-9 w-9 items-center justify-center">
+            <Ionicons name="cloud-upload-outline" size={22} color={brand.accent} />
           </View>
           <Text className="ml-3 flex-1 text-[14px] font-semibold text-[#16241B]">
             {t.settings.submitReport}
@@ -446,6 +474,16 @@ export default function SettingsScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* ---------- Crop the chosen photo (web) ---------- */}
+      <CropModal
+        visible={cropUri !== null}
+        uri={cropUri ?? ''}
+        aspect={1}
+        hint={t.settings.cropPhotoHint}
+        onCancel={() => setCropUri(null)}
+        onApply={handlePhotoCropped}
+      />
 
       {/* ---------- Edit profile modal ---------- */}
       <Modal

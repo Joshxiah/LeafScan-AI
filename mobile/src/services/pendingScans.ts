@@ -221,16 +221,19 @@ async function updatePending(
 /**
  * Uploads every queued scan, oldest first. Stops at the first
  * failure (almost always "still offline") and leaves the rest queued.
- * Returns how many were uploaded and how many had to be dropped.
+ * Returns how many were uploaded, how many had to be dropped, and how many
+ * the server's model found are not corn leaves (NOT_CORN: removed from the
+ * queue, photo and all, and never saved to the history).
  */
 export async function syncPendingScans(
   userId: number
-): Promise<{ uploaded: number; dropped: number }> {
-  if (isSyncing || isClassifying) return { uploaded: 0, dropped: 0 };
+): Promise<{ uploaded: number; dropped: number; notCorn: number }> {
+  if (isSyncing || isClassifying) return { uploaded: 0, dropped: 0, notCorn: 0 };
   isSyncing = true;
 
   let uploaded = 0;
   let dropped = 0;
+  let notCorn = 0;
   try {
     const queue = [...(await getPendingScans(userId))].reverse();
 
@@ -242,6 +245,17 @@ export async function syncPendingScans(
         await scanLeaf(imagePath, scan.scannedAt);
       } catch (error) {
         console.log('[pendingScans] Upload deferred:', error);
+
+        // The model says this is not a corn leaf: retrying gets the same answer, so
+        // take it out of the queue (the phone's own verdict listed it in Home / History
+        // until now) and count it apart from `dropped`, so the farmer gets a specific notice.
+        if (error instanceof ApiError && error.code === 'NOT_CORN') {
+          await removePending(userId, scan.id);
+          deletePhoto(scan.localUri);
+          notCorn += 1;
+          continue;
+        }
+
         // Only a scan the server can NEVER accept is dropped, so it does not
         // block the whole queue forever: the photo is gone from the server
         // (IMAGE_NOT_FOUND), the scan time is out of range (older than 30
@@ -271,8 +285,8 @@ export async function syncPendingScans(
   } finally {
     isSyncing = false;
   }
-  if (uploaded > 0 || dropped > 0) listeners.forEach((callback) => callback());
-  return { uploaded, dropped };
+  if (uploaded > 0 || dropped > 0 || notCorn > 0) listeners.forEach((callback) => callback());
+  return { uploaded, dropped, notCorn };
 }
 
 async function removePending(userId: number, id: string): Promise<void> {

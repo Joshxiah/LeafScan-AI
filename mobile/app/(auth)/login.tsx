@@ -153,11 +153,13 @@ export default function LoginScreen() {
               </Text>
             </Pressable>
 
+            {/* Forgot password link - disabled for now (not being used).
             <Pressable onPress={() => router.push('/forgot-password')} hitSlop={8}>
               <Text className="text-[13px] font-bold text-[#2F6D46]">
                 {t.login.forgotPassword}
               </Text>
             </Pressable>
+            */}
           </View>
 
           {errorMessage && (

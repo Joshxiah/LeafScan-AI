@@ -1,10 +1,11 @@
 /**
  * Sidebar navigation for the CAO admin platform.
  *
- * Every item routes to a real page. Log out lives in the footer,
- * under the office name.
+ * Every item routes to a real page. Log out lives at the top of the
+ * footer, above the partner logos and the office name.
  */
 
+import { useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../../context/AuthContext';
@@ -30,8 +31,21 @@ const NAV_ITEMS: NavItem[] = [
 export function Sidebar({ unreadReports }: { unreadReports?: number }) {
   const navigate = useNavigate();
   const { logout } = useAuth();
+  // The Log out button only asks; the dialog's "Yes" is what signs out.
+  const [askLogout, setAskLogout] = useState(false);
+
+  // Escape closes the dialog, same as Cancel.
+  useEffect(() => {
+    if (!askLogout) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setAskLogout(false);
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [askLogout]);
 
   function handleLogout() {
+    setAskLogout(false);
     logout();
     navigate('/login', { replace: true });
   }
@@ -73,15 +87,10 @@ export function Sidebar({ unreadReports }: { unreadReports?: number }) {
 
       {/* ---------- Footer ---------- */}
       <div className="border-t border-leaf-700 px-5 py-4">
-        <PartnerLogos className="mb-4 justify-center" />
-
-        <p className="text-xs text-leaf-300">City Agriculture Office</p>
-        <p className="text-xs text-leaf-400">Pagadian City</p>
-
         <button
           type="button"
-          onClick={handleLogout}
-          className="mt-3 flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-leaf-100 transition-colors hover:bg-leaf-700"
+          onClick={() => setAskLogout(true)}
+          className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-leaf-100 transition-colors hover:bg-leaf-700"
         >
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden="true">
             <path
@@ -101,8 +110,66 @@ export function Sidebar({ unreadReports }: { unreadReports?: number }) {
           <span>Log out</span>
         </button>
 
+        <PartnerLogos className="my-4 justify-center" />
+
+        <p className="text-xs text-leaf-300">City Agriculture Office</p>
+        <p className="text-xs text-leaf-400">Pagadian City</p>
+
         <CopyrightLine className="mt-3 text-center text-[10px] text-leaf-400" />
       </div>
+
+      {askLogout && (
+        <LogoutConfirm onConfirm={handleLogout} onCancel={() => setAskLogout(false)} />
+      )}
     </aside>
+  );
+}
+
+/**
+ * "Are you sure?" pop-up for Log out. Looks like the confirm dialog on the
+ * Users page (Cancel on the left, the red action on the right). Clicking
+ * outside it cancels.
+ */
+function LogoutConfirm({
+  onConfirm,
+  onCancel,
+}: {
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onCancel}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="logout-confirm-title"
+        className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 id="logout-confirm-title" className="text-base font-semibold text-gray-900">
+          Log out?
+        </h3>
+        <p className="mt-2 text-sm text-gray-600">Are you sure you want to log out?</p>
+        <div className="mt-4 flex gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 rounded-lg border border-gray-200 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="flex-1 rounded-lg bg-red-600 py-2.5 text-sm font-medium text-white hover:bg-red-700"
+          >
+            Yes
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

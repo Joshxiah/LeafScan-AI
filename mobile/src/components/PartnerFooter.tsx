@@ -47,7 +47,7 @@ export function PartnerFooter() {
         <LogoSlot source={CAO_LOGO} fallback="CAO" label="City Agriculture Office" />
       </View>
 
-      <Text className="mt-4 px-4 text-center text-[11px] text-[#7A9483]">
+      <Text className="mt-6 px-4 text-center text-[11px] text-[#7A9483]">
         © {new Date().getFullYear()} LeafScan AI · {DEVELOPERS.slice(0, -1).join(', ')}, and{' '}
         {DEVELOPERS[DEVELOPERS.length - 1]}. All rights reserved.
       </Text>

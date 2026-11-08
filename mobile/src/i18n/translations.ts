@@ -56,6 +56,8 @@ export type ApiErrorCode =
   | 'AI_UNAVAILABLE'
   | 'AI_REJECTED_IMAGE'
   | 'NOT_A_CORN_LEAF'
+  // The model itself answered "not_corn".
+  | 'NOT_CORN'
   | 'AI_BAD_GATEWAY'
   | 'AI_BAD_RESPONSE'
   | 'IMAGE_NOT_FOUND'
@@ -77,6 +79,9 @@ export interface Translations {
     waitingForResult: string;
     scansNotSyncedTitle: string;
     scansNotSynced: (count: number) => string;
+    /** Offline-queue photos the server found are not corn: removed, and the farmer is told. */
+    scansNotCornTitle: string;
+    scansNotCorn: (count: number) => string;
     scansSyncedTitle: string;
     scansSynced: (count: number) => string;
   };
@@ -304,6 +309,14 @@ export interface Translations {
     uploading: string;
     retakePhoto: string;
     chooseAnother: string;
+    /** Crop button on the review screen, and the crop editor it opens. */
+    crop: string;
+    cropTitle: string;
+    cropHint: string;
+    cropApply: string;
+    cropCancel: string;
+    cropping: string;
+    cropError: string;
     viewDiagnosis: string;
     noImage: string;
     chooseImageLink: string;
@@ -315,6 +328,9 @@ export interface Translations {
     offlineResultSubtitle: string;
     scanAnother: string;
     backToHome: string;
+    /** Shown instead of a diagnosis when the model says the photo is not a corn leaf. */
+    notCornTitle: string;
+    notCornMessage: string;
   };
 
   treatmentLevels: {
@@ -371,6 +387,8 @@ export interface Translations {
     affected: (count: number) => string;
     detailsTitle: string;
     estimatedArea: string;
+    /** Shown when the farmer submits without entering the affected area. */
+    areaRequired: string;
     hectare: string;
     barangay: string;
     notSet: string;
@@ -443,6 +461,8 @@ export interface Translations {
     removePhoto: string;
     photoPermissionMessage: string;
     photoErrorGeneric: string;
+    /** Instruction line of the crop editor for the (square) profile photo. */
+    cropPhotoHint: string;
   };
 }
 
@@ -461,6 +481,11 @@ export const en: Translations = {
       count === 1
         ? '1 scan could not be saved because it is older than 30 days, its photo is gone, or the photo is not a corn leaf.'
         : `${count} scans could not be saved because they are older than 30 days, their photos are gone, or the photos are not corn leaves.`,
+    scansNotCornTitle: 'Not a corn leaf',
+    scansNotCorn: (count) =>
+      count === 1
+        ? '1 photo saved offline is not a corn leaf, so it was removed and not saved to your history.'
+        : `${count} photos saved offline are not corn leaves, so they were removed and not saved to your history.`,
     scansSyncedTitle: 'Your photos have been scanned',
     scansSynced: (count) =>
       count === 1
@@ -692,6 +717,13 @@ export const en: Translations = {
     uploading: 'Uploading...',
     retakePhoto: 'Retake Photo',
     chooseAnother: 'Choose Another Image',
+    crop: 'Crop',
+    cropTitle: 'Crop Image',
+    cropHint: 'Drag the edges or corners to frame the leaf. Drag inside to move the frame.',
+    cropApply: 'Apply',
+    cropCancel: 'Cancel',
+    cropping: 'Cropping...',
+    cropError: 'The image could not be cropped. Please try again.',
     viewDiagnosis: 'View Diagnosis',
     noImage: 'No image was provided.',
     chooseImageLink: 'Choose an Image',
@@ -704,6 +736,9 @@ export const en: Translations = {
       'No internet, so your phone scanned this leaf by itself. The photo will upload automatically once you are back online.',
     scanAnother: 'Scan Another Leaf',
     backToHome: 'Back to Home',
+    notCornTitle: 'Not a Corn Leaf',
+    notCornMessage:
+      'This photo does not look like a corn leaf, so it was not saved to your history. Please take a clear, close photo of a corn leaf, or choose another image.',
   },
 
   treatmentLevels: {
@@ -763,6 +798,7 @@ export const en: Translations = {
     affected: (count) => `${count} affected`,
     detailsTitle: 'REPORT DETAILS',
     estimatedArea: 'Estimated Affected Area',
+    areaRequired: 'Please enter the estimated affected area (in hectares) before submitting.',
     hectare: 'ha',
     barangay: 'Barangay',
     notSet: 'Not set',
@@ -834,6 +870,8 @@ export const en: Translations = {
     photoPermissionMessage:
       'LeafScan AI needs access to your photos to set a profile picture. You can enable this in your phone settings.',
     photoErrorGeneric: 'We could not update your photo. Please try again.',
+    cropPhotoHint:
+      'Drag a corner or edge to resize the square. Drag inside to move it. This part becomes your profile photo.',
   },
 
   apiErrors: {
@@ -857,6 +895,7 @@ export const en: Translations = {
     AI_UNAVAILABLE: 'The leaf scanner is unavailable right now. Please try again in a moment.',
     AI_REJECTED_IMAGE: 'This photo could not be read. Please take a clear photo of a corn leaf.',
     NOT_A_CORN_LEAF: 'Try again. This does not look like a corn leaf. Please take a clear, close photo of a corn leaf.',
+    NOT_CORN: 'This does not look like a corn leaf. Please take a clear, close photo of a corn leaf.',
     AI_BAD_GATEWAY: 'The disease checker had a problem. Please try again in a moment.',
     AI_BAD_RESPONSE: 'The disease checker had a problem. Please try again in a moment.',
     IMAGE_NOT_FOUND: 'The uploaded photo could not be found. Please scan again.',
@@ -879,6 +918,9 @@ export const ceb: Translations = {
     scansNotSyncedTitle: 'Dili ma-save ang ubang scan',
     scansNotSynced: (count) =>
       `${count} ka scan wala ma-save kay lapas na sa 30 ka adlaw, nawala na ang litrato, o dili dahon sa mais ang litrato.`,
+    scansNotCornTitle: 'Dili dahon sa mais',
+    scansNotCorn: (count) =>
+      `${count} ka litrato nga gitipigan offline dili dahon sa mais, busa gitangtang kini ug wala i-save sa imong History.`,
     scansSyncedTitle: 'Na-scan na ang imong mga litrato',
     scansSynced: (count) =>
       `${count} ka litrato nga gitipigan offline ang na-upload ug na-scan na. Ablihi ang History aron makita ang resulta.`,
@@ -1109,6 +1151,13 @@ export const ceb: Translations = {
     uploading: 'Ginaupload...',
     retakePhoto: 'Pagkuha Pag-usab',
     chooseAnother: 'Pagpili og Lain nga Litrato',
+    crop: 'I-crop',
+    cropTitle: 'I-crop ang Litrato',
+    cropHint: 'Ibira ang mga ngilit o suok aron maframe ang dahon. Ibira sa sulod aron ibalhin ang frame.',
+    cropApply: 'Gamiton',
+    cropCancel: 'Kanselahon',
+    cropping: 'Gi-crop...',
+    cropError: 'Wala ma-crop ang litrato. Palihug sulayi pag-usab.',
     viewDiagnosis: 'Tan-awa ang Diagnosis',
     noImage: 'Walay litrato nga gihatag.',
     chooseImageLink: 'Pagpili og Litrato',
@@ -1121,6 +1170,9 @@ export const ceb: Translations = {
       'Walay internet, busa ang imong telepono mismo ang nag-scan niini nga dahon. Awtomatiko ma-upload ang litrato inig naa na pud kay internet.',
     scanAnother: 'Mag-scan og Lain nga Dahon',
     backToHome: 'Balik sa Home',
+    notCornTitle: 'Dili Dahon sa Mais',
+    notCornMessage:
+      'Dili ni murag dahon sa mais ang litrato, busa wala kini i-save sa imong History. Palihug kuhai og klaro ug suod nga litrato sa dahon sa mais, o pagpili og lain nga litrato.',
   },
 
   treatmentLevels: {
@@ -1185,6 +1237,7 @@ export const ceb: Translations = {
     affected: (count) => `${count} naapektuhan`,
     detailsTitle: 'DETALYE SA REPORT',
     estimatedArea: 'Gibanabana nga Sukod sa Naapektuhan',
+    areaRequired: 'Palihug i-input ang gibanabana nga sukod sa naapektuhan (sa ektarya) sa dili pa ipadala.',
     hectare: 'ha',
     barangay: 'Barangay',
     notSet: 'Wala pa gibutang',
@@ -1257,6 +1310,8 @@ export const ceb: Translations = {
     photoPermissionMessage:
       'Kinahanglan sa LeafScan AI ang access sa imong mga litrato aron makabutang og profile picture. Pwede nimo i-enable kini sa settings sa imong telepono.',
     photoErrorGeneric: 'Dili namo mahimo i-update ang imong litrato. Palihug sulayi pag-usab.',
+    cropPhotoHint:
+      'Ibira ang suok o ngilit aron usbon ang gidak-on sa kwadrado. Ibira sa sulod aron ibalhin. Kini nga bahin ang mahimong imong profile photo.',
   },
 
   apiErrors: {
@@ -1280,6 +1335,7 @@ export const ceb: Translations = {
     AI_UNAVAILABLE: 'Dili karon magamit ang pag-scan sa dahon. Palihug sulayi pag-usab sa makadiyot.',
     AI_REJECTED_IMAGE: 'Dili mabasa kini nga litrato. Palihug kuhai og klaro nga litrato sa dahon sa mais.',
     NOT_A_CORN_LEAF: 'Sulayi pag-usab. Dili ni murag dahon sa mais. Palihug kuhai og klaro ug suod nga litrato sa dahon sa mais.',
+    NOT_CORN: 'Dili ni murag dahon sa mais. Palihug kuhai og klaro ug suod nga litrato sa dahon sa mais.',
     AI_BAD_GATEWAY: 'Naay problema sa pag-check sa sakit. Palihug sulayi pag-usab human sa pipila ka gutlo.',
     AI_BAD_RESPONSE: 'Naay problema sa pag-check sa sakit. Palihug sulayi pag-usab human sa pipila ka gutlo.',
     IMAGE_NOT_FOUND: 'Wala makit-i ang na-upload nga litrato. Palihug pag-scan pag-usab.',

@@ -11,13 +11,23 @@ import fs from 'fs/promises';
 import path from 'path';
 import { env } from '../config/env';
 import { ApiError } from '../utils/ApiError';
+import { describeLabelMismatch } from '../utils/labelMismatch';
+import { readModelLabels } from './modelLabels';
 
-/** The four classes the model knows, exactly as stored in diseases.class_label. */
+/**
+ * Every class the model can answer with, spelled exactly as in labels.json.
+ * Always compare the label string, never its position in the model's output.
+ *
+ * The first four are diseases.class_label values. "not_corn" is the model's
+ * rejection class: it has no row in `diseases` and is never saved as a scan -
+ * POST /api/detections/scan answers 422 NOT_CORN for it (detection.controller.ts).
+ */
 export const CLASS_LABELS = [
   'southern_rust',
   'gray_leaf_spot',
   'healthy',
   'northern_leaf_blight',
+  'not_corn',
 ] as const;
 
 export type ClassLabel = (typeof CLASS_LABELS)[number];
@@ -125,12 +135,39 @@ function parsePrediction(raw: PythonPrediction): AiPrediction {
 }
 
 /**
+ * The Python service loads its model once, at startup. If the model files are
+ * swapped while it keeps running, it goes on answering with the OLD classes -
+ * a 4-class model cannot say "not_corn", so a photo of a park comes back as
+ * "Healthy 98%" and would be saved. Its reply lists every class it scored
+ * (`probabilities`); when that differs from labels.json the scan is refused:
+ * 503 AI_UNAVAILABLE (the phone already has a message for it, and its offline
+ * queue keeps the photo and retries), nothing saved, the photo kept. The real
+ * reason goes to the server log. With no readable labels.json there is
+ * nothing to compare against, so the check is skipped.
+ */
+async function assertServiceMatchesLabels(probabilities: Record<string, number>): Promise<void> {
+  const expected = await readModelLabels();
+  if (!expected || expected.classLabels.length === 0) return;
+
+  const problem = describeLabelMismatch(Object.keys(probabilities), expected.classLabels);
+  if (!problem) return;
+
+  console.error(
+    `[ai] Scan refused. ${problem}. Restart the Python service (ai-model/service) so it loads the current model.`
+  );
+  throw ApiError.serviceUnavailable(UNAVAILABLE_MESSAGE, 'AI_UNAVAILABLE');
+}
+
+/**
  * Sends the image at `absoluteFilePath` to the Python service and
  * returns its prediction.
  *
  * Errors:
  *   - service down / unreachable / timed out -> 503
+ *   - service still running a different model than labels.json describes -> 503 AI_UNAVAILABLE
  *   - Python says the photo is not a corn leaf -> 422 NOT_A_CORN_LEAF
+ *   - the model answers class_label "not_corn" -> NOT an error here: it comes back as a
+ *     normal prediction, and the scan controller turns it into 422 NOT_CORN
  *   - Python answers any other 4xx (e.g. not a valid image) -> 400 with its message
  *   - Python answers 5xx or garbage -> 502
  */
@@ -177,5 +214,7 @@ export async function predictLeaf(absoluteFilePath: string): Promise<AiPredictio
     throw new ApiError(502, 'AI service returned an unexpected response', 'AI_BAD_RESPONSE');
   }
 
-  return parsePrediction(body);
+  const prediction = parsePrediction(body);
+  await assertServiceMatchesLabels(prediction.probabilities);
+  return prediction;
 }

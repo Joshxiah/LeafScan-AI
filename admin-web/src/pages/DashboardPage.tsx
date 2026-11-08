@@ -515,7 +515,8 @@ export function DashboardPage() {
                         } at the selected risk level. Overall risk is still worked out from all of a barangay's scans.`}
                   </p>
 
-                  <details className="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                  {/* Closed: hugs its one line. Open: spans the column for the explanation. */}
+                  <details className="mt-2 w-fit max-w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-600 open:w-full">
                     <summary className="cursor-pointer font-medium text-gray-700">
                       How is overall risk decided?
                     </summary>

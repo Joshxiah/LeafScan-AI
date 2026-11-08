@@ -19,7 +19,7 @@
  * later, as before.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -29,8 +29,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import CropModal from '../../src/components/CropModal';
 import { uploadLeafImage, UploadResult } from '../../src/services/upload.service';
 import { getErrorMessage, ApiError } from '../../src/services/api';
 import { goToDiagnosis } from '../../src/navigation/diagnosis';
@@ -49,16 +51,25 @@ export default function PreviewScreen() {
   const { token, user } = useAuth();
 
   // Values passed through the URL by /scan or /camera.
-  const { imageUri, source } = useLocalSearchParams<{
+  const { imageUri: pickedUri, source } = useLocalSearchParams<{
     imageUri: string;
     source: string;
   }>();
+
+  // The farmer can crop the photo before sending it. The cropped copy then
+  // replaces the picked photo everywhere on this screen.
+  const [croppedUri, setCroppedUri] = useState<string | null>(null);
+  const [isCropOpen, setIsCropOpen] = useState(false);
+  const imageUri = croppedUri ?? pickedUri;
 
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // The server read the photo fine but it is not a corn leaf. Shown as a
   // gentle "try again" note instead of a red error.
   const [notCornLeaf, setNotCornLeaf] = useState(false);
+  // The model itself said "not corn" (code NOT_CORN). Unlike the note above this
+  // swaps the whole screen for a friendly "not a corn leaf" one; nothing is saved.
+  const [notCorn, setNotCorn] = useState(false);
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   // The server's verdict. Set once the photo has been classified.
   const [scanResult, setScanResult] = useState<ScanLeafResult | null>(null);
@@ -92,6 +103,7 @@ export default function PreviewScreen() {
   async function handleUpload() {
     setErrorMessage(null);
     setNotCornLeaf(false);
+    setNotCorn(false);
     setIsUploading(true);
 
     // Where the photo already is on the server, if the upload got through
@@ -166,7 +178,18 @@ export default function PreviewScreen() {
 
   function showError(error: unknown) {
     setNotCornLeaf(error instanceof ApiError && error.code === 'NOT_A_CORN_LEAF');
+    setNotCorn(error instanceof ApiError && error.code === 'NOT_CORN');
     setErrorMessage(getErrorMessage(error, t.preview.errorGeneric, t.apiErrors));
+  }
+
+  /** The farmer cropped the photo: use the new file, and forget anything tied to the old one. */
+  function handleCropped(croppedFileUri: string) {
+    setCroppedUri(croppedFileUri);
+    // A photo uploaded earlier (e.g. before a failed scan) is the uncropped one.
+    setUploadResult(null);
+    setErrorMessage(null);
+    setNotCornLeaf(false);
+    setIsCropOpen(false);
   }
 
   /** Sends the farmer back to pick or capture a different image. */
@@ -228,56 +251,69 @@ export default function PreviewScreen() {
           <Text className="text-base text-leaf-700">{t.preview.backLink}</Text>
         </Pressable>
 
-        <Text className="mt-5 text-2xl font-bold text-gray-900">
-          {savedOffline
-            ? t.preview.savedOfflineTitle
-            : offlineScan
-              ? t.preview.offlineResultTitle
-              : scanResult
-                ? t.preview.uploadedTitle
-                : t.preview.reviewTitle}
-        </Text>
-        <Text className="mt-1 text-sm text-gray-500">
-          {savedOffline
-            ? t.preview.savedOfflineSubtitle
-            : offlineScan
-              ? t.preview.offlineResultSubtitle
-              : scanResult
-                ? t.preview.uploadedSubtitle
-                : t.preview.reviewSubtitle}
-        </Text>
+        {notCorn ? (
+          // Not a corn leaf: a red disclaimer box (with a warning icon) instead of the
+          // usual title + subtitle.
+          <View className="mt-5 flex-row items-start rounded-xl border border-red-200 bg-red-50 px-4 py-4">
+            <AlertBadge />
+            <View className="ml-3 flex-1">
+              <Text className="text-lg font-bold text-red-800">{t.preview.notCornTitle}</Text>
+              <Text className="mt-1 text-sm text-red-700">{t.preview.notCornMessage}</Text>
+            </View>
+          </View>
+        ) : (
+          <>
+            <Text className="mt-5 text-2xl font-bold text-gray-900">
+              {savedOffline
+                ? t.preview.savedOfflineTitle
+                : offlineScan
+                  ? t.preview.offlineResultTitle
+                  : scanResult
+                    ? t.preview.uploadedTitle
+                    : t.preview.reviewTitle}
+            </Text>
+            <Text className="mt-1 text-sm text-gray-500">
+              {savedOffline
+                ? t.preview.savedOfflineSubtitle
+                : offlineScan
+                  ? t.preview.offlineResultSubtitle
+                  : scanResult
+                    ? t.preview.uploadedSubtitle
+                    : t.preview.reviewSubtitle}
+            </Text>
+          </>
+        )}
 
         {/* ---------- The image ---------- */}
         <View className="mt-6 overflow-hidden rounded-2xl bg-white">
           <Image
             // Once uploaded, show the SERVER copy. If this renders,
             // the file genuinely arrived and is readable. Saved offline,
-            // the server copy cannot be loaded, so show the local photo.
+            // the server copy cannot be loaded, so show the local photo. Same for
+            // "not corn": the server deletes that photo, so its copy may be gone.
             source={{
               uri:
-                uploadResult && !savedOffline && !offlineScan
+                uploadResult && !savedOffline && !offlineScan && !notCorn
                   ? withAuthToken(uploadResult.imageUrl, token)
                   : imageUri,
             }}
             className="aspect-square w-full"
-            resizeMode="cover"
+            // A cropped photo is shown whole, so the farmer sees exactly the part they kept.
+            resizeMode={croppedUri ? 'contain' : 'cover'}
           />
         </View>
 
         {/* ---------- Error ---------- */}
-        {errorMessage &&
-          (notCornLeaf ? (
-            <View className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-              <Text className="text-sm text-amber-800">{errorMessage}</Text>
-            </View>
-          ) : (
-            <View className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-              <Text className="text-sm text-red-700">{errorMessage}</Text>
-            </View>
-          ))}
+        {/* Red for every error, including "not a corn leaf" (it used to be amber). */}
+        {errorMessage && !notCorn && (
+          <View className="mt-5 flex-row items-center rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+            <AlertBadge />
+            <Text className="ml-3 flex-1 text-sm text-red-700">{errorMessage}</Text>
+          </View>
+        )}
 
         {/* ---------- Upload details ---------- */}
-        {uploadResult && !notCornLeaf && !savedOffline && !offlineScan && (
+        {uploadResult && !notCornLeaf && !notCorn && !savedOffline && !offlineScan && (
           <View className="mt-5 rounded-2xl bg-white p-5">
             <Text className="mb-3 text-base font-semibold text-gray-900">
               {t.preview.uploadDetails}
@@ -294,7 +330,21 @@ export default function PreviewScreen() {
         )}
 
         {/* ---------- Actions ---------- */}
-        {savedOffline ? (
+        {notCorn ? (
+          // Not a corn leaf: nothing was saved, so the only way on is a different photo.
+          <View className="mt-7">
+            <ActionButton
+              onPress={() => router.replace('/camera')}
+              label={t.preview.retakePhoto}
+            />
+
+            <ActionButton
+              onPress={() => router.replace('/scan')}
+              label={t.preview.chooseAnother}
+              className="mt-3"
+            />
+          </View>
+        ) : savedOffline ? (
           <View className="mt-7">
             <Pressable
               onPress={() => router.replace('/scan')}
@@ -316,34 +366,32 @@ export default function PreviewScreen() {
           </View>
         ) : !scanResult && !offlineScan ? (
           <View className="mt-7">
-            <Pressable
+            <ActionButton
               onPress={handleUpload}
               disabled={isUploading}
-              className={`flex-row items-center justify-center rounded-xl py-4 ${
-                isUploading ? 'bg-leaf-400' : 'bg-leaf-600 active:bg-leaf-700'
-              }`}
-            >
-              {isUploading && (
-                <ActivityIndicator size="small" color="#ffffff" className="mr-2" />
-              )}
-              <Text className="text-base font-semibold text-white">
-                {isUploading
+              loading={isUploading}
+              label={
+                isUploading
                   ? isScanningOnPhone
                     ? t.preview.scanning
                     : t.preview.uploading
-                  : t.preview.useThisImage}
-              </Text>
-            </Pressable>
+                  : t.preview.useThisImage
+              }
+            />
 
-            <Pressable
+            <ActionButton
+              onPress={() => setIsCropOpen(true)}
+              disabled={isUploading}
+              label={t.preview.crop}
+              className="mt-3"
+            />
+
+            <ActionButton
               onPress={handleRetake}
               disabled={isUploading}
-              className="mt-3 items-center rounded-xl border-2 border-leaf-600 py-4 active:bg-leaf-50"
-            >
-              <Text className="text-base font-semibold text-leaf-700">
-                {source === 'camera' ? t.preview.retakePhoto : t.preview.chooseAnother}
-              </Text>
-            </Pressable>
+              label={source === 'camera' ? t.preview.retakePhoto : t.preview.chooseAnother}
+              className="mt-3"
+            />
           </View>
         ) : (
           <Pressable
@@ -356,7 +404,81 @@ export default function PreviewScreen() {
           </Pressable>
         )}
       </ScrollView>
+
+      <CropModal
+        visible={isCropOpen}
+        uri={imageUri}
+        onCancel={() => setIsCropOpen(false)}
+        onApply={handleCropped}
+      />
     </SafeAreaView>
+  );
+}
+
+/**
+ * White button with a green outline. Pressing it fills it green and turns the
+ * text white (there is no hover on a phone, so the press is the effect).
+ */
+function ActionButton({
+  label,
+  onPress,
+  disabled,
+  loading,
+  className = '',
+}: {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+  loading?: boolean;
+  className?: string;
+}) {
+  // Own press state instead of the `active:` variant. A quick tap on some of
+  // these buttons leaves the screen straight away (e.g. Retake Photo), so the
+  // green is held ~150 ms after the finger lifts to make sure it is seen.
+  const [isPressed, setIsPressed] = useState(false);
+  const releaseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (releaseTimer.current) clearTimeout(releaseTimer.current);
+    };
+  }, []);
+
+  function handlePressIn() {
+    if (releaseTimer.current) clearTimeout(releaseTimer.current);
+    setIsPressed(true);
+  }
+
+  function handlePressOut() {
+    releaseTimer.current = setTimeout(() => setIsPressed(false), 150);
+  }
+
+  return (
+    <Pressable
+      onPress={onPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      disabled={disabled}
+      className={`flex-row items-center justify-center rounded-xl border-2 border-leaf-600 py-4 ${
+        isPressed ? 'bg-leaf-600' : 'bg-white'
+      } ${disabled ? 'opacity-60' : ''} ${className}`}
+    >
+      {loading && <ActivityIndicator size="small" color="#2a752c" className="mr-2" />}
+      <Text
+        className={`text-base font-semibold ${isPressed ? 'text-white' : 'text-leaf-700'}`}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+/** Round red badge with a warning icon, at the left of the red error / disclaimer boxes. */
+function AlertBadge() {
+  return (
+    <View className="h-9 w-9 items-center justify-center rounded-full bg-red-100">
+      <Ionicons name="alert-circle" size={22} color="#B91C1C" />
+    </View>
   );
 }
 

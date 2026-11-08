@@ -131,4 +131,12 @@ export const env = {
   aiServiceUrl: optionalEnv('AI_SERVICE_URL', 'http://127.0.0.1:8000'),
   // How long Express waits for the Python service before giving up.
   aiServiceTimeoutMs: Number(optionalEnv('AI_SERVICE_TIMEOUT_MS', '30000')),
+  // The labels.json that ships with the model. detections.model_version is
+  // read from it (see detection.service.ts). The default is the copy in this
+  // repo (backend/src/config -> ../../../ai-model/models); set AI_LABELS_PATH
+  // when the backend runs on a machine that does not have the ai-model folder.
+  aiLabelsPath: optionalEnv(
+    'AI_LABELS_PATH',
+    path.resolve(__dirname, '../../../ai-model/models/labels.json')
+  ),
 };

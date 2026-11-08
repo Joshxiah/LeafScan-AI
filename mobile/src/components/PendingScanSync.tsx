@@ -42,9 +42,17 @@ export function PendingScanSync() {
         // No point trying to upload with no internet (on Wi-Fi without internet
         // each try hangs for a minute); go straight to scanning on the phone.
         if (!(await isDefinitelyOffline())) {
-          const { uploaded, dropped } = await syncPendingScans(userId);
-          if (dropped > 0) {
-            Alert.alert(t.common.scansNotSyncedTitle, t.common.scansNotSynced(dropped));
+          const { uploaded, dropped, notCorn } = await syncPendingScans(userId);
+          if (notCorn > 0 || dropped > 0) {
+            // One alert, even if both happened in the same sync (a second Alert.alert
+            // right after the first can replace it on Android).
+            const lines: string[] = [];
+            if (notCorn > 0) lines.push(t.common.scansNotCorn(notCorn));
+            if (dropped > 0) lines.push(t.common.scansNotSynced(dropped));
+            Alert.alert(
+              notCorn > 0 ? t.common.scansNotCornTitle : t.common.scansNotSyncedTitle,
+              lines.join('\n\n')
+            );
           } else if (uploaded > 0) {
             // Tell the farmer their offline photos now have a result.
             Alert.alert(t.common.scansSyncedTitle, t.common.scansSynced(uploaded));

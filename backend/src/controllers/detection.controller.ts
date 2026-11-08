@@ -6,6 +6,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { Request, Response } from 'express';
 import { env } from '../config/env';
+import { deleteUploadedFile } from '../middleware/upload.middleware';
 import * as aiService from '../services/ai.service';
 import * as detectionService from '../services/detection.service';
 import type { RiskLevel, DetectionResult } from '../services/detection.service';
@@ -21,6 +22,41 @@ const UPLOAD_DIRECTORY = path.resolve(__dirname, '../../', env.upload.dir);
 
 /** ApiError.code for a scan request whose uploaded photo is not on disk. */
 const IMAGE_NOT_FOUND = 'IMAGE_NOT_FOUND';
+
+/**
+ * What the scan endpoint answers when the MODEL says the photo is not a corn
+ * leaf (class "not_corn"): HTTP 422 + code NOT_CORN, in the same
+ * { success: false, message, code } shape as every other error.
+ *
+ * 422 on purpose, see how the phone reads errors (src/services/api.ts):
+ *   - it only separates "no connection" (status 0 / code NETWORK_ERROR or
+ *     REQUEST_TIMEOUT, which trigger the offline fallback) from "the server
+ *     answered" - any HTTP status, 4xx or 5xx, is shown to the farmer as an error;
+ *   - 401 / 403 sign the farmer OUT (AuthContext), so they must never be used here;
+ *   - a plain 404 is already ambiguous with "Route not found" (see IMAGE_NOT_FOUND);
+ *   - 422 is what the Python colour check already uses for NOT_A_CORN_LEAF.
+ * The offline queue (pendingScans.ts) keys off `code`, never the status.
+ */
+const NOT_CORN_STATUS = 422;
+const NOT_CORN_CODE = 'NOT_CORN';
+const NOT_CORN_MESSAGE =
+  'Dili dahon sa mais ang litrato. Palihug kuhai og klaro nga litrato sa dahon sa mais.';
+
+/**
+ * Deletes a photo the model rejected as not corn, so it does not sit in the
+ * uploads folder with no record pointing at it. Never throws and never changes
+ * the answer the farmer gets. A photo that any record already uses is kept,
+ * and when that cannot be checked the photo is kept too: a leftover file is
+ * harmless, a deleted profile or scan photo is not.
+ */
+async function discardRejectedUpload(imagePath: string): Promise<void> {
+  try {
+    if (await detectionService.isUploadReferenced(imagePath)) return;
+    deleteUploadedFile(path.basename(imagePath));
+  } catch (error) {
+    console.error(`[scan] Kept ${imagePath}: could not check whether it is in use:`, error);
+  }
+}
 
 
 /** A 'YYYY-MM-DD' query param, or undefined when absent. Anything else is a 400. */
@@ -78,6 +114,13 @@ export async function scanDetection(req: Request, res: Response): Promise<void> 
   const absolutePath = await resolveUploadedImage(input.imagePath);
 
   const prediction = await aiService.predictLeaf(absolutePath);
+
+  // The model's rejection class. Not a disease: do not look it up in
+  // `diseases`, do not save a detection, and drop the photo.
+  if (prediction.classLabel === 'not_corn') {
+    await discardRejectedUpload(input.imagePath);
+    throw new ApiError(NOT_CORN_STATUS, NOT_CORN_MESSAGE, NOT_CORN_CODE);
+  }
 
   // Risk level is NOT decided here - createDetection() reads it from
   // diseases.default_risk_level for the predicted class.
