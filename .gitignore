@@ -57,6 +57,9 @@ ai-model/dataset/test/
 *.keras
 *.tflite
 *.pb
+# ...except the on-device model: Metro bundles it into the app (require() in
+# mobile/src/services/onDeviceScan.ts), so EAS Build must receive it. ~4.5 MB.
+!mobile/assets/models/*.tflite
 
 # ---------- Uploaded images ----------
 backend/uploads/*

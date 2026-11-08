@@ -29,6 +29,14 @@ const PLANT_HUE_MIN = 45;
 const PLANT_HUE_MAX = 170;
 const PLANT_MIN_SATURATION = 0.18;
 const PLANT_MIN_VALUE = 0.15;
+/**
+ * Printed green (packaging, labels, plastic) is cool/emerald and very saturated (hue ~130,
+ * saturation ~0.8); a leaf is yellow-green and duller (saturation ~0.3-0.4). A pixel that is
+ * BOTH cool-green and this saturated is not counted as plant. A green vinegar pouch went from
+ * 23% "plant" to 7% (rejected); real corn leaves moved by <= 0.3 points.
+ */
+const ARTIFICIAL_GREEN_MIN_HUE = 115;
+const ARTIFICIAL_GREEN_MIN_SATURATION = 0.6;
 /** Below this the picture is blank / one flat colour (covered lens, black or white frame). */
 const MIN_LUMA_STD = 8;
 
@@ -83,7 +91,14 @@ export function checkLooksLikeCornLeaf(rgb: ArrayLike<number>): LeafCheck {
     if (hue < 0) hue += 1;
     const hueDegrees = (Math.floor(hue * 255) * 360) / 255;
 
-    if (hueDegrees >= PLANT_HUE_MIN && hueDegrees <= PLANT_HUE_MAX) plantPixels++;
+    if (hueDegrees < PLANT_HUE_MIN || hueDegrees > PLANT_HUE_MAX) continue;
+    if (
+      hueDegrees >= ARTIFICIAL_GREEN_MIN_HUE &&
+      saturation255 / 255 >= ARTIFICIAL_GREEN_MIN_SATURATION
+    ) {
+      continue;
+    }
+    plantPixels++;
   }
 
   const mean = lumaSum / pixelCount;

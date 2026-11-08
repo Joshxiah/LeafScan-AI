@@ -37,6 +37,14 @@ MIN_PLANT_FRACTION = float(os.environ.get("LEAFSCAN_MIN_PLANT_FRACTION", "0.15")
 PLANT_HUE_DEGREES = (45, 170)   # dilaw-berde ngadto sa berde; gawas ang beige/skin/kahoy
 PLANT_MIN_SATURATION = 0.18
 PLANT_MIN_VALUE = 0.15
+# Ang berde nga naimprenta (packaging, label, plastik) sobra ka-saturated ug cool/emerald
+# (hue ~130, saturation ~0.8), dili parehas sa dahon (dilaw-berde, saturation ~0.3-0.4).
+# Dili ihilot sa "tanom-kolor" ang pixel nga cool-green ug saturated na kaayo. Gipakita sa
+# usa ka berde nga suka-pouch: 23% tanom-kolor -> 7% human sa pagtangtang, mao nga na-reject
+# na; ang tinuod nga corn leaf nausab ra og <= 0.3 ka puntos. (Ibutang ang parehas nga numero
+# sa mobile/src/utils/leafVision.ts.)
+ARTIFICIAL_GREEN_MIN_HUE = 115
+ARTIFICIAL_GREEN_MIN_SATURATION = 0.60
 MIN_LUMA_STD = 8.0              # ubos aniini = blangko/solid nga hulagway
 
 # ---------------------------------------------------------------------------
@@ -107,6 +115,7 @@ def reject_if_not_a_leaf(img: Image.Image) -> None:
         & (hue <= PLANT_HUE_DEGREES[1])
         & (sat >= PLANT_MIN_SATURATION)
         & (val >= PLANT_MIN_VALUE)
+        & ~((hue >= ARTIFICIAL_GREEN_MIN_HUE) & (sat >= ARTIFICIAL_GREEN_MIN_SATURATION))
     )
     plant_fraction = float(plant.mean())
 
