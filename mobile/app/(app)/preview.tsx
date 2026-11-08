@@ -7,14 +7,19 @@
  * "Use this image" uploads the photo (POST /api/uploads), then asks
  * the server to classify it (POST /api/detections/scan), which runs
  * the real model and records the scan. The verdict is also logged to
- * src/services/scanLog.ts. Classifying needs the server, so with no
- * connection the photo is saved on the phone instead
- * (src/services/pendingScans.ts) and uploaded + classified
- * automatically once the phone is back online - the farmer is never
- * shown a made-up result in the meantime.
+ * src/services/scanLog.ts.
+ *
+ * With no internet the farmer does NOT wait for one: the same model
+ * runs on the phone (src/services/onDeviceScan.ts), the result shows
+ * straight away, and the photo + that result are saved in the queue
+ * (src/services/pendingScans.ts). The queue uploads the photo and has
+ * the server record it once the phone is back online. That is also the
+ * fallback when the connection drops mid-scan. A build that cannot run
+ * the model (Expo Go, web) just saves the photo for the server to scan
+ * later, as before.
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -30,8 +35,10 @@ import { uploadLeafImage, UploadResult } from '../../src/services/upload.service
 import { getErrorMessage, ApiError } from '../../src/services/api';
 import { goToDiagnosis } from '../../src/navigation/diagnosis';
 import { addScan, ScanEntry } from '../../src/services/scanLog';
-import { queuePendingScan } from '../../src/services/pendingScans';
+import { PendingScan, queuePendingScan } from '../../src/services/pendingScans';
 import { scanLeaf, ScanLeafResult } from '../../src/services/detection.service';
+import { isDefinitelyOffline } from '../../src/services/connectivity';
+import { classifyOnDevice, warmUpOnDeviceModel } from '../../src/services/onDeviceScan';
 import { useLanguage } from '../../src/context/LanguageContext';
 import { useAuth } from '../../src/context/AuthContext';
 import { withAuthToken } from '../../src/utils/media';
@@ -55,9 +62,19 @@ export default function PreviewScreen() {
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   // The server's verdict. Set once the photo has been classified.
   const [scanResult, setScanResult] = useState<ScanLeafResult | null>(null);
-  // There was no connection: the photo is saved on the phone and goes to
-  // the server by itself once the phone is back online.
+  // There was no connection and this build cannot scan on the phone: the
+  // photo is saved and goes to the server by itself once back online.
   const [savedOffline, setSavedOffline] = useState(false);
+  // There was no connection, so the phone scanned the leaf itself. This is
+  // its queue entry: the photo plus the on-device verdict, until it uploads.
+  const [offlineScan, setOfflineScan] = useState<PendingScan | null>(null);
+  // The phone is working through the model (a moment), as opposed to uploading.
+  const [isScanningOnPhone, setIsScanningOnPhone] = useState(false);
+
+  // Load the model while the farmer looks at the photo, so the scan itself is quick.
+  useEffect(() => {
+    warmUpOnDeviceModel();
+  }, []);
 
   if (!imageUri) {
     return (
@@ -82,6 +99,12 @@ export default function PreviewScreen() {
     let uploadedPath = uploadResult?.imagePath;
 
     try {
+      // No internet at all: do not even try the server. Scan on the phone now.
+      if (user && (await isDefinitelyOffline())) {
+        await scanOnPhone(user.id, uploadedPath);
+        return;
+      }
+
       // Keep an earlier successful upload, so a retry after a failed
       // scan does not upload the same photo twice.
       const uploaded = uploadResult ?? (await uploadLeafImage(imageUri));
@@ -90,32 +113,60 @@ export default function PreviewScreen() {
 
       setScanResult(await scanLeaf(uploaded.imagePath));
     } catch (error) {
-      // No connection at all: keep the photo on the phone and let
-      // PendingScanSync send it later, instead of showing an error.
-      // Wi-Fi with no internet behind it does not fail fast, it just hangs
-      // until the upload times out - treated the same, but only while the
-      // photo was still uploading. A timeout during the scan itself may
-      // already have been recorded by the server, so that stays an error
-      // the farmer can retry (queuing it could scan the same photo twice).
+      // The connection failed on the way: scan on the phone instead of
+      // showing an error. Wi-Fi with no internet behind it does not fail
+      // fast, it just hangs until the upload times out - treated the same,
+      // but only while the photo was still uploading. A timeout during the
+      // scan itself may already have been recorded by the server, so that
+      // stays an error the farmer can retry (queuing it could scan the same
+      // photo twice).
       const noConnection =
         error instanceof ApiError &&
         (error.code === 'NETWORK_ERROR' ||
           (error.code === 'REQUEST_TIMEOUT' && uploadedPath === undefined));
       if (user && noConnection) {
         try {
-          await queuePendingScan(user.id, { imageUri, imagePath: uploadedPath });
-          setSavedOffline(true);
+          await scanOnPhone(user.id, uploadedPath);
           return;
-        } catch (queueError) {
-          console.error('[preview] Could not save the scan offline:', queueError);
+        } catch (offlineError) {
+          showError(offlineError);
+          return;
         }
       }
 
-      setNotCornLeaf(error instanceof ApiError && error.code === 'NOT_A_CORN_LEAF');
-      setErrorMessage(getErrorMessage(error, t.preview.errorGeneric, t.apiErrors));
+      showError(error);
     } finally {
       setIsUploading(false);
+      setIsScanningOnPhone(false);
     }
+  }
+
+  /**
+   * Scans the leaf with the on-device model and queues the photo with that
+   * result, so the farmer sees a diagnosis right now and the upload happens
+   * whenever there is internet. Throws for a photo that is not a leaf
+   * (NOT_A_CORN_LEAF). If the phone cannot scan at all - no model in this
+   * build (Expo Go, web), or it failed - the photo is just saved for the
+   * server to scan later, so the farmer is never blocked.
+   */
+  async function scanOnPhone(userId: number, uploadedPath: string | undefined) {
+    setIsScanningOnPhone(true);
+
+    try {
+      const verdict = await classifyOnDevice(imageUri);
+      setOfflineScan(await queuePendingScan(userId, { imageUri, imagePath: uploadedPath, verdict }));
+    } catch (error) {
+      if (error instanceof ApiError) throw error; // "not a corn leaf": tell the farmer
+
+      console.warn('[preview] Could not scan on the phone, saving the photo for later:', error);
+      await queuePendingScan(userId, { imageUri, imagePath: uploadedPath });
+      setSavedOffline(true);
+    }
+  }
+
+  function showError(error: unknown) {
+    setNotCornLeaf(error instanceof ApiError && error.code === 'NOT_A_CORN_LEAF');
+    setErrorMessage(getErrorMessage(error, t.preview.errorGeneric, t.apiErrors));
   }
 
   /** Sends the farmer back to pick or capture a different image. */
@@ -128,6 +179,25 @@ export default function PreviewScreen() {
   }
 
   async function handleDone() {
+    // Scanned on the phone: the queue entry IS the saved scan (Home / History
+    // list it from there), so it is not also added to the on-device log.
+    if (offlineScan?.classLabel && offlineScan.confidence !== undefined) {
+      goToDiagnosis(
+        router,
+        {
+          id: `pending-${offlineScan.id}`,
+          classLabel: offlineScan.classLabel,
+          confidence: offlineScan.confidence,
+          confidenceLevel: offlineScan.confidenceLevel,
+          scannedAt: new Date(offlineScan.scannedAt),
+          localUri: offlineScan.localUri,
+          pending: true,
+        },
+        { replace: true }
+      );
+      return;
+    }
+
     if (!scanResult) return;
 
     // The server already recorded this scan when it classified it; the
@@ -161,16 +231,20 @@ export default function PreviewScreen() {
         <Text className="mt-5 text-2xl font-bold text-gray-900">
           {savedOffline
             ? t.preview.savedOfflineTitle
-            : scanResult
-              ? t.preview.uploadedTitle
-              : t.preview.reviewTitle}
+            : offlineScan
+              ? t.preview.offlineResultTitle
+              : scanResult
+                ? t.preview.uploadedTitle
+                : t.preview.reviewTitle}
         </Text>
         <Text className="mt-1 text-sm text-gray-500">
           {savedOffline
             ? t.preview.savedOfflineSubtitle
-            : scanResult
-              ? t.preview.uploadedSubtitle
-              : t.preview.reviewSubtitle}
+            : offlineScan
+              ? t.preview.offlineResultSubtitle
+              : scanResult
+                ? t.preview.uploadedSubtitle
+                : t.preview.reviewSubtitle}
         </Text>
 
         {/* ---------- The image ---------- */}
@@ -181,7 +255,7 @@ export default function PreviewScreen() {
             // the server copy cannot be loaded, so show the local photo.
             source={{
               uri:
-                uploadResult && !savedOffline
+                uploadResult && !savedOffline && !offlineScan
                   ? withAuthToken(uploadResult.imageUrl, token)
                   : imageUri,
             }}
@@ -203,7 +277,7 @@ export default function PreviewScreen() {
           ))}
 
         {/* ---------- Upload details ---------- */}
-        {uploadResult && !notCornLeaf && !savedOffline && (
+        {uploadResult && !notCornLeaf && !savedOffline && !offlineScan && (
           <View className="mt-5 rounded-2xl bg-white p-5">
             <Text className="mb-3 text-base font-semibold text-gray-900">
               {t.preview.uploadDetails}
@@ -240,7 +314,7 @@ export default function PreviewScreen() {
               </Text>
             </Pressable>
           </View>
-        ) : !scanResult ? (
+        ) : !scanResult && !offlineScan ? (
           <View className="mt-7">
             <Pressable
               onPress={handleUpload}
@@ -253,7 +327,11 @@ export default function PreviewScreen() {
                 <ActivityIndicator size="small" color="#ffffff" className="mr-2" />
               )}
               <Text className="text-base font-semibold text-white">
-                {isUploading ? t.preview.uploading : t.preview.useThisImage}
+                {isUploading
+                  ? isScanningOnPhone
+                    ? t.preview.scanning
+                    : t.preview.uploading
+                  : t.preview.useThisImage}
               </Text>
             </Pressable>
 

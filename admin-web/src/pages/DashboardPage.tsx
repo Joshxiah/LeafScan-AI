@@ -24,6 +24,7 @@ import { api, ApiError } from '../services/api';
 import * as dashboardService from '../services/dashboard.service';
 import type {
   BarangayBreakdown,
+  BarangayBreakdownRow,
   DashboardStatistics,
   FarmerBarangayCount,
   RecentDetection,
@@ -31,12 +32,20 @@ import type {
   ScanActivity,
 } from '../types';
 import { RISK_NAME } from '../types';
+import {
+  assessBarangayRisk,
+  HIGH_FROM,
+  MIN_SCANS,
+  MODERATE_FROM,
+  type BarangayRisk,
+} from '../utils/barangayRisk';
 
-const RISK_BADGE: Record<RiskLevel, string> = {
+const RISK_BADGE: Record<BarangayRisk, string> = {
   none: 'bg-green-50 text-green-700',
   low: 'bg-lime-50 text-lime-700',
   moderate: 'bg-amber-50 text-amber-700',
   high: 'bg-red-50 text-red-700',
+  insufficient: 'bg-gray-100 text-gray-500',
 };
 
 const RISK_FILTERS: { label: string; value: RiskLevel | 'all' }[] = [
@@ -57,9 +66,11 @@ function isoDaysAgo(daysAgo: number): string {
 
 const RISK_COLUMNS: RiskLevel[] = ['none', 'low', 'moderate', 'high'];
 
-/** Highest risk level that has at least one scan; 'none' when everything is healthy. */
-function overallRisk(counts: Record<RiskLevel, number>): RiskLevel {
-  return (['high', 'moderate', 'low'] as RiskLevel[]).find((risk) => counts[risk] > 0) ?? 'none';
+/** Scans per risk level for one barangay row (healthy leaves are "none"). */
+function riskCounts(row: BarangayBreakdownRow): Record<RiskLevel, number> {
+  const counts: Record<RiskLevel, number> = { none: row.healthy, low: 0, moderate: 0, high: 0 };
+  for (const disease of row.diseases) counts[disease.riskLevel] += disease.count;
+  return counts;
 }
 
 const ACTIVITY_PRESETS: { label: string; days: number }[] = [
@@ -91,8 +102,13 @@ export function DashboardPage() {
   // Detections filter below. Ratchets to the fullest list seen
   // rather than shrinking when barangayRisk filters it down.
   const [barangayOptions, setBarangayOptions] = useState<string[]>([]);
+  // Last unfiltered rows. The overall risk needs ALL of a barangay's scans
+  // (healthy ones included); a risk-level filter removes some of them, so
+  // the overall label is always computed from this copy, never filtered rows.
+  const [allBarangayRows, setAllBarangayRows] = useState<BarangayBreakdownRow[]>([]);
   useEffect(() => {
     if (barangayRisk === 'all' && barangayData) {
+      setAllBarangayRows(barangayData.barangays);
       setBarangayOptions(
         [...barangayData.barangays.map((row) => row.barangay)].sort((a, b) =>
           a.localeCompare(b)
@@ -105,14 +121,20 @@ export function DashboardPage() {
   // disease"; each diseased scan counts at its disease's risk level.
   const { riskRows, riskTotals } = useMemo(() => {
     const totals: Record<RiskLevel, number> = { none: 0, low: 0, moderate: 0, high: 0 };
+    const fullByName = new Map(allBarangayRows.map((row) => [row.barangay, row]));
     const rows = (barangayData?.barangays ?? []).map((row) => {
-      const counts: Record<RiskLevel, number> = { none: row.healthy, low: 0, moderate: 0, high: 0 };
-      for (const disease of row.diseases) counts[disease.riskLevel] += disease.count;
+      const counts = riskCounts(row);
       for (const risk of RISK_COLUMNS) totals[risk] += counts[risk];
-      return { barangay: row.barangay, counts, total: row.total, overall: overallRisk(counts) };
+      const full = fullByName.get(row.barangay);
+      return {
+        barangay: row.barangay,
+        counts,
+        total: row.total,
+        assessment: full ? assessBarangayRisk(riskCounts(full)) : null,
+      };
     });
     return { riskRows: rows, riskTotals: totals };
-  }, [barangayData]);
+  }, [barangayData, allBarangayRows]);
 
   // ---- "Registered Farmers by Barangay" section ----
   const [farmersByBarangay, setFarmersByBarangay] = useState<FarmerBarangayCount[] | null>(null);
@@ -448,11 +470,24 @@ export function DashboardPage() {
                             ))}
                             <td className="py-2 pr-4 text-right text-gray-700">{row.total}</td>
                             <td className="py-2">
-                              <span
-                                className={`rounded px-2 py-0.5 text-xs font-medium ${RISK_BADGE[row.overall]}`}
-                              >
-                                {RISK_NAME[row.overall]}
-                              </span>
+                              {row.assessment ? (
+                                <>
+                                  <span
+                                    className={`whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium ${RISK_BADGE[row.assessment.level]}`}
+                                  >
+                                    {row.assessment.level === 'insufficient'
+                                      ? 'Not enough data'
+                                      : RISK_NAME[row.assessment.level]}
+                                  </span>
+                                  <p className="mt-0.5 text-[11px] text-gray-400">
+                                    {row.assessment.level === 'insufficient'
+                                      ? `${row.assessment.total} of ${MIN_SCANS} scans needed`
+                                      : `${Math.round(row.assessment.incidence)}% diseased · index ${Math.round(row.assessment.index)}`}
+                                  </p>
+                                </>
+                              ) : (
+                                <span className="text-xs text-gray-400">—</span>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -477,8 +512,45 @@ export function DashboardPage() {
                       ? `Reconciles with ${statistics.healthyScans} healthy / ${statistics.diseasedScans} diseased scans above.`
                       : `Showing ${barangayData.totals.total} scan${
                           barangayData.totals.total === 1 ? '' : 's'
-                        } at the selected risk level.`}
+                        } at the selected risk level. Overall risk is still worked out from all of a barangay's scans.`}
                   </p>
+
+                  <details className="mt-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                    <summary className="cursor-pointer font-medium text-gray-700">
+                      How is overall risk decided?
+                    </summary>
+                    <div className="mt-2 space-y-1.5">
+                      <p>
+                        Each scan gets a grade from its disease's risk level: No disease 0,
+                        Low 1, Moderate 2, High 3. The <strong>disease index</strong> is the
+                        total grade divided by the highest possible grade (3 × number of
+                        scans), as a percentage. It reflects both how many leaves are
+                        diseased and how damaging those diseases are.
+                      </p>
+                      <ul className="list-disc space-y-0.5 pl-4">
+                        <li>
+                          <strong>High</strong>: index {HIGH_FROM} or more
+                        </li>
+                        <li>
+                          <strong>Moderate</strong>: index {MODERATE_FROM} to below {HIGH_FROM}
+                        </li>
+                        <li>
+                          <strong>Low</strong>: some disease, index below {MODERATE_FROM}
+                        </li>
+                        <li>
+                          <strong>No disease</strong>: every scan healthy
+                        </li>
+                        <li>
+                          <strong>Not enough data</strong>: fewer than {MIN_SCANS} scans, so one
+                          leaf could swing the result
+                        </li>
+                      </ul>
+                      <p>
+                        These cutoffs are working defaults pending confirmation by the City
+                        Agriculture Office.
+                      </p>
+                    </div>
+                  </details>
                 </div>
 
                 {/* ---- Risk-per-disease graph ---- */}

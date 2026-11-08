@@ -30,7 +30,7 @@ import { PendingScansNotice } from '../../../src/components/PendingScansNotice';
 import { FilterPills } from '../../../src/components/FilterPills';
 import { goToDiagnosis } from '../../../src/navigation/diagnosis';
 import { ScanEntry } from '../../../src/services/scanLog';
-import { onPendingSynced, countWaitingScans } from '../../../src/services/pendingScans';
+import { onPendingSynced, getWaitingScans, WaitingPhoto } from '../../../src/services/pendingScans';
 import { loadFarmerScans } from '../../../src/services/detection.service';
 import {
   ActivityRange,
@@ -51,8 +51,10 @@ export default function HomeScreen() {
   const { t } = useLanguage();
   const [range, setRange] = useState<ActivityRange>('Weekly');
   const [scans, setScans] = useState<ScanEntry[] | null>(null);
-  // Photos saved offline that have not been scanned yet.
-  const [waitingCount, setWaitingCount] = useState(0);
+  // Photos saved offline that have not been scanned yet. They count as
+  // scans the farmer took, but have no verdict to show.
+  const [waiting, setWaiting] = useState<WaitingPhoto[]>([]);
+  const waitingCount = waiting.length;
 
   useFocusEffect(
     useCallback(() => {
@@ -62,8 +64,8 @@ export default function HomeScreen() {
         loadFarmerScans(user.id).then((log) => {
           if (isMounted) setScans(log);
         });
-        countWaitingScans(user.id).then((count) => {
-          if (isMounted) setWaitingCount(count);
+        getWaitingScans(user.id).then((photos) => {
+          if (isMounted) setWaiting(photos);
         });
       };
       reload();
@@ -90,21 +92,28 @@ export default function HomeScreen() {
   } as const;
 
   const activity = useMemo(
-    () => (scans ? buildActivity(scans, range) : []),
-    [scans, range]
+    () => (scans ? buildActivity(scans, range, waiting) : []),
+    [scans, range, waiting]
   );
   const summary = useMemo(() => summariseActivity(activity), [activity]);
   const changePercent = useMemo(
-    () => (scans ? changeVsPreviousPeriod(scans, range) : null),
-    [scans, range]
+    () => (scans ? changeVsPreviousPeriod(scans, range, waiting) : null),
+    [scans, range, waiting]
   );
 
-  const recentScans = useMemo(
+  // Verdict-less photos sit among the diagnosed scans by time, so a scan taken
+  // offline shows up in Recent Scans right away, in the order it was taken.
+  const recentItems = useMemo(
     () =>
       scans
-        ? [...scans].sort((a, b) => b.scannedAt.getTime() - a.scannedAt.getTime()).slice(0, RECENT_COUNT)
+        ? [
+            ...scans.map((scan) => ({ kind: 'scan' as const, at: scan.scannedAt, scan })),
+            ...waiting.map((photo) => ({ kind: 'waiting' as const, at: photo.scannedAt, photo })),
+          ]
+            .sort((a, b) => b.at.getTime() - a.at.getTime())
+            .slice(0, RECENT_COUNT)
         : [],
-    [scans]
+    [scans, waiting]
   );
 
   // ---------- Still loading the log ----------
@@ -117,7 +126,8 @@ export default function HomeScreen() {
   }
 
   // ---------- Nothing scanned yet ----------
-  if (scans.length === 0) {
+  // A photo taken offline is a scan too, so it gets the dashboard.
+  if (scans.length === 0 && waitingCount === 0) {
     return (
       <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={[]}>
         <ScrollView
@@ -256,6 +266,14 @@ export default function HomeScreen() {
             </Text>
             <Text className="ml-2 text-[13px] text-[#6C8073]">{t.home.totalScans}</Text>
           </View>
+          {summary.waiting > 0 && (
+            <View className="mt-1 flex-row items-center">
+              <Ionicons name="cloud-upload-outline" size={13} color="#92400E" />
+              <Text className="ml-1 text-[12px] font-semibold text-amber-800">
+                {t.home.includesWaiting(summary.waiting)}
+              </Text>
+            </View>
+          )}
 
           <View className="mt-4">
             <WeeklyBarChart data={activity} />
@@ -285,9 +303,9 @@ export default function HomeScreen() {
             {t.home.diseaseDistribution}
           </Text>
 
-          {summary.total === 0 ? (
+          {summary.healthy + summary.diseased === 0 ? (
             <Text className="mt-3 text-[13px] leading-5 text-[#6C8073]">
-              {t.home.noActivityInRange}
+              {summary.waiting > 0 ? t.home.resultsAfterScan : t.home.noActivityInRange}
             </Text>
           ) : (
             <View className="mt-3 flex-row items-center">
@@ -328,18 +346,31 @@ export default function HomeScreen() {
           </View>
 
           <View className="gap-2.5">
-            {recentScans.map((scan) => (
-              <ScanListItem
-                key={scan.id}
-                title={t.diseaseNames[scan.classLabel]}
-                subtitle={`${t.common.corn} | ${timeLabelFor(scan) ?? bucketLabels[bucketOf(scan)]}${scan.pending ? ` | ${t.common.waitingToUpload}` : ''}`}
-                confidence={scan.confidence}
-                healthy={isHealthy(scan)}
-                healthyLabel={t.home.healthy}
-                imageUri={scan.localUri ?? mediaUrl(scan.imagePath, token)}
-                onPress={() => goToDiagnosis(router, scan)}
-              />
-            ))}
+            {recentItems.map((item) =>
+              item.kind === 'waiting' ? (
+                <ScanListItem
+                  key={item.photo.id}
+                  waiting
+                  title={t.common.waitingForResult}
+                  subtitle={`${t.common.corn} | ${timeLabelFor(item.photo) ?? bucketLabels[bucketOf(item.photo)]} | ${t.common.waitingToUpload}`}
+                  confidence={0}
+                  healthy={false}
+                  healthyLabel={t.home.healthy}
+                  imageUri={item.photo.localUri}
+                />
+              ) : (
+                <ScanListItem
+                  key={item.scan.id}
+                  title={t.diseaseNames[item.scan.classLabel]}
+                  subtitle={`${t.common.corn} | ${timeLabelFor(item.scan) ?? bucketLabels[bucketOf(item.scan)]}${item.scan.pending ? ` | ${t.common.waitingToUpload}` : ''}`}
+                  confidence={item.scan.confidence}
+                  healthy={isHealthy(item.scan)}
+                  healthyLabel={t.home.healthy}
+                  imageUri={item.scan.localUri ?? mediaUrl(item.scan.imagePath, token)}
+                  onPress={() => goToDiagnosis(router, item.scan)}
+                />
+              )
+            )}
           </View>
         </View>
 

@@ -1,13 +1,16 @@
 /**
  * Scans taken while offline, waiting to be uploaded.
  *
- * With no connection the Preview screen saves the photo here instead of
- * failing. Classifying needs the server, so nothing is classified on the
- * phone and no verdict is stored: syncPendingScans() uploads the photo
- * and has the server classify it the next time the phone can reach it,
- * and the result then shows up in History. (Entries queued by older app
- * versions also carry a stand-in verdict; it is ignored.) Queues are
- * scoped per userId for the same reason scanLog.ts is.
+ * With no connection the Preview screen scans the leaf on the phone
+ * (onDeviceScan.ts) and saves the photo here WITH that result, so the farmer
+ * has their answer straight away and Home / History list it. Uploading is
+ * only housekeeping: syncPendingScans() sends the photo the next time the
+ * phone can reach the server, and the SERVER classifies it again - that is
+ * the record the CAO sees (the phone's own verdict is never sent).
+ *
+ * Builds that cannot run the model (Expo Go, web) save the photo with no
+ * verdict at all; it shows up as "waiting for internet" until the server has
+ * scanned it. Queues are scoped per userId for the same reason scanLog.ts is.
  */
 
 import { Platform } from 'react-native';
@@ -17,7 +20,14 @@ import { Directory, File as LocalFile, Paths } from 'expo-file-system';
 import { ApiError } from './api';
 import { uploadLeafImage } from './upload.service';
 import { scanLeaf } from './detection.service';
+import {
+  OnDeviceModelUnavailableError,
+  OnDeviceVerdict,
+  classifyOnDevice,
+  isOnDeviceScanSupported,
+} from './onDeviceScan';
 import { ScanClassLabel } from '../data/scanStats';
+import { ConfidenceLevel } from '../types';
 
 const KEY_PREFIX = 'leafscan_pending_scans';
 const MAX_PENDING = 100;
@@ -26,9 +36,17 @@ export interface PendingScan {
   id: string;
   /** Permanent on-device copy of the photo. */
   localUri: string;
-  /** Stand-in guess made on the phone by older app versions. Never set for new scans. */
+  /**
+   * The verdict the on-device model gave this photo, so it can be shown
+   * before any internet. Undefined while no verdict exists yet (the model
+   * is not available in this build, or the photo was queued before one
+   * could be made). Replaced by the server's own result after the upload.
+   */
   classLabel?: ScanClassLabel;
   confidence?: number;
+  confidenceLevel?: ConfidenceLevel;
+  /** The on-device scan already tried this photo and could not give a verdict (not a leaf / unreadable) - do not try again. */
+  onDeviceTried?: boolean;
   scannedAt: string;
   /** Set when the photo already reached the server and only the detection record is missing. */
   imagePath?: string;
@@ -36,7 +54,7 @@ export interface PendingScan {
 
 const listeners = new Set<() => void>();
 
-/** Calls back whenever queued scans have just been uploaded, so lists can reload. */
+/** Calls back whenever the queue changed behind the farmer's back (uploaded, or given a result), so lists can reload. */
 export function onPendingSynced(callback: () => void): () => void {
   listeners.add(callback);
   return () => {
@@ -48,11 +66,36 @@ const keyFor = (userId: number) => `${KEY_PREFIX}_${userId}`;
 
 /**
  * How many queued photos have no verdict yet - the ones the farmer can
- * only be told are "waiting". (Entries from older app versions have a
- * stand-in verdict and are listed in Home / History instead.)
+ * only be told are "waiting". (Photos the phone has scanned on its own
+ * have a verdict and are listed in Home / History like any other scan.)
  */
 export async function countWaitingScans(userId: number): Promise<number> {
-  return (await getPendingScans(userId)).filter((scan) => scan.classLabel === undefined).length;
+  return (await getWaitingScans(userId)).length;
+}
+
+/** A queued photo with no verdict yet, as Home and History list it. */
+export interface WaitingPhoto {
+  id: string;
+  localUri: string;
+  scannedAt: Date;
+}
+
+/**
+ * The queued photos that have no verdict yet - only possible in a build
+ * that cannot scan on the phone (Expo Go, web), or for a photo the on-device
+ * model could not judge. Home and History list them as "waiting for
+ * internet" and count them as scans the farmer took, but never as healthy
+ * or diseased - nothing has classified them. Newest first.
+ */
+export async function getWaitingScans(userId: number): Promise<WaitingPhoto[]> {
+  return (await getPendingScans(userId))
+    .filter((scan) => scan.classLabel === undefined)
+    .map((scan) => ({
+      id: `waiting-${scan.id}`,
+      localUri: scan.localUri,
+      scannedAt: new Date(scan.scannedAt),
+    }))
+    .sort((a, b) => b.scannedAt.getTime() - a.scannedAt.getTime());
 }
 
 export async function getPendingScans(userId: number): Promise<PendingScan[]> {
@@ -86,10 +129,13 @@ function persistPhoto(uri: string, id: string): string {
   }
 }
 
-/** Queues one scan for upload and returns it. */
+/**
+ * Queues one scan for upload and returns it. Pass the on-device `verdict`
+ * when there is one, so the farmer's result is listed right away.
+ */
 export async function queuePendingScan(
   userId: number,
-  scan: { imageUri: string; imagePath?: string }
+  scan: { imageUri: string; imagePath?: string; verdict?: OnDeviceVerdict }
 ): Promise<PendingScan> {
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const entry: PendingScan = {
@@ -97,6 +143,13 @@ export async function queuePendingScan(
     localUri: persistPhoto(scan.imageUri, id),
     scannedAt: new Date().toISOString(),
     imagePath: scan.imagePath,
+    ...(scan.verdict
+      ? {
+          classLabel: scan.verdict.classLabel,
+          confidence: scan.verdict.confidence,
+          confidenceLevel: scan.verdict.confidenceLevel,
+        }
+      : {}),
   };
 
   const existing = await getPendingScans(userId);
@@ -105,6 +158,65 @@ export async function queuePendingScan(
 }
 
 let isSyncing = false;
+let isClassifying = false;
+
+/**
+ * Gives every queued photo that has no verdict yet one from the on-device
+ * model, so it shows a real result with no internet instead of "waiting".
+ * Covers photos queued before this build could scan on the phone.
+ *
+ * A photo the model cannot judge (not a leaf, unreadable) is marked and left
+ * alone: the server gets the final say when it is uploaded. Returns how many
+ * photos got a verdict.
+ */
+export async function classifyWaitingScansOnDevice(userId: number): Promise<number> {
+  // The queue is read, changed and written back in pieces; never at the same time as a sync.
+  if (!isOnDeviceScanSupported() || isSyncing || isClassifying) return 0;
+  isClassifying = true;
+
+  let classified = 0;
+  try {
+    const waiting = (await getPendingScans(userId)).filter(
+      (scan) => scan.classLabel === undefined && !scan.onDeviceTried
+    );
+
+    for (const scan of waiting) {
+      let changes: Partial<PendingScan>;
+      try {
+        const verdict = await classifyOnDevice(scan.localUri);
+        changes = {
+          classLabel: verdict.classLabel,
+          confidence: verdict.confidence,
+          confidenceLevel: verdict.confidenceLevel,
+        };
+        classified += 1;
+      } catch (error) {
+        if (error instanceof OnDeviceModelUnavailableError) break; // no model in this build: nothing to do
+        console.log('[pendingScans] On-device scan skipped:', error);
+        changes = { onDeviceTried: true };
+      }
+      await updatePending(userId, scan.id, changes);
+    }
+  } finally {
+    isClassifying = false;
+  }
+
+  if (classified > 0) listeners.forEach((callback) => callback());
+  return classified;
+}
+
+async function updatePending(
+  userId: number,
+  id: string,
+  changes: Partial<PendingScan>
+): Promise<void> {
+  // Re-read so a scan queued meanwhile is not lost.
+  const current = await getPendingScans(userId);
+  await savePending(
+    userId,
+    current.map((scan) => (scan.id === id ? { ...scan, ...changes } : scan))
+  );
+}
 
 /**
  * Uploads every queued scan, oldest first. Stops at the first
@@ -114,7 +226,7 @@ let isSyncing = false;
 export async function syncPendingScans(
   userId: number
 ): Promise<{ uploaded: number; dropped: number }> {
-  if (isSyncing) return { uploaded: 0, dropped: 0 };
+  if (isSyncing || isClassifying) return { uploaded: 0, dropped: 0 };
   isSyncing = true;
 
   let uploaded = 0;
@@ -125,8 +237,8 @@ export async function syncPendingScans(
     for (const scan of queue) {
       try {
         const imagePath = scan.imagePath ?? (await uploadLeafImage(scan.localUri)).imagePath;
-        // Scans queued by older app versions carry a stand-in verdict made
-        // on the phone. Ignore it: the server classifies the photo itself.
+        // The verdict the phone made is only for showing the farmer an answer
+        // meanwhile. It is never sent: the server classifies the photo itself.
         await scanLeaf(imagePath, scan.scannedAt);
       } catch (error) {
         console.log('[pendingScans] Upload deferred:', error);

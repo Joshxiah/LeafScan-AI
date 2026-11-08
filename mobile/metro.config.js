@@ -85,6 +85,13 @@ function withApiProxy(config) {
   return config;
 }
 
-const config = withNativeWind(getDefaultConfig(__dirname), { input: './global.css' });
+const baseConfig = getDefaultConfig(__dirname);
+
+// The corn-leaf model (assets/models/leafscan_mobilenetv2.tflite) is bundled
+// into the app as an asset so scanning works with no internet. Metro only
+// treats a file as an asset if its extension is listed here.
+baseConfig.resolver.assetExts.push('tflite');
+
+const config = withNativeWind(baseConfig, { input: './global.css' });
 
 module.exports = withApiProxy(config);

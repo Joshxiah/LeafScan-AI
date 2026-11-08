@@ -32,9 +32,10 @@ export interface ScanEntry {
   confidence: number;
   /**
    * How sure the AI was, and how dangerous the disease is. Both come from
-   * the server's saved detection. They stay undefined for a scan the
-   * server never classified (the pending queue) and for older entries in
-   * the on-device log - the phone never guesses or works them out itself.
+   * the server's saved detection. They stay undefined for older entries in
+   * the on-device log. A scan the phone made offline (the pending queue)
+   * has a confidenceLevel from the on-device model but never a riskLevel,
+   * which is the CAO's to set.
    */
   confidenceLevel?: ConfidenceLevel;
   riskLevel?: RiskLevel;

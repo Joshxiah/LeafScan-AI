@@ -20,6 +20,7 @@ export function ScanListItem({
   healthy,
   healthyLabel,
   imageUri,
+  waiting = false,
   onPress,
 }: {
   title: string;
@@ -30,14 +31,21 @@ export function ScanListItem({
   healthyLabel: string;
   /** The scanned leaf photo, shown instead of the icon. Falls back to the icon if missing or it fails to load. */
   imageUri?: string | null;
+  /**
+   * A photo taken offline that has no diagnosis yet: amber, with an upload
+   * icon where the confidence would be. `confidence` and `healthy` are ignored.
+   */
+  waiting?: boolean;
   onPress?: () => void;
 }) {
   const [imageFailed, setImageFailed] = useState(false);
   const showPhoto = !!imageUri && !imageFailed;
 
-  const tint = healthy
-    ? { bg: '#E7F4EA', fg: '#2F6D46', badge: '#22A559', badgeIcon: 'checkmark' as const }
-    : { bg: '#FBEDED', fg: '#D64545', badge: '#D64545', badgeIcon: 'warning' as const };
+  const tint = waiting
+    ? { bg: '#FEF3C7', fg: '#92400E', badge: '#D97706', badgeIcon: 'cloud-upload' as const }
+    : healthy
+      ? { bg: '#E7F4EA', fg: '#2F6D46', badge: '#22A559', badgeIcon: 'checkmark' as const }
+      : { bg: '#FBEDED', fg: '#D64545', badge: '#D64545', badgeIcon: 'warning' as const };
 
   return (
     <Pressable
@@ -78,9 +86,13 @@ export function ScanListItem({
         <Text className="mt-0.5 text-[12px] text-[#9BAAA1]">{subtitle}</Text>
       </View>
 
-      <Text className="ml-2 text-[14px] font-extrabold text-[#16241B]">
-        {healthy ? healthyLabel : `${confidence}%`}
-      </Text>
+      {waiting ? (
+        <Ionicons name="cloud-upload-outline" size={20} color={tint.fg} style={{ marginLeft: 8 }} />
+      ) : (
+        <Text className="ml-2 text-[14px] font-extrabold text-[#16241B]">
+          {healthy ? healthyLabel : `${confidence}%`}
+        </Text>
+      )}
     </Pressable>
   );
 }

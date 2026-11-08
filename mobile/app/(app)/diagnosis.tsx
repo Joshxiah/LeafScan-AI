@@ -6,10 +6,10 @@
  * Reached right after a scan, and by tapping a scan on Home or in
  * History. The verdict comes from the server's MobileNetV2 model
  * (POST /api/detections/scan, read back from GET /api/detections for
- * earlier scans). confidenceLevel (how sure the AI is: low / moderate /
- * high) is shown with it. It comes from the server and is left out -
- * never guessed - for a scan still waiting to upload and for older scans
- * that never had it.
+ * earlier scans) - or, for a scan taken with no internet, from the same
+ * model running on the phone (pending=1, until the photo is uploaded).
+ * confidenceLevel (how sure the AI is: low / moderate / high) is shown
+ * with it, and left out - never guessed - for older scans that never had it.
  * The description and treatment plan are read live from
  * GET /api/diseases, the same source the Disease Library uses.
  */
@@ -92,13 +92,10 @@ export default function DiagnosisScreen() {
   const isHealthy = classLabel === 'healthy';
   const confidenceValue = Number(confidence) || 0;
 
-  // How sure the AI is. Undefined (so nothing is shown) when the scan is
-  // still waiting to upload, when the server never gave one, or when the
-  // value is not a known level.
-  const isPending = pending === '1';
-  const confidenceLevel = isPending
-    ? undefined
-    : CONFIDENCE_LEVELS.find((level) => level === confidenceLevelParam);
+  // How sure the AI is. Undefined (so nothing is shown) when none was given
+  // (older scans) or when the value is not a known level. A scan the phone
+  // made offline carries the level from the on-device model.
+  const confidenceLevel = CONFIDENCE_LEVELS.find((level) => level === confidenceLevelParam);
 
   const fallbackName =
     classLabel && classLabel in t.diseaseNames

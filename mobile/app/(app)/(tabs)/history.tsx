@@ -24,7 +24,7 @@ import { useLanguage } from '../../../src/context/LanguageContext';
 import { brand } from '../../../src/constants/theme';
 import { mediaUrl } from '../../../src/utils/media';
 import { ScanEntry } from '../../../src/services/scanLog';
-import { onPendingSynced } from '../../../src/services/pendingScans';
+import { onPendingSynced, getWaitingScans, WaitingPhoto } from '../../../src/services/pendingScans';
 import { loadFarmerScans } from '../../../src/services/detection.service';
 import {
   SCAN_BUCKETS,
@@ -44,6 +44,9 @@ export default function HistoryScreen() {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('All');
   const [scans, setScans] = useState<ScanEntry[] | null>(null);
+  // Photos taken offline that have no diagnosis yet - listed so the farmer
+  // can see the scan was kept, but never as healthy or diseased.
+  const [waiting, setWaiting] = useState<WaitingPhoto[]>([]);
 
   useFocusEffect(
     useCallback(() => {
@@ -52,6 +55,9 @@ export default function HistoryScreen() {
       const reload = () => {
         loadFarmerScans(user.id).then((log) => {
           if (isMounted) setScans(log);
+        });
+        getWaitingScans(user.id).then((photos) => {
+          if (isMounted) setWaiting(photos);
         });
       };
       reload();
@@ -89,11 +95,20 @@ export default function HistoryScreen() {
       })
       .sort((a, b) => b.scannedAt.getTime() - a.scannedAt.getTime());
 
+    // A waiting photo has no disease name and is neither healthy nor diseased,
+    // so only the unfiltered, unsearched list shows it.
+    const shownWaiting = filter === 'All' && !cleanQuery ? waiting : [];
+
+    const items = [
+      ...filtered.map((scan) => ({ kind: 'scan' as const, at: scan.scannedAt, scan })),
+      ...shownWaiting.map((photo) => ({ kind: 'waiting' as const, at: photo.scannedAt, photo })),
+    ].sort((a, b) => b.at.getTime() - a.at.getTime());
+
     return SCAN_BUCKETS.map((bucket) => ({
       bucket,
-      scans: filtered.filter((scan) => bucketOf(scan) === bucket),
-    })).filter((group) => group.scans.length > 0);
-  }, [scans, query, filter, t]);
+      items: items.filter((item) => bucketOf({ scannedAt: item.at }) === bucket),
+    })).filter((group) => group.items.length > 0);
+  }, [scans, waiting, query, filter, t]);
 
   const hasAnyResults = grouped.length > 0;
 
@@ -109,7 +124,7 @@ export default function HistoryScreen() {
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color={brand.accent} />
         </View>
-      ) : scans.length === 0 ? (
+      ) : scans.length === 0 && waiting.length === 0 ? (
         <EmptyState
           icon="time-outline"
           title={t.home.emptyTitle}
@@ -138,24 +153,37 @@ export default function HistoryScreen() {
               contentContainerClassName="px-6 pb-28 pt-5"
               showsVerticalScrollIndicator={false}
             >
-              {grouped.map(({ bucket, scans: bucketScans }) => (
+              {grouped.map(({ bucket, items: bucketItems }) => (
                 <View key={bucket} className="mb-5">
                   <Text className="mb-2.5 text-[13px] font-bold text-[#9BAAA1]">
                     {bucketLabels[bucket]}
                   </Text>
                   <View className="gap-2.5">
-                    {bucketScans.map((scan) => (
-                      <ScanListItem
-                        key={scan.id}
-                        title={t.diseaseNames[scan.classLabel]}
-                        subtitle={`${t.common.corn} | ${timeLabelFor(scan) ?? bucketLabels[bucketOf(scan)]}${scan.pending ? ` | ${t.common.waitingToUpload}` : ''}`}
-                        confidence={scan.confidence}
-                        healthy={isHealthy(scan)}
-                        healthyLabel={t.home.healthy}
-                        imageUri={scan.localUri ?? mediaUrl(scan.imagePath, token)}
-                        onPress={() => goToDiagnosis(router, scan)}
-                      />
-                    ))}
+                    {bucketItems.map((item) =>
+                      item.kind === 'waiting' ? (
+                        <ScanListItem
+                          key={item.photo.id}
+                          waiting
+                          title={t.common.waitingForResult}
+                          subtitle={`${t.common.corn} | ${timeLabelFor(item.photo) ?? bucketLabels[bucketOf(item.photo)]} | ${t.common.waitingToUpload}`}
+                          confidence={0}
+                          healthy={false}
+                          healthyLabel={t.home.healthy}
+                          imageUri={item.photo.localUri}
+                        />
+                      ) : (
+                        <ScanListItem
+                          key={item.scan.id}
+                          title={t.diseaseNames[item.scan.classLabel]}
+                          subtitle={`${t.common.corn} | ${timeLabelFor(item.scan) ?? bucketLabels[bucketOf(item.scan)]}${item.scan.pending ? ` | ${t.common.waitingToUpload}` : ''}`}
+                          confidence={item.scan.confidence}
+                          healthy={isHealthy(item.scan)}
+                          healthyLabel={t.home.healthy}
+                          imageUri={item.scan.localUri ?? mediaUrl(item.scan.imagePath, token)}
+                          onPress={() => goToDiagnosis(router, item.scan)}
+                        />
+                      )
+                    )}
                   </View>
                 </View>
               ))}

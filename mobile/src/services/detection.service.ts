@@ -4,7 +4,8 @@
  * scanLeaf() sends an uploaded photo to the server, which classifies
  * it with the real MobileNetV2 model and records the scan in the
  * `detections` table (CAO Detections page and dashboard).
- * The phone never sends its own verdict. loadFarmerScans() reads the
+ * The phone never sends its own verdict (the one it makes offline, see
+ * onDeviceScan.ts, is only shown meanwhile). loadFarmerScans() reads the
  * rows back for Home / History / the CAO report - the exact same rows the CAO
  * sees, rather than the on-device log, which only ever reflects this
  * one phone and can drift (or leak between accounts on a shared
@@ -155,10 +156,10 @@ function toScanEntry(detection: RemoteDetection): ScanEntry {
  * request itself fails (e.g. no connection).
  */
 export async function loadFarmerScans(userId: number): Promise<ScanEntry[]> {
-  // Scans taken offline that have not reached the server yet.
-  // Only entries queued by older app versions have a verdict to list. A photo
-  // saved offline by this version has none yet, so Home shows it as a
-  // "waiting for internet" notice instead (see countWaitingScans).
+  // Scans taken offline that have not reached the server yet. The ones the
+  // phone scanned on its own have a verdict, listed here like any other scan
+  // (marked `pending` until the upload). A photo with no verdict at all shows
+  // as "waiting for internet" instead (see getWaitingScans).
   const pending: ScanEntry[] = (await getPendingScans(userId)).flatMap(
     (scan): ScanEntry[] =>
       scan.classLabel === undefined || scan.confidence === undefined
@@ -168,6 +169,7 @@ export async function loadFarmerScans(userId: number): Promise<ScanEntry[]> {
               id: `pending-${scan.id}`,
               classLabel: scan.classLabel,
               confidence: scan.confidence,
+              confidenceLevel: scan.confidenceLevel,
               scannedAt: new Date(scan.scannedAt),
               localUri: scan.localUri,
               pending: true,

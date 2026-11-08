@@ -71,9 +71,13 @@ export default function ReportScreen() {
       Promise.all([loadFarmerScans(user.id), getReportedScanIds(user.id)]).then(
         ([log, reportedIds]) => {
           if (!isMounted) return;
-          const unreported = log.filter((scan) => !reportedIds.has(scan.id));
+          // A scan the phone made offline is not on the server yet, so the CAO
+          // cannot see it. Leave it out until it has uploaded: it then comes
+          // back under its server id, and reporting it earlier would send it twice.
+          const onServer = log.filter((scan) => !scan.pending);
+          const unreported = onServer.filter((scan) => !reportedIds.has(scan.id));
           setScans(unreported);
-          setReportedCount(log.length - unreported.length);
+          setReportedCount(onServer.length - unreported.length);
         }
       );
       return () => {

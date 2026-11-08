@@ -17,7 +17,7 @@ import { ApiError } from '../utils/ApiError';
 import { hashPassword, verifyPassword } from '../utils/password';
 import { generateToken } from '../utils/jwt';
 import { sendSms } from '../utils/sms';
-import { sendMail } from '../utils/mailer';
+import { sendPasswordResetEmail } from './emailService';
 import {
   RegisterInput,
   LoginInput,
@@ -614,14 +614,11 @@ export async function requestAdminPasswordReset(email: string): Promise<void> {
   // Deliberately not awaited. An SMTP round trip takes seconds, and
   // waiting for it only when the account exists would let a caller tell
   // registered addresses from unknown ones by response time.
-  // sendMail never rejects - failures are logged server-side.
-  void sendMail({
-    to: email,
-    subject: `${env.appName}: your password reset code`,
-    text:
-      `Your ${env.appName} password reset code is ${code}.\n\n` +
-      `It expires in ${env.passwordResetTtlMinutes} minutes. ` +
-      `Did not request this? Ignore this email - your password has not changed.`,
+  // Unlike the old sendMail, sendPasswordResetEmail rejects on failure, so it
+  // must be caught here (an unhandled rejection can crash the server). The
+  // error is only logged, never rethrown or sent to the client.
+  sendPasswordResetEmail(email, code, env.passwordResetTtlMinutes).catch((error) => {
+    console.error('[auth] Failed to send password reset email to', email, error);
   });
 }
 

@@ -73,6 +73,8 @@ export interface Translations {
     bucketYesterday: string;
     bucketLastWeek: string;
     waitingToUpload: string;
+    /** Title of a photo taken offline that has no diagnosis yet. */
+    waitingForResult: string;
     scansNotSyncedTitle: string;
     scansNotSynced: (count: number) => string;
     scansSyncedTitle: string;
@@ -203,6 +205,10 @@ export interface Translations {
     libraryTeaser: string;
     /** Photos taken offline that are still waiting to be sent to the server. */
     pendingScans: (count: number) => string;
+    /** Under the scan total: how many of those are offline photos with no diagnosis yet. */
+    includesWaiting: (count: number) => string;
+    /** Disease Distribution placeholder while every scan in the period is still waiting for a verdict. */
+    resultsAfterScan: string;
   };
 
   history: {
@@ -303,6 +309,10 @@ export interface Translations {
     chooseImageLink: string;
     savedOfflineTitle: string;
     savedOfflineSubtitle: string;
+    /** Button label while the phone itself is scanning the leaf (no internet). */
+    scanning: string;
+    offlineResultTitle: string;
+    offlineResultSubtitle: string;
     scanAnother: string;
     backToHome: string;
   };
@@ -445,6 +455,7 @@ export const en: Translations = {
     bucketYesterday: 'Yesterday',
     bucketLastWeek: 'Last Week',
     waitingToUpload: 'Waiting to upload',
+    waitingForResult: 'Waiting for internet',
     scansNotSyncedTitle: 'Some scans could not be saved',
     scansNotSynced: (count) =>
       count === 1
@@ -580,6 +591,8 @@ export const en: Translations = {
       count === 1
         ? '1 photo is saved on your phone and waiting for internet. It will be scanned automatically once you are back online.'
         : `${count} photos are saved on your phone and waiting for internet. They will be scanned automatically once you are back online.`,
+    includesWaiting: (count) => `Includes ${count} waiting for internet`,
+    resultsAfterScan: 'Results will show here once your photos have been scanned.',
   },
 
   history: {
@@ -685,6 +698,10 @@ export const en: Translations = {
     savedOfflineTitle: 'Saved on Your Phone',
     savedOfflineSubtitle:
       'No internet right now. Your photo is saved on this phone and will be uploaded and scanned automatically once you are back online. You will find the result in History.',
+    scanning: 'Scanning...',
+    offlineResultTitle: 'Scanned on Your Phone',
+    offlineResultSubtitle:
+      'No internet, so your phone scanned this leaf by itself. The photo will upload automatically once you are back online.',
     scanAnother: 'Scan Another Leaf',
     backToHome: 'Back to Home',
   },
@@ -727,7 +744,7 @@ export const en: Translations = {
     noTreatmentPublished:
       'The City Agriculture Office has not published treatment recommendations for this disease yet.',
     pendingUploadNote:
-      'Saved on your phone. It will upload automatically when you are back online.',
+      'Scanned on your phone. The photo will upload automatically when you are back online.',
     viewTreatmentPlan: 'View treatment plan →',
     confidenceLevelLabel: 'Confidence level',
     confidenceLevels: { low: 'Low', moderate: 'Moderate', high: 'High' },
@@ -858,6 +875,7 @@ export const ceb: Translations = {
     bucketYesterday: 'Kagahapon',
     bucketLastWeek: 'Miaging Semana',
     waitingToUpload: 'Naghulat ma-upload',
+    waitingForResult: 'Naghulat og internet',
     scansNotSyncedTitle: 'Dili ma-save ang ubang scan',
     scansNotSynced: (count) =>
       `${count} ka scan wala ma-save kay lapas na sa 30 ka adlaw, nawala na ang litrato, o dili dahon sa mais ang litrato.`,
@@ -990,6 +1008,8 @@ export const ceb: Translations = {
       count === 1
         ? '1 ka litrato ang gitipigan sa imong telepono ug naghulat og internet. Awtomatiko kini i-scan inig naa na pud kay internet.'
         : `${count} ka litrato ang gitipigan sa imong telepono ug naghulat og internet. Awtomatiko kini i-scan inig naa na pud kay internet.`,
+    includesWaiting: (count) => `Apil ang ${count} nga naghulat og internet`,
+    resultsAfterScan: 'Makita ang resulta dinhi inig ma-scan na ang imong mga litrato.',
   },
 
   history: {
@@ -1095,6 +1115,10 @@ export const ceb: Translations = {
     savedOfflineTitle: 'Gitipigan sa Imong Telepono',
     savedOfflineSubtitle:
       'Walay internet karon. Gitipigan ang imong litrato ug awtomatiko kini i-upload ug i-scan inig naa na pud kay internet. Makita nimo ang resulta sa History.',
+    scanning: 'Gi-scan...',
+    offlineResultTitle: 'Na-scan sa Imong Telepono',
+    offlineResultSubtitle:
+      'Walay internet, busa ang imong telepono mismo ang nag-scan niini nga dahon. Awtomatiko ma-upload ang litrato inig naa na pud kay internet.',
     scanAnother: 'Mag-scan og Lain nga Dahon',
     backToHome: 'Balik sa Home',
   },
@@ -1137,7 +1161,7 @@ export const ceb: Translations = {
     noTreatmentPublished:
       'Wala pa mag-publish ang City Agriculture Office og rekomendasyon sa tambal para ani nga sakit.',
     pendingUploadNote:
-      'Gitipigan sa imong telepono. Awtomatiko kini ma-upload inig naa na pud kay internet.',
+      'Na-scan sa imong telepono. Awtomatiko ma-upload ang litrato inig naa na pud kay internet.',
     viewTreatmentPlan: 'Tan-awa ang plano sa tambal →',
     confidenceLevelLabel: 'Lebel sa Kasigurohan',
     confidenceLevels: { low: 'Ubos', moderate: 'Kasarangan', high: 'Taas' },

@@ -52,7 +52,7 @@ function startOfDay(d: Date): number {
   return copy.getTime();
 }
 
-export function bucketOf(scan: ScanEntry, now: Date = new Date()): ScanBucket {
+export function bucketOf(scan: { scannedAt: Date }, now: Date = new Date()): ScanBucket {
   const dayDiff = Math.round((startOfDay(now) - startOfDay(scan.scannedAt)) / 86_400_000);
   if (dayDiff <= 0) return 'Today';
   if (dayDiff === 1) return 'Yesterday';
@@ -65,7 +65,7 @@ export function bucketOf(scan: ScanEntry, now: Date = new Date()): ScanBucket {
  * from the bucket name itself so this file stays language-neutral;
  * see Translations["common"] for the bucket words in each language.
  */
-export function timeLabelFor(scan: ScanEntry, now: Date = new Date()): string | null {
+export function timeLabelFor(scan: { scannedAt: Date }, now: Date = new Date()): string | null {
   if (bucketOf(scan, now) !== 'Today') return null;
   return scan.scannedAt.toLocaleTimeString('en-US', {
     hour: 'numeric',
@@ -113,15 +113,21 @@ export function summariseScans(scans: ScanEntry[]): ScanSummary {
 export interface DayActivity {
   /** Bar label: a weekday initial (Weekly) or "W1".."W4" (Monthly). */
   day: string;
+  /** Every scan the farmer took: healthy + diseased + waiting. */
   count: number;
   healthy: number;
   diseased: number;
+  /** Photos taken offline that the server has not classified yet - counted in `count`, but neither healthy nor diseased. */
+  waiting: number;
 }
 
 export interface ActivitySummary {
   total: number;
   healthy: number;
   diseased: number;
+  /** Offline photos still waiting for a verdict (included in `total`). */
+  waiting: number;
+  /** Shares of the classified scans only: a waiting photo is not a "0% healthy" one. */
   healthyPercent: number;
   diseasedPercent: number;
 }
@@ -130,14 +136,22 @@ export function summariseActivity(days: DayActivity[]): ActivitySummary {
   const total = days.reduce((sum, d) => sum + d.count, 0);
   const healthy = days.reduce((sum, d) => sum + d.healthy, 0);
   const diseased = days.reduce((sum, d) => sum + d.diseased, 0);
+  const waiting = days.reduce((sum, d) => sum + d.waiting, 0);
+  const classified = healthy + diseased;
 
   return {
     total,
     healthy,
     diseased,
-    healthyPercent: total === 0 ? 0 : Math.round((healthy / total) * 100),
-    diseasedPercent: total === 0 ? 0 : Math.round((diseased / total) * 100),
+    waiting,
+    healthyPercent: classified === 0 ? 0 : Math.round((healthy / classified) * 100),
+    diseasedPercent: classified === 0 ? 0 : Math.round((diseased / classified) * 100),
   };
+}
+
+/** A photo taken offline and not yet classified: it has a time, but no verdict. */
+export interface WaitingScan {
+  scannedAt: Date;
 }
 
 export type ActivityRange = 'Weekly' | 'Monthly';
@@ -153,19 +167,32 @@ const WEEKDAY_LABEL: Record<number, string> = {
   6: 'S',
 };
 
-function tally(scans: ScanEntry[]): { count: number; healthy: number; diseased: number } {
+function tally(
+  scans: ScanEntry[],
+  waiting: WaitingScan[]
+): { count: number; healthy: number; diseased: number; waiting: number } {
   const healthy = scans.filter(isHealthy).length;
-  return { count: scans.length, healthy, diseased: scans.length - healthy };
+  return {
+    count: scans.length + waiting.length,
+    healthy,
+    diseased: scans.length - healthy,
+    waiting: waiting.length,
+  };
 }
 
 /**
  * Builds the bars for the selected range from the real scan log.
  * Weekly = the last 7 calendar days, oldest first, ending today.
  * Monthly = the last 4 seven-day windows, oldest first.
+ *
+ * `waiting` are photos taken offline that have no verdict yet. They are
+ * scans the farmer really took, so they count toward the totals and bars,
+ * but never toward healthy or diseased.
  */
 export function buildActivity(
   scans: ScanEntry[],
   range: ActivityRange,
+  waiting: WaitingScan[] = [],
   now: Date = new Date()
 ): DayActivity[] {
   if (range === 'Weekly') {
@@ -176,12 +203,15 @@ export function buildActivity(
       const dayStart = startOfDay(day);
       const dayEnd = dayStart + 86_400_000;
 
-      const dayScans = scans.filter((s) => {
+      const inDay = (s: { scannedAt: Date }) => {
         const t = s.scannedAt.getTime();
         return t >= dayStart && t < dayEnd;
-      });
+      };
 
-      days.push({ day: WEEKDAY_LABEL[day.getDay()], ...tally(dayScans) });
+      days.push({
+        day: WEEKDAY_LABEL[day.getDay()],
+        ...tally(scans.filter(inDay), waiting.filter(inDay)),
+      });
     }
     return days;
   }
@@ -193,12 +223,15 @@ export function buildActivity(
     const windowEnd = todayEnd - w * 7 * 86_400_000;
     const windowStart = windowEnd - 7 * 86_400_000;
 
-    const weekScans = scans.filter((s) => {
+    const inWeek = (s: { scannedAt: Date }) => {
       const t = s.scannedAt.getTime();
       return t >= windowStart && t < windowEnd;
-    });
+    };
 
-    weeks.push({ day: `W${4 - w}`, ...tally(weekScans) });
+    weeks.push({
+      day: `W${4 - w}`,
+      ...tally(scans.filter(inWeek), waiting.filter(inWeek)),
+    });
   }
   return weeks;
 }
@@ -212,20 +245,23 @@ export function buildActivity(
 export function changeVsPreviousPeriod(
   scans: ScanEntry[],
   range: ActivityRange,
+  waiting: WaitingScan[] = [],
   now: Date = new Date()
 ): number | null {
   const spanDays = range === 'Weekly' ? 7 : 28;
   const currentStart = startOfDay(now) + 86_400_000 - spanDays * 86_400_000;
   const previousStart = currentStart - spanDays * 86_400_000;
 
-  const previousCount = scans.filter((s) => {
+  const everyScan: { scannedAt: Date }[] = [...scans, ...waiting];
+
+  const previousCount = everyScan.filter((s) => {
     const t = s.scannedAt.getTime();
     return t >= previousStart && t < currentStart;
   }).length;
 
   if (previousCount === 0) return null;
 
-  const currentCount = scans.filter((s) => s.scannedAt.getTime() >= currentStart).length;
+  const currentCount = everyScan.filter((s) => s.scannedAt.getTime() >= currentStart).length;
 
   return Math.round(((currentCount - previousCount) / previousCount) * 100);
 }
