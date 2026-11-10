@@ -275,7 +275,9 @@ export default function ReportScreen() {
                     className="flex-row items-center justify-between rounded-2xl border border-[#EEF5EF] bg-white px-4 py-3.5"
                     style={shadows.card}
                   >
-                    <View>
+                    {/* flex-1 lets a long disease name wrap instead of running
+                        under the "N naapektuhan" label on the right. */}
+                    <View className="mr-3 flex-1">
                       <Text className="text-[14px] font-bold text-[#16241B]">
                         {t.diseaseNames[item.classLabel]}
                       </Text>
@@ -283,7 +285,7 @@ export default function ReportScreen() {
                         {t.report.plantsScanned(item.count)}
                       </Text>
                     </View>
-                    <Text className="text-[13px] font-extrabold text-[#D64545]">
+                    <Text className="shrink-0 text-[13px] font-extrabold text-[#D64545]">
                       {t.report.affected(item.count)}
                     </Text>
                   </View>
@@ -298,11 +300,13 @@ export default function ReportScreen() {
           </Text>
           <View className="rounded-2xl border border-[#EEF5EF] bg-white px-4" style={shadows.card}>
             <View className="flex-row items-center justify-between border-b border-[#EEF5EF] py-3.5">
-              <Text className="text-[13px] text-[#9BAAA1]">
+              {/* Label takes the leftover width and wraps; the input + unit
+                  keep their own width so they never get pushed off the card. */}
+              <Text className="mr-3 flex-1 text-[13px] text-[#9BAAA1]">
                 {t.report.estimatedArea}
                 <Text className="font-bold text-[#D64545]"> *</Text>
               </Text>
-              <View className="flex-row items-center">
+              <View className="shrink-0 flex-row items-center">
                 <TextInput
                   value={estimatedArea}
                   onChangeText={(text) => {
@@ -328,8 +332,8 @@ export default function ReportScreen() {
               </View>
             </View>
             <View className="flex-row items-center justify-between py-3.5">
-              <Text className="text-[13px] text-[#9BAAA1]">{t.report.barangay}</Text>
-              <Text className="text-[13px] font-medium text-[#16241B]">
+              <Text className="mr-3 text-[13px] text-[#9BAAA1]">{t.report.barangay}</Text>
+              <Text className="flex-1 text-right text-[13px] font-medium text-[#16241B]">
                 {barangay ?? t.report.notSet}
               </Text>
             </View>

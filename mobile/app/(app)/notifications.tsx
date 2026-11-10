@@ -28,6 +28,7 @@ import { useNotifications } from '../../src/context/NotificationsContext';
 import EmptyState from '../../src/components/EmptyState';
 import { brand, shadows } from '../../src/constants/theme';
 import type { NotificationItem } from '../../src/services/notification.service';
+import { localizeNotification } from '../../src/utils/notificationText';
 
 function relativeTime(iso: string, t: ReturnType<typeof useLanguage>['t']): string {
   const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -38,7 +39,8 @@ function relativeTime(iso: string, t: ReturnType<typeof useLanguage>['t']): stri
   if (hours < 24) return t.notifications.hoursAgo(hours);
   const days = Math.floor(hours / 24);
   if (days < 7) return t.notifications.daysAgo(days);
-  return new Date(iso).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+  const date = new Date(iso);
+  return `${t.notifications.months[date.getMonth()]} ${date.getDate()}`;
 }
 
 export default function NotificationsScreen() {
@@ -145,6 +147,7 @@ export default function NotificationsScreen() {
               <NotificationCard
                 key={item.id}
                 item={item}
+                text={localizeNotification(item, t)}
                 timeLabel={relativeTime(item.createdAt, t)}
                 onPress={() => {
                   if (!item.isRead) void markRead(item.id);
@@ -203,10 +206,12 @@ export default function NotificationsScreen() {
 
 function NotificationCard({
   item,
+  text,
   timeLabel,
   onPress,
 }: {
   item: NotificationItem;
+  text: { title: string; body: string | null };
   timeLabel: string;
   onPress: () => void;
 }) {
@@ -240,15 +245,15 @@ function NotificationCard({
               unread ? 'font-extrabold text-[#16241B]' : 'font-semibold text-[#3C4A41]'
             }`}
           >
-            {item.title}
+            {text.title}
           </Text>
           {unread && (
             <View className="ml-2 mt-1 h-2 w-2 rounded-full bg-[#D64545]" />
           )}
         </View>
 
-        {item.body ? (
-          <Text className="mt-1 text-[12.5px] leading-5 text-[#6C8073]">{item.body}</Text>
+        {text.body ? (
+          <Text className="mt-1 text-[12.5px] leading-5 text-[#6C8073]">{text.body}</Text>
         ) : null}
 
         <Text className="mt-1.5 text-[11px] text-[#9BAAA1]">{timeLabel}</Text>

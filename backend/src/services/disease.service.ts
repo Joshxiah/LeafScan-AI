@@ -10,7 +10,8 @@
  * database/add_disease_translations.sql); when lang = 'ceb' the
  * query returns the Cebuano value, falling back to English wherever
  * a translation has not been filled in yet. `scientific_name` is a
- * Latin binomial and is never translated.
+ * Latin binomial and is never translated, and the disease name
+ * (`display_name`) is kept in English in both languages.
  */
 
 import { RowDataPacket } from 'mysql2';
@@ -77,7 +78,12 @@ export async function listDiseases(lang: DiseaseLang = 'en'): Promise<DiseaseInf
   // COALESCE(<ceb col>, <en col>) so a missing translation degrades
   // to English rather than to NULL. The English form is a plain
   // column reference, so both branches type identically.
-  const displayName = ceb ? 'COALESCE(display_name_ceb, display_name)' : 'display_name';
+  // The disease NAME stays English in both languages ("Southern Rust",
+  // not "Habagatang Taya"): that is what agriculture offices and seed
+  // dealers call them, so a farmer can match the app to what they hear.
+  // The description, symptoms and treatments are what get translated.
+  // (display_name_ceb is still in the table but is no longer read.)
+  const displayName = 'display_name';
   const description = ceb ? 'COALESCE(description_ceb, description)' : 'description';
   const symptoms = ceb ? 'COALESCE(symptoms_ceb, symptoms)' : 'symptoms';
 
@@ -160,11 +166,8 @@ export async function updateDisease(
   const sets: string[] = [];
   const params: (string | null)[] = [];
   if (input.displayName !== undefined) {
-    // The edit is English-only. Drop the Cebuano text when the English
-    // changes, so the mobile app (which prefers *_ceb) falls back to the
-    // new English instead of showing the stale translation.
-    sets.push('display_name_ceb = IF(NOT (display_name <=> ?), NULL, display_name_ceb)');
-    params.push(input.displayName);
+    // The name is shown in English in both languages (display_name_ceb
+    // is no longer read), so there is no Cebuano copy to invalidate.
     sets.push('display_name = ?');
     params.push(input.displayName);
   }

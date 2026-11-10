@@ -50,6 +50,9 @@ export default function TabsLayout() {
           // stands out against the muted grey of the others.
           tabBarActiveTintColor: brand.accentDark,
           tabBarInactiveTintColor: brand.faint,
+          // Trim the default side padding so each label gets the
+          // full width of its slot.
+          tabBarItemStyle: { paddingHorizontal: 0 },
           tabBarStyle: {
             backgroundColor: '#ffffff',
             borderTopColor: brand.line,
@@ -66,8 +69,28 @@ export default function TabsLayout() {
           },
           // Render the label ourselves so it is never auto-hidden
           // when the navigator thinks the bar is short.
+          //
+          // Always one line: longer Cebuano labels such as
+          // "Kasaysayan" are wider than a tab slot and used to wrap
+          // ("Kasaysaya / n") and push into the bar's bottom edge.
+          // adjustsFontSizeToFit shrinks the text just enough to fit,
+          // and allowFontScaling={false} stops a large system font
+          // size from making the labels wider than the slot again.
           tabBarLabel: ({ color }) => (
-            <Text style={{ color, fontSize: 11, fontWeight: '700', marginTop: 3 }}>
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+              allowFontScaling={false}
+              style={{
+                color,
+                fontSize: 11,
+                fontWeight: '700',
+                marginTop: 3,
+                maxWidth: '100%',
+                textAlign: 'center',
+              }}
+            >
               {labels[name]}
             </Text>
           ),

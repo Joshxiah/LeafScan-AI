@@ -487,6 +487,11 @@ export async function updateReportStatus(
   await notificationService.markReadByReport(reviewerId, id);
 
   // ---- Notify the farmer ----
+  // These English strings are stored as-is, and the phone translates
+  // them by matching them verbatim (mobile/src/utils/notificationText.ts,
+  // texts in mobile/src/i18n/translations.ts -> notifications.reportStatus).
+  // If you reword one here, reword it there too, or it stays English
+  // for Cebuano farmers.
   const label = STATUS_LABEL[status];
   const withName = (base: string): string =>
     effectiveAgriculturist ? `${base} Agriculturist: ${effectiveAgriculturist}.` : base;

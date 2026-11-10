@@ -8,9 +8,11 @@
  *
  * What is deliberately NOT translated here, and why:
  *   - Disease names ("Southern Rust", "Gray Leaf Spot"...) - these
- *     come from the backend (GET /api/diseases) and are technical/
- *     scientific names without an established Cebuano equivalent,
- *     the same way agricultural bulletins keep them in English.
+ *     are technical names without an established Cebuano equivalent,
+ *     the same way agricultural bulletins keep them in English. The
+ *     backend (GET /api/diseases) returns them in English for both
+ *     languages, and `diseaseNames` below is English in `ceb` too.
+ *     Their descriptions, symptoms and treatments ARE translated.
  *   - "Corn (Zea mays)" - a scientific binomial, never translated.
  *   - "Username" / "Password" - said in English in everyday
  *     Cebuano tech speech; inventing local words would confuse
@@ -26,6 +28,15 @@
 import { ConfidenceLevel, RiskLevel } from '../types';
 
 export type Language = 'en' | 'ceb';
+
+/** The report statuses a CAO can set, each of which notifies the farmer. */
+export type NotificationStatusKey =
+  | 'under_review'
+  | 'verified'
+  | 'agriculturist_required'
+  | 'agriculturist_assigned'
+  | 'field_assessment_completed'
+  | 'resolved';
 
 /**
  * Stable identifiers the backend attaches to certain errors (see
@@ -90,7 +101,8 @@ export interface Translations {
    * The four detection classes, for screens that show a scan result
    * offline (Home, History, the report breakdown) without a call to
    * GET /api/diseases. The library / disease-detail / diagnosis
-   * screens use the API's localised name instead.
+   * screens use the API's name instead. Both are English in every
+   * language.
    */
   diseaseNames: {
     southern_rust: string;
@@ -255,6 +267,12 @@ export interface Translations {
     minutesAgo: (n: number) => string;
     hoursAgo: (n: number) => string;
     daysAgo: (n: number) => string;
+    /** Short month names (Jan..Dec) for the "Nov 6" shown once an item is a week old. */
+    months: string[];
+    /** The CAO's status-update notifications - see utils/notificationText.ts. */
+    reportStatus: Record<NotificationStatusKey, { title: string; body: string }>;
+    /** Appended to a status body when an agriculturist is named. */
+    agriculturistLine: (name: string) => string;
   };
 
   scan: {
@@ -661,6 +679,34 @@ export const en: Translations = {
     minutesAgo: (n) => `${n}m ago`,
     hoursAgo: (n) => `${n}h ago`,
     daysAgo: (n) => `${n}d ago`,
+    months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+    reportStatus: {
+      under_review: {
+        title: 'Report Under Review',
+        body: 'The City Agriculture Office is now reviewing your report.',
+      },
+      verified: {
+        title: 'Report Verified',
+        body: 'The CAO has verified the disease findings in your report.',
+      },
+      agriculturist_required: {
+        title: 'Report Agriculturist Visit Required',
+        body: 'Your report requires an agriculturist field assessment. A visit is being arranged.',
+      },
+      agriculturist_assigned: {
+        title: 'Report Agriculturist Assigned',
+        body: 'An agriculturist has been assigned to visit and assess your area.',
+      },
+      field_assessment_completed: {
+        title: 'Report Field Assessment Completed',
+        body: 'The field assessment for your report has been completed.',
+      },
+      resolved: {
+        title: 'Report Resolved',
+        body: 'Your report has been resolved. Thank you for reporting.',
+      },
+    },
+    agriculturistLine: (name) => `Agriculturist: ${name}.`,
   },
 
   scan: {
@@ -927,10 +973,12 @@ export const ceb: Translations = {
   },
 
   diseaseNames: {
-    southern_rust: 'Habagatang Taya',
-    gray_leaf_spot: 'Abuhon nga Tulpok sa Dahon',
-    healthy: 'Himsog nga Dahon',
-    northern_leaf_blight: 'Amihanang Pagkalaya sa Dahon',
+    // Disease names stay in English in Cebuano too - see the note at
+    // the top of this file. Only the descriptions are translated.
+    southern_rust: 'Southern Rust',
+    gray_leaf_spot: 'Gray Leaf Spot',
+    healthy: 'Healthy Leaf',
+    northern_leaf_blight: 'Northern Leaf Blight',
   },
 
   splash: {
@@ -1095,6 +1143,34 @@ export const ceb: Translations = {
     minutesAgo: (n) => `${n}m ang milabay`,
     hoursAgo: (n) => `${n}h ang milabay`,
     daysAgo: (n) => `${n}d ang milabay`,
+    months: ['Ene', 'Peb', 'Mar', 'Abr', 'May', 'Hun', 'Hul', 'Ago', 'Sep', 'Okt', 'Nob', 'Dis'],
+    reportStatus: {
+      under_review: {
+        title: 'Gisusi ang Report',
+        body: 'Gisusi na karon sa City Agriculture Office ang imong report.',
+      },
+      verified: {
+        title: 'Napamatud-an ang Report',
+        body: 'Gipamatud-an sa CAO ang mga nakit-an nga sakit sa imong report.',
+      },
+      agriculturist_required: {
+        title: 'Gikinahanglan ang Pagbisita sa Agriculturist',
+        body: 'Ang imong report nagkinahanglan og field assessment gikan sa agriculturist. Gihikay na ang pagbisita.',
+      },
+      agriculturist_assigned: {
+        title: 'Naitudlo ang Agriculturist',
+        body: 'Adunay agriculturist nga gitudlo aron mobisita ug mosusi sa imong lugar.',
+      },
+      field_assessment_completed: {
+        title: 'Nahuman ang Field Assessment',
+        body: 'Nahuman na ang field assessment sa imong report.',
+      },
+      resolved: {
+        title: 'Nasulbad ang Report',
+        body: 'Nasulbad na ang imong report. Salamat sa pag-report.',
+      },
+    },
+    agriculturistLine: (name) => `Agriculturist: ${name}.`,
   },
 
   scan: {

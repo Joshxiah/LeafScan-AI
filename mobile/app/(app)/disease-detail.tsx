@@ -109,7 +109,7 @@ export default function DiseaseDetailScreen() {
           ) : null}
 
           {description ? (
-            <Text className="mt-3 text-justify text-[13px] leading-5 text-[#6C8073]">
+            <Text className="mt-3 text-[13px] leading-5 text-[#6C8073]">
               {description}
             </Text>
           ) : null}
@@ -122,7 +122,7 @@ export default function DiseaseDetailScreen() {
               </Text>
               <View className="mt-2 gap-1.5">
                 {symptoms.map((line, i) => (
-                  <Bullet key={i} text={line} justify />
+                  <Bullet key={i} text={line} />
                 ))}
               </View>
             </View>
@@ -136,7 +136,7 @@ export default function DiseaseDetailScreen() {
               </Text>
               <View className="mt-2 gap-1.5">
                 {favorable.map((line, i) => (
-                  <Bullet key={i} text={line} justify />
+                  <Bullet key={i} text={line} />
                 ))}
               </View>
             </View>
@@ -149,7 +149,7 @@ export default function DiseaseDetailScreen() {
             </Text>
 
             {disease.treatments.length === 0 ? (
-              <Text className="mt-2 text-justify text-[13px] leading-5 text-[#6C8073]">
+              <Text className="mt-2 text-[13px] leading-5 text-[#6C8073]">
                 {t.diseaseDetail.noTreatmentYet}
               </Text>
             ) : (
@@ -164,11 +164,11 @@ export default function DiseaseDetailScreen() {
                         <Text className="text-[13px] font-bold text-[#16241B]">
                           {treatment.title}
                         </Text>
-                        <Text className="mt-1 text-justify text-[13px] leading-5 text-[#6C8073]">
+                        <Text className="mt-1 text-[13px] leading-5 text-[#6C8073]">
                           {treatment.recommendationText}
                         </Text>
                         {treatment.applicationMethod ? (
-                          <Text className="mt-1 text-justify text-[12px] leading-5 text-[#9BAAA1]">
+                          <Text className="mt-1 text-[12px] leading-5 text-[#9BAAA1]">
                             {t.diseaseDetail.howToApply}
                             {treatment.applicationMethod}
                           </Text>
