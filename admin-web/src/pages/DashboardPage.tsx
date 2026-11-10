@@ -34,9 +34,7 @@ import type {
 import { RISK_NAME } from '../types';
 import {
   assessBarangayRisk,
-  HIGH_FROM,
   MIN_SCANS,
-  MODERATE_FROM,
   type BarangayRisk,
 } from '../utils/barangayRisk';
 
@@ -506,52 +504,6 @@ export function DashboardPage() {
                       </tfoot>
                     </table>
                   </div>
-
-                  <p className="mt-2 text-xs text-gray-400">
-                    {barangayRisk === 'all'
-                      ? `Reconciles with ${statistics.healthyScans} healthy / ${statistics.diseasedScans} diseased scans above.`
-                      : `Showing ${barangayData.totals.total} scan${
-                          barangayData.totals.total === 1 ? '' : 's'
-                        } at the selected risk level. Overall risk is still worked out from all of a barangay's scans.`}
-                  </p>
-
-                  {/* Closed: hugs its one line. Open: spans the column for the explanation. */}
-                  <details className="mt-2 w-fit max-w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-600 open:w-full">
-                    <summary className="cursor-pointer font-medium text-gray-700">
-                      How is overall risk decided?
-                    </summary>
-                    <div className="mt-2 space-y-1.5">
-                      <p>
-                        Each scan gets a grade from its disease's risk level: No disease 0,
-                        Low 1, Moderate 2, High 3. The <strong>disease index</strong> is the
-                        total grade divided by the highest possible grade (3 × number of
-                        scans), as a percentage. It reflects both how many leaves are
-                        diseased and how damaging those diseases are.
-                      </p>
-                      <ul className="list-disc space-y-0.5 pl-4">
-                        <li>
-                          <strong>High</strong>: index {HIGH_FROM} or more
-                        </li>
-                        <li>
-                          <strong>Moderate</strong>: index {MODERATE_FROM} to below {HIGH_FROM}
-                        </li>
-                        <li>
-                          <strong>Low</strong>: some disease, index below {MODERATE_FROM}
-                        </li>
-                        <li>
-                          <strong>No disease</strong>: every scan healthy
-                        </li>
-                        <li>
-                          <strong>Not enough data</strong>: fewer than {MIN_SCANS} scans, so one
-                          leaf could swing the result
-                        </li>
-                      </ul>
-                      <p>
-                        These cutoffs are working defaults pending confirmation by the City
-                        Agriculture Office.
-                      </p>
-                    </div>
-                  </details>
                 </div>
 
                 {/* ---- Risk-per-disease graph ---- */}
