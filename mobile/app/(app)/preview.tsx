@@ -44,6 +44,7 @@ import { classifyOnDevice, warmUpOnDeviceModel } from '../../src/services/onDevi
 import { useLanguage } from '../../src/context/LanguageContext';
 import { useAuth } from '../../src/context/AuthContext';
 import { withAuthToken } from '../../src/utils/media';
+import { pickFromGallery } from '../../src/utils/pickFromGallery';
 
 export default function PreviewScreen() {
   const router = useRouter();
@@ -81,6 +82,8 @@ export default function PreviewScreen() {
   const [offlineScan, setOfflineScan] = useState<PendingScan | null>(null);
   // The phone is working through the model (a moment), as opposed to uploading.
   const [isScanningOnPhone, setIsScanningOnPhone] = useState(false);
+  // The gallery is opening / open ("Choose Another Image").
+  const [isOpeningGallery, setIsOpeningGallery] = useState(false);
 
   // Load the model while the farmer looks at the photo, so the scan itself is quick.
   useEffect(() => {
@@ -192,12 +195,41 @@ export default function PreviewScreen() {
     setIsCropOpen(false);
   }
 
-  /** Sends the farmer back to pick or capture a different image. */
+  /**
+   * Opens the gallery right here, so the farmer picks a new photo in one tap
+   * instead of going back through the Scan tab first. The screen then starts
+   * over with the new photo; if they cancel, nothing changes.
+   */
+  async function handleChooseAnother() {
+    setIsOpeningGallery(true);
+
+    try {
+      const newUri = await pickFromGallery(t.scan);
+      if (!newUri) return;
+
+      // Forget everything tied to the previous photo (crop, upload, verdicts, errors).
+      setCroppedUri(null);
+      setUploadResult(null);
+      setScanResult(null);
+      setErrorMessage(null);
+      setNotCornLeaf(false);
+      setNotCorn(false);
+      setSavedOffline(false);
+      setOfflineScan(null);
+      setIsScanningOnPhone(false);
+
+      router.setParams({ imageUri: newUri, source: 'gallery' });
+    } finally {
+      setIsOpeningGallery(false);
+    }
+  }
+
+  /** Retake with the camera, or (for a gallery photo) pick a different one from the gallery. */
   function handleRetake() {
     if (source === 'camera') {
       router.replace('/camera');
     } else {
-      router.replace('/scan');
+      handleChooseAnother();
     }
   }
 
@@ -251,17 +283,8 @@ export default function PreviewScreen() {
           <Text className="text-base text-leaf-700">{t.preview.backLink}</Text>
         </Pressable>
 
-        {notCorn ? (
-          // Not a corn leaf: a red disclaimer box (with a warning icon) instead of the
-          // usual title + subtitle.
-          <View className="mt-5 flex-row items-start rounded-xl border border-red-200 bg-red-50 px-4 py-4">
-            <AlertBadge />
-            <View className="ml-3 flex-1">
-              <Text className="text-lg font-bold text-red-800">{t.preview.notCornTitle}</Text>
-              <Text className="mt-1 text-sm text-red-700">{t.preview.notCornMessage}</Text>
-            </View>
-          </View>
-        ) : (
+        {/* Not a corn leaf: no title + subtitle here, the red box sits above the image. */}
+        {!notCorn && (
           <>
             <Text className="mt-5 text-2xl font-bold text-gray-900">
               {savedOffline
@@ -284,8 +307,19 @@ export default function PreviewScreen() {
           </>
         )}
 
+        {/* Not a corn leaf: the disclaimer goes ABOVE the image so it is read first. */}
+        {notCorn && (
+          <View className="mt-5 flex-row items-center rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+            <AlertBadge />
+            <View className="ml-3 flex-1">
+              <Text className="text-lg font-bold text-red-800">{t.preview.notCornTitle}</Text>
+              <Text className="mt-1 text-sm text-red-700">{t.preview.notCornMessage}</Text>
+            </View>
+          </View>
+        )}
+
         {/* ---------- The image ---------- */}
-        <View className="mt-6 overflow-hidden rounded-2xl bg-white">
+        <View className={`${notCorn ? 'mt-5' : 'mt-6'} overflow-hidden rounded-2xl bg-white`}>
           <Image
             // Once uploaded, show the SERVER copy. If this renders,
             // the file genuinely arrived and is readable. Saved offline,
@@ -339,7 +373,8 @@ export default function PreviewScreen() {
             />
 
             <ActionButton
-              onPress={() => router.replace('/scan')}
+              onPress={handleChooseAnother}
+              disabled={isOpeningGallery}
               label={t.preview.chooseAnother}
               className="mt-3"
             />
@@ -388,7 +423,7 @@ export default function PreviewScreen() {
 
             <ActionButton
               onPress={handleRetake}
-              disabled={isUploading}
+              disabled={isUploading || isOpeningGallery}
               label={source === 'camera' ? t.preview.retakePhoto : t.preview.chooseAnother}
               className="mt-3"
             />

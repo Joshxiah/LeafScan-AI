@@ -8,13 +8,13 @@
  */
 
 import { useState } from 'react';
-import { View, Text, Pressable, ScrollView, Alert } from 'react-native';
+import { View, Text, Pressable, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 
 import { useLanguage } from '../../../src/context/LanguageContext';
+import { pickFromGallery } from '../../../src/utils/pickFromGallery';
 import { brand, shadows } from '../../../src/constants/theme';
 
 export default function ScanScreen() {
@@ -26,38 +26,15 @@ export default function ScanScreen() {
     setIsOpeningGallery(true);
 
     try {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (!permission.granted) {
-        Alert.alert(t.scan.permissionTitle, t.scan.permissionMessage);
-        return;
-      }
-
       // No crop step: picking a photo goes straight to /preview, same as
-      // the camera. The model resizes the photo itself.
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        quality: 0.8,
-      });
-
-      if (result.canceled) {
-        return;
-      }
-
-      const asset = result.assets[0];
-
-      if (!asset?.uri) {
-        Alert.alert(t.scan.errorTitle, t.scan.errorImageUnreadable);
-        return;
-      }
+      // the camera.
+      const imageUri = await pickFromGallery(t.scan);
+      if (!imageUri) return;
 
       router.push({
         pathname: '/preview',
-        params: { imageUri: asset.uri, source: 'gallery' },
+        params: { imageUri, source: 'gallery' },
       });
-    } catch (error) {
-      console.error('[scan] Gallery error:', error);
-      Alert.alert(t.scan.errorTitle, t.scan.errorGalleryOpen);
     } finally {
       setIsOpeningGallery(false);
     }
