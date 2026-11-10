@@ -85,3 +85,5 @@ desktop.ini
 
 # ---------- Local backups (DB dumps hold farmers' personal data) ----------
 docs/backups/
+
+ai-model/dataset/

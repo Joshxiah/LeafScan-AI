@@ -1,6 +1,6 @@
 {
   "model_name": "MobileNetV2 (transfer learning, fine-tuned) \u2014 5 classes with not_corn",
-  "model_version": "mobilenetv2-5class",
+  "model_version": "mobilenetv2-5class-v2",
   "class_labels": [
     "southern_rust",
     "gray_leaf_spot",
