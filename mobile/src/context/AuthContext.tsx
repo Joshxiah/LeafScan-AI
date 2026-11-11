@@ -53,6 +53,17 @@ function isSessionRejected(error: unknown): boolean {
   return error instanceof ApiError && (error.status === 401 || error.status === 403);
 }
 
+/**
+ * CAO admin accounts belong to the admin platform and must never get a
+ * session in this farmer app. The server refuses them at login
+ * (ADMIN_USE_WEB_PLATFORM); this is the second lock, for a server that
+ * has not been updated yet and for an admin session saved on the phone
+ * by an older build.
+ */
+function isAdminAccount(user: Pick<User, 'role'>): boolean {
+  return user.role === 'admin';
+}
+
 interface AuthContextValue {
   /** The logged-in user, or null when logged out. */
   user: User | null;
@@ -120,6 +131,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       rememberedRef.current = true;
       const cachedUser = await getCachedUser<User>();
 
+      // An admin session left on this phone by an older build: end it.
+      if (cachedUser && isAdminAccount(cachedUser)) {
+        await clearSession();
+        if (isMounted) setIsLoading(false);
+        return;
+      }
+
       if (isMounted) {
         setToken(savedToken);
         if (cachedUser) {
@@ -131,6 +149,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       try {
         const currentUser = await authService.getCurrentUser();
+
+        if (isAdminAccount(currentUser)) {
+          await clearSession();
+          return;
+        }
+
         await saveCachedUser(currentUser);
         if (isMounted) setUser(currentUser);
       } catch (error) {
@@ -162,6 +186,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       password: payload.password,
       rememberMe,
     });
+
+    // Refuse BEFORE storing anything, so no admin token ever lands on the phone.
+    if (isAdminAccount(result.user)) {
+      throw new ApiError(
+        403,
+        'City Agriculture Office accounts cannot sign in to the mobile app. Please use the LeafScan AI admin platform.',
+        'ADMIN_USE_WEB_PLATFORM'
+      );
+    }
 
     rememberedRef.current = rememberMe;
     await saveToken(result.token, rememberMe);

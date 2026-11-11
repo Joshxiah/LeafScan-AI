@@ -126,8 +126,10 @@ export async function registerFarmer(input: RegisterInput): Promise<AuthResult> 
 }
 
 /**
- * Logs a user in. Works for BOTH farmers and CAO admins - the
- * role stored on the account decides what they can access later.
+ * Logs a user in. Both farmers and CAO admins have an account here, but
+ * each only signs in through its own app: farmers through the mobile app,
+ * admins through the admin platform (`input.client` says which one is
+ * asking). The wrong pairing is refused with a 403 and no token is issued.
  */
 export async function login(input: LoginInput): Promise<AuthResult> {
   const [rows] = await pool.query<UserRow[]>(
@@ -153,6 +155,22 @@ export async function login(input: LoginInput): Promise<AuthResult> {
     throw ApiError.forbidden(
       'This account has been deactivated. Please contact the City Agriculture Office.',
       'ACCOUNT_DEACTIVATED'
+    );
+  }
+
+  // Checked only AFTER the password is verified, so someone without the
+  // password cannot use this message to learn which usernames are admins.
+  if (input.client === 'mobile' && user.role !== 'farmer') {
+    throw ApiError.forbidden(
+      'City Agriculture Office accounts cannot sign in to the mobile app. Please use the LeafScan AI admin platform.',
+      'ADMIN_USE_WEB_PLATFORM'
+    );
+  }
+
+  if (input.client === 'admin' && user.role !== 'admin') {
+    throw ApiError.forbidden(
+      'This platform is for City Agriculture Office personnel only. Farmers should use the LeafScan AI mobile app.',
+      'FARMER_USE_MOBILE_APP'
     );
   }
 

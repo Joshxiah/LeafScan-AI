@@ -274,7 +274,9 @@ export default function PreviewScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+    // 'bottom' too: with edge-to-edge on Android the system nav bar would
+    // otherwise sit on top of the last button (View Diagnosis).
+    <SafeAreaView className="flex-1 bg-gray-50" edges={['top', 'bottom']}>
       <ScrollView
         contentContainerClassName="px-6 pb-10 pt-4"
         showsVerticalScrollIndicator={false}
@@ -283,8 +285,8 @@ export default function PreviewScreen() {
           <Text className="text-base text-leaf-700">{t.preview.backLink}</Text>
         </Pressable>
 
-        {/* Not a corn leaf: no title + subtitle here, the red box sits above the image. */}
-        {!notCorn && (
+        {/* Not a corn leaf (either check): no title + subtitle here, the red box sits above the image. */}
+        {!notCorn && !notCornLeaf && (
           <>
             <Text className="mt-5 text-2xl font-bold text-gray-900">
               {savedOffline
@@ -318,8 +320,19 @@ export default function PreviewScreen() {
           </View>
         )}
 
+        {/* The colour check said "not a corn leaf" (NOT_A_CORN_LEAF): same spot, above the
+            image. The buttons below stay, since the photo was kept and can be cropped / retried. */}
+        {notCornLeaf && errorMessage && (
+          <View className="mt-5 flex-row items-center rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+            <AlertBadge />
+            <Text className="ml-3 flex-1 text-sm text-red-700">{errorMessage}</Text>
+          </View>
+        )}
+
         {/* ---------- The image ---------- */}
-        <View className={`${notCorn ? 'mt-5' : 'mt-6'} overflow-hidden rounded-2xl bg-white`}>
+        <View
+          className={`${notCorn || notCornLeaf ? 'mt-5' : 'mt-6'} overflow-hidden rounded-2xl bg-white`}
+        >
           <Image
             // Once uploaded, show the SERVER copy. If this renders,
             // the file genuinely arrived and is readable. Saved offline,
@@ -338,8 +351,8 @@ export default function PreviewScreen() {
         </View>
 
         {/* ---------- Error ---------- */}
-        {/* Red for every error, including "not a corn leaf" (it used to be amber). */}
-        {errorMessage && !notCorn && (
+        {/* Red for every error. The two "not a corn leaf" ones are shown above the image instead. */}
+        {errorMessage && !notCorn && !notCornLeaf && (
           <View className="mt-5 flex-row items-center rounded-xl border border-red-200 bg-red-50 px-4 py-3">
             <AlertBadge />
             <Text className="ml-3 flex-1 text-sm text-red-700">{errorMessage}</Text>

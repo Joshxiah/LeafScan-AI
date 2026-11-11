@@ -51,11 +51,6 @@ const LANGUAGE_OPTIONS: { code: Language; label: string }[] = [
 
 const PHONE_RULE = /^(09\d{9}|\+639\d{9})$/;
 
-// The photo picker has a crop step of its own on a phone (`allowsEditing`), but not in a
-// browser, where the option is ignored. There the app's own crop editor (the one the Scan
-// preview uses) opens after the photo is chosen.
-const CROP_IN_APP = Platform.OS === 'web';
-
 export default function SettingsScreen() {
   const router = useRouter();
   const { user, token, logout, refreshUser } = useAuth();
@@ -67,7 +62,7 @@ export default function SettingsScreen() {
   const [photoMenuVisible, setPhotoMenuVisible] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [photoError, setPhotoError] = useState<string | null>(null);
-  // The chosen photo while it is being cropped (web only, see CROP_IN_APP).
+  // The chosen photo while it is being cropped.
   const [cropUri, setCropUri] = useState<string | null>(null);
 
   // ---------- Edit profile ----------
@@ -188,10 +183,11 @@ export default function SettingsScreen() {
         return;
       }
 
+      // No `allowsEditing`: the phone's own crop screen has a dark system toolbar that does
+      // not match the app. The app's CropModal (green header, same as the Scan preview)
+      // opens after the photo is chosen instead, on every platform.
       const pickerOptions: ImagePicker.ImagePickerOptions = {
         mediaTypes: ['images'],
-        allowsEditing: !CROP_IN_APP,
-        aspect: [1, 1],
         quality: 0.8,
         // A profile photo is a selfie, so open facing the farmer
         // rather than the world - the picker ignores this option
@@ -208,13 +204,8 @@ export default function SettingsScreen() {
       const asset = result.assets[0];
       if (!asset?.uri) return;
 
-      if (CROP_IN_APP) {
-        // Crop first; the upload happens in handlePhotoCropped (nothing is sent if cancelled).
-        setCropUri(asset.uri);
-        return;
-      }
-
-      await uploadPhoto(asset.uri);
+      // Crop first; the upload happens in handlePhotoCropped (nothing is sent if cancelled).
+      setCropUri(asset.uri);
     } catch (error) {
       setPhotoError(getErrorMessage(error, t.settings.photoErrorGeneric, t.apiErrors));
     }
@@ -267,19 +258,19 @@ export default function SettingsScreen() {
       >
         {/* ---------- Profile card ---------- */}
         <View
-          className="flex-row items-center rounded-2xl border border-[#EEF5EF] bg-white p-4"
+          className="items-center rounded-2xl border border-[#EEF5EF] bg-white px-4 py-5"
           style={shadows.card}
         >
           <Pressable
             onPress={() => setPhotoMenuVisible(true)}
             disabled={isUploadingPhoto}
-            className="relative h-14 w-14"
+            className="relative h-20 w-20"
           >
-            <View className="h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-[#E7F4EA]">
+            <View className="h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-[#E7F4EA]">
               {avatarUri ? (
-                <Image source={{ uri: avatarUri }} className="h-14 w-14" resizeMode="cover" />
+                <Image source={{ uri: avatarUri }} className="h-20 w-20" resizeMode="cover" />
               ) : (
-                <Text className="text-lg font-extrabold text-[#2F6D46]">{initial}</Text>
+                <Text className="text-2xl font-extrabold text-[#2F6D46]">{initial}</Text>
               )}
               {isUploadingPhoto && (
                 <View className="absolute inset-0 items-center justify-center bg-black/30">
@@ -288,16 +279,16 @@ export default function SettingsScreen() {
               )}
             </View>
             <View
-              className="absolute -bottom-0.5 -right-0.5 h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-[#2F6D46]"
+              className="absolute bottom-0 right-0 h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-[#2F6D46]"
               style={shadows.card}
             >
-              <Ionicons name="camera" size={10} color="#ffffff" />
+              <Ionicons name="camera" size={12} color="#ffffff" />
             </View>
           </Pressable>
 
-          <View className="ml-3 flex-1">
+          <View className="mt-3 w-full items-center">
             <Text
-              className="text-[15px] font-extrabold text-[#16241B]"
+              className="text-center text-[16px] font-extrabold text-[#16241B]"
               numberOfLines={1}
             >
               {user?.fullName ?? 'Farmer'}
@@ -306,7 +297,7 @@ export default function SettingsScreen() {
         </View>
 
         {photoError && (
-          <Text className="ml-1 mt-2 text-[12px] text-[#D64545]">{photoError}</Text>
+          <Text className="mt-2 text-center text-[12px] text-[#D64545]">{photoError}</Text>
         )}
 
         {/* ---------- Profile information ---------- */}
@@ -475,7 +466,7 @@ export default function SettingsScreen() {
         </Pressable>
       </Modal>
 
-      {/* ---------- Crop the chosen photo (web) ---------- */}
+      {/* ---------- Crop the chosen photo ---------- */}
       <CropModal
         visible={cropUri !== null}
         uri={cropUri ?? ''}

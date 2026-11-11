@@ -98,6 +98,14 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
   /** The "Remember me" box. Missing (e.g. the admin site) = a short session. */
   rememberMe: z.boolean().optional().default(false),
+  /**
+   * Which app is signing in. Farmer accounts belong to the mobile app and
+   * CAO admin accounts to the admin platform, and login() refuses the
+   * wrong pairing. Defaults to 'mobile' so a client that says nothing
+   * (e.g. an app build from before this field existed) is held to the
+   * stricter farmer-only rule rather than slipping past it.
+   */
+  client: z.enum(['mobile', 'admin']).optional().default('mobile'),
 });
 
 /**

@@ -52,6 +52,8 @@ export type ApiErrorCode =
   | 'INVALID_CURRENT_PASSWORD'
   | 'PASSWORD_UNCHANGED'
   | 'ACCOUNT_DEACTIVATED'
+  // A CAO admin account tried to sign in to the farmer app.
+  | 'ADMIN_USE_WEB_PLATFORM'
   | 'USERNAME_TAKEN'
   | 'PHONE_TAKEN'
   | 'TOKEN_EXPIRED'
@@ -926,6 +928,8 @@ export const en: Translations = {
     PASSWORD_UNCHANGED: 'Your new password must be different from your current one.',
     ACCOUNT_DEACTIVATED:
       'This account has been deactivated. Please contact the City Agriculture Office.',
+    ADMIN_USE_WEB_PLATFORM:
+      'City Agriculture Office accounts cannot sign in to the mobile app. Please use the LeafScan AI admin platform.',
     USERNAME_TAKEN: 'That username is already taken. Please choose another.',
     PHONE_TAKEN: 'That mobile number is already registered to an account.',
     TOKEN_EXPIRED: 'Your session has ended. Please log in again.',
@@ -1396,6 +1400,8 @@ export const ceb: Translations = {
     PASSWORD_UNCHANGED: 'Ang bag-ong password kinahanglan lahi sa imong kasamtangan.',
     ACCOUNT_DEACTIVATED:
       'Kini nga account gi-deactivate na. Palihug kontaka ang City Agriculture Office.',
+    ADMIN_USE_WEB_PLATFORM:
+      'Ang mga account sa City Agriculture Office dili makasulod sa mobile app. Palihug gamita ang LeafScan AI admin platform.',
     USERNAME_TAKEN: 'Gigamit na kanang username. Palihug pagpili og lain.',
     PHONE_TAKEN: 'Kanang numero sa selpon rehistrado na sa laing account.',
     TOKEN_EXPIRED: 'Natapos na ang imong session. Palihug pag-login pag-usab.',

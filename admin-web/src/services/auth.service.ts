@@ -9,14 +9,20 @@ import type { AuthResult, User } from '../types';
  * POST /api/auth/login
  *
  * The same endpoint farmers use. CAO staff and farmers both sign
- * in with a username; the role on the returned user determines
- * whether they are allowed into the admin platform.
+ * in with a username; `client: 'admin'` tells the server this is the
+ * admin platform, so it refuses a farmer account (and issues no token).
+ * Without it the server assumes the mobile app and would refuse the
+ * admin instead.
  */
 export async function login(
   username: string,
   password: string
 ): Promise<AuthResult> {
-  return api.post<AuthResult>('/auth/login', { username, password }, false);
+  return api.post<AuthResult>(
+    '/auth/login',
+    { username, password, client: 'admin' },
+    false
+  );
 }
 
 /**

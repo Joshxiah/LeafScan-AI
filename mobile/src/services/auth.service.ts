@@ -26,9 +26,12 @@ export async function register(payload: RegisterPayload): Promise<AuthResult> {
 /**
  * POST /api/auth/login
  * Public - logging in is how a token is obtained.
+ *
+ * `client: 'mobile'` tells the server which app is asking, so it refuses
+ * a CAO admin account (those sign in on the admin platform only).
  */
 export async function login(payload: LoginPayload): Promise<AuthResult> {
-  return api.post<AuthResult>('/auth/login', payload, false);
+  return api.post<AuthResult>('/auth/login', { ...payload, client: 'mobile' }, false);
 }
 
 /**

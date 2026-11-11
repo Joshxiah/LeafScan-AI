@@ -24,10 +24,12 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 // Type only (erased at build time); the module itself is loaded lazily in handleApply.
 import type { ImageRef } from 'expo-image-manipulator';
 
+import { brand } from '../constants/theme';
 import { useLanguage } from '../context/LanguageContext';
 
 interface CropModalProps {
@@ -70,7 +72,7 @@ const GRAB_DISTANCE = 28;
 const MIN_FRAME_PX = 90;
 /** Space kept free around the photo on screen (px). */
 const AREA_MARGIN = 16;
-const SHADE = 'rgba(0,0,0,0.55)';
+const SHADE = 'rgba(0,0,0,0.5)';
 const CORNER_LENGTH = 22;
 
 export default function CropModal({
@@ -110,6 +112,7 @@ function CropEditor({
   onApply: (croppedUri: string) => void;
 }) {
   const { t } = useLanguage();
+  const insets = useSafeAreaInsets();
 
   // Room available for the photo, and the photo's own size.
   const [area, setArea] = useState<{ width: number; height: number } | null>(null);
@@ -285,14 +288,54 @@ function CropEditor({
     : null;
 
   return (
-    <SafeAreaView className="flex-1 bg-black">
-      <View className="px-6 pb-2 pt-4">
-        <Text className="text-xl font-bold text-white">{t.preview.cropTitle}</Text>
-        <Text className="mt-1 text-sm text-gray-300">{hint ?? t.preview.cropHint}</Text>
-        {failed && (
-          <Text className="mt-2 text-sm text-red-400">{t.preview.cropError}</Text>
-        )}
+    <View className="flex-1 bg-[#F5FAF6]">
+      {/* The same green banner as the tab headers (AppHeader) and the report screen, so
+          every header in the app looks alike. It also sits above the photo, which is
+          why the page behind the photo is light instead of black. */}
+      <View
+        className="overflow-hidden bg-[#2F6D46] px-5 pb-5"
+        style={{
+          paddingTop: insets.top + 12,
+          borderBottomLeftRadius: 28,
+          borderBottomRightRadius: 28,
+        }}
+      >
+        <View
+          className="absolute rounded-full bg-white/10"
+          style={{ width: 150, height: 150, right: -40, top: -50 }}
+        />
+        <View
+          className="absolute rounded-full bg-white/10"
+          style={{ width: 90, height: 90, right: 60, bottom: -45 }}
+        />
+
+        <View className="flex-row items-center">
+          <Pressable
+            onPress={onCancel}
+            disabled={isCropping}
+            hitSlop={10}
+            accessibilityLabel={t.common.back}
+            className="h-12 w-12 items-center justify-center rounded-full bg-white/15 active:opacity-80"
+          >
+            <Ionicons name="arrow-back" size={22} color="#ffffff" />
+          </Pressable>
+
+          <View className="ml-3 flex-1 justify-center">
+            <Text className="text-[20px] font-extrabold tracking-tight text-white">
+              {t.preview.cropTitle}
+            </Text>
+            <Text className="mt-0.5 text-[12px] leading-4 text-white/80">
+              {hint ?? t.preview.cropHint}
+            </Text>
+          </View>
+        </View>
       </View>
+
+      {failed && (
+        <View className="mx-6 mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+          <Text className="text-sm text-red-700">{t.preview.cropError}</Text>
+        </View>
+      )}
 
       <View className="flex-1 items-center justify-center" onLayout={handleLayout}>
         {shown && box ? (
@@ -362,33 +405,35 @@ function CropEditor({
             </View>
           </View>
         ) : failed ? null : (
-          <ActivityIndicator size="large" color="#ffffff" />
+          <ActivityIndicator size="large" color={brand.accent} />
         )}
       </View>
 
-      <View className="flex-row px-6 pb-6 pt-3">
-        <Pressable
-          onPress={onCancel}
-          disabled={isCropping}
-          className="mr-3 flex-1 items-center rounded-xl border-2 border-white py-4 active:bg-white/10"
-        >
-          <Text className="text-base font-semibold text-white">{t.preview.cropCancel}</Text>
-        </Pressable>
+      <SafeAreaView edges={['bottom']}>
+        <View className="flex-row px-6 pb-6 pt-3">
+          <Pressable
+            onPress={onCancel}
+            disabled={isCropping}
+            className="mr-3 flex-1 items-center rounded-xl border-2 border-leaf-600 bg-white py-4 active:bg-leaf-50"
+          >
+            <Text className="text-base font-semibold text-leaf-700">{t.preview.cropCancel}</Text>
+          </Pressable>
 
-        <Pressable
-          onPress={handleApply}
-          disabled={isCropping || !shown}
-          className={`flex-1 flex-row items-center justify-center rounded-xl py-4 ${
-            isCropping || !shown ? 'bg-leaf-400' : 'bg-leaf-600 active:bg-leaf-700'
-          }`}
-        >
-          {isCropping && <ActivityIndicator size="small" color="#ffffff" className="mr-2" />}
-          <Text className="text-base font-semibold text-white">
-            {isCropping ? t.preview.cropping : t.preview.cropApply}
-          </Text>
-        </Pressable>
-      </View>
-    </SafeAreaView>
+          <Pressable
+            onPress={handleApply}
+            disabled={isCropping || !shown}
+            className={`flex-1 flex-row items-center justify-center rounded-xl py-4 ${
+              isCropping || !shown ? 'bg-leaf-400' : 'bg-leaf-600 active:bg-leaf-700'
+            }`}
+          >
+            {isCropping && <ActivityIndicator size="small" color="#ffffff" className="mr-2" />}
+            <Text className="text-base font-semibold text-white">
+              {isCropping ? t.preview.cropping : t.preview.cropApply}
+            </Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    </View>
   );
 }
 

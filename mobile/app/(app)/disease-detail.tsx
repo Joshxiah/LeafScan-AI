@@ -8,15 +8,17 @@
  * no second network call.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { View, Text, Image, Pressable, ScrollView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Disease, DiseaseTreatment } from '../../src/types';
 import { Bullet } from '../../src/components/Bullet';
 import { ControlLevelPill } from '../../src/components/ControlLevelPill';
+import ZoomableImageModal from '../../src/components/ZoomableImageModal';
 import { useLanguage } from '../../src/context/LanguageContext';
 import { brand } from '../../src/constants/theme';
 import { diseaseImage } from '../../src/constants/diseaseImages';
@@ -39,7 +41,9 @@ function groupByLevel(treatments: DiseaseTreatment[]): DiseaseTreatment[][] {
 export default function DiseaseDetailScreen() {
   const router = useRouter();
   const { t } = useLanguage();
+  const insets = useSafeAreaInsets();
   const { data } = useLocalSearchParams<{ data?: string }>();
+  const [zoomOpen, setZoomOpen] = useState(false);
 
   const disease = useMemo<Disease | null>(() => {
     if (!data) return null;
@@ -69,18 +73,38 @@ export default function DiseaseDetailScreen() {
   const { description, favorable } = splitDescription(disease.description);
 
   return (
-    <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={['top', 'bottom']}>
+    <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={['bottom']}>
+      <StatusBar style="light" />
+
+      {/* Status-bar strip in the same green as the other headers (it was the pale page colour). */}
+      <View className="bg-[#2F6D46]" style={{ height: insets.top }} />
+
       <ScrollView
         contentContainerClassName="pb-10"
         showsVerticalScrollIndicator={false}
       >
         {/* ---------- Image header ---------- */}
         <View className="h-56 bg-[#E7F4EA]">
-          <Image
-            source={diseaseImage(disease.classLabel)}
-            style={{ width: '100%', height: '100%' }}
-            resizeMode="cover"
-          />
+          {/* Tap the photo to open it full-screen and zoom. */}
+          <Pressable
+            onPress={() => setZoomOpen(true)}
+            accessibilityRole="imagebutton"
+            accessibilityLabel="Zoom photo"
+            className="h-full w-full"
+          >
+            <Image
+              source={diseaseImage(disease.classLabel)}
+              style={{ width: '100%', height: '100%' }}
+              resizeMode="cover"
+            />
+            {/* Hint that the photo is tappable; sits above the card's rounded overlap. */}
+            <View
+              pointerEvents="none"
+              className="absolute bottom-9 right-4 h-9 w-9 items-center justify-center rounded-full bg-black/40"
+            >
+              <Ionicons name="expand" size={18} color="#ffffff" />
+            </View>
+          </Pressable>
 
           <Pressable
             onPress={() => router.back()}
@@ -182,6 +206,12 @@ export default function DiseaseDetailScreen() {
           </View>
         </View>
       </ScrollView>
+
+      <ZoomableImageModal
+        visible={zoomOpen}
+        source={diseaseImage(disease.classLabel)}
+        onClose={() => setZoomOpen(false)}
+      />
     </SafeAreaView>
   );
 }
