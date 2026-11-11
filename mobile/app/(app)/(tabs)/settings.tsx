@@ -431,10 +431,10 @@ export default function SettingsScreen() {
         onRequestClose={() => setPhotoMenuVisible(false)}
       >
         <Pressable
-          className="flex-1 items-center justify-end bg-black/40"
+          className="flex-1 items-center justify-center bg-black/40 px-6"
           onPress={() => setPhotoMenuVisible(false)}
         >
-          <Pressable className="w-full rounded-t-3xl bg-white p-3 pb-8" onPress={() => {}}>
+          <Pressable className="w-full rounded-2xl bg-white p-3 pb-4" onPress={() => {}}>
             <Text className="mb-2 mt-2 text-center text-[13px] font-bold text-[#9BAAA1]">
               {t.settings.changePhoto}
             </Text>

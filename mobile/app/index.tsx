@@ -15,6 +15,7 @@ import { View, Text, Image, ActivityIndicator } from 'react-native';
 import { Redirect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
+import { brand } from '../src/constants/theme';
 import { useAuth } from '../src/context/AuthContext';
 import { useLanguage } from '../src/context/LanguageContext';
 
@@ -40,8 +41,11 @@ export default function SplashScreen() {
   }
 
   return (
-    <View className="flex-1 items-center justify-center bg-[#2F6D46] px-8">
-      <StatusBar style="light" />
+    <View
+      className="flex-1 items-center justify-center px-8"
+      style={{ backgroundColor: brand.mist }}
+    >
+      <StatusBar style="dark" />
 
       <Image
         source={require('../assets/images/logo.png')}
@@ -49,15 +53,21 @@ export default function SplashScreen() {
         resizeMode="contain"
       />
 
-      <Text className="mt-5 text-2xl font-extrabold tracking-wide text-white">
+      <Text
+        className="mt-5 text-2xl font-extrabold tracking-wide"
+        style={{ color: brand.accent }}
+      >
         LeafScan AI
       </Text>
 
-      <Text className="mt-1.5 text-center text-sm text-white/80">
+      <Text
+        className="mt-1.5 text-center text-sm"
+        style={{ color: brand.muted }}
+      >
         {t.splash.tagline}
       </Text>
 
-      <ActivityIndicator size="small" color="#ffffff" className="mt-8" />
+      <ActivityIndicator size="small" color={brand.accent} className="mt-8" />
     </View>
   );
 }
