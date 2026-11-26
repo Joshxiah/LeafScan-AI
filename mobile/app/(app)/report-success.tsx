@@ -9,6 +9,7 @@
 
 import { View, Text, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -22,6 +23,9 @@ export default function ReportSuccessScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={['top', 'bottom']}>
+      {/* Light page: dark status-bar icons (the app default is light). */}
+      <StatusBar style="dark" />
+
       <View className="flex-1 justify-center px-6">
         {/* ---------- Confirmation card ---------- */}
         <View

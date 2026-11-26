@@ -92,8 +92,11 @@ export interface Translations {
     waitingForResult: string;
     scansNotSyncedTitle: string;
     scansNotSynced: (count: number) => string;
-    /** Offline-queue photos the server found are not corn: removed, and the farmer is told. */
-    scansNotCornTitle: string;
+    /**
+     * Offline-queue photos the server rejected as not corn: removed, and the farmer is told.
+     * The alert's title and the "why" come from `invalidImage` below; this is only the
+     * "N photos were removed" line.
+     */
     scansNotCorn: (count: number) => string;
     scansSyncedTitle: string;
     scansSynced: (count: number) => string;
@@ -278,22 +281,22 @@ export interface Translations {
   };
 
   scan: {
+    /** Title of the camera view, which is now the Scan screen (the raised tab opens it). */
     title: string;
-    subtitle: string;
-    takePhoto: string;
-    takePhotoDesc: string;
+    /** The gallery button next to the shutter. */
     chooseFromGallery: string;
-    openingGallery: string;
-    chooseFromGalleryDesc: string;
     /** Corn-only disclaimer card, shown before the farmer picks camera or gallery. */
     cornOnlyTitle: string;
     cornOnlyBody: string;
+    /** Photo tips: tip1-3 are shown over the camera, all five in the photo-tips sheet. */
     tipsTitle: string;
     tip1: string;
     tip2: string;
     tip3: string;
     tip4: string;
     tip5: string;
+    /** Closes the photo-tips sheet. */
+    tipsGotIt: string;
     permissionTitle: string;
     permissionMessage: string;
     errorTitle: string;
@@ -307,8 +310,6 @@ export interface Translations {
     allowAccess: string;
     openSettings: string;
     goBack: string;
-    instruction: string;
-    frameHint: string;
     starting: string;
     tapToCapture: string;
   };
@@ -348,9 +349,30 @@ export interface Translations {
     offlineResultSubtitle: string;
     scanAnother: string;
     backToHome: string;
-    /** Shown instead of a diagnosis when the model says the photo is not a corn leaf. */
-    notCornTitle: string;
-    notCornMessage: string;
+  };
+
+  /**
+   * THE one error text for a photo that fails the corn-leaf check, wherever it is shown:
+   * the <InvalidImageError> screen state (both the colour check and the model's "not_corn"),
+   * the offline-queue alert (PendingScanSync), and the NOT_A_CORN_LEAF / NOT_CORN entries of
+   * `apiErrors`. Change the wording here and nowhere else.
+   */
+  invalidImage: {
+    /** The red banner's title. */
+    title: string;
+    /** What to do instead, on its own (the offline-queue alert adds its own "removed" line). */
+    advice: string;
+    /** `advice` + that the photo was not saved: the banner body and the `apiErrors` text. */
+    message: string;
+    /** App-bar title of the rejection screen. */
+    screenTitle: string;
+    /** The plain part of the link under the banner, then the tappable part. */
+    tipsPrompt: string;
+    tipsLink: string;
+    /** Camera source: primary button (the secondary one is `scan.chooseFromGallery`). */
+    takeAnother: string;
+    /** Gallery source: secondary button (the primary one is `preview.chooseAnother`). */
+    useCameraInstead: string;
   };
 
   treatmentLevels: {
@@ -486,6 +508,19 @@ export interface Translations {
   };
 }
 
+/** Defined once so `apiErrors` below can reuse the message instead of keeping a second copy. */
+const invalidImageAdviceEn = 'Try a close, clear photo of a single corn leaf in daylight.';
+const invalidImageEn: Translations['invalidImage'] = {
+  title: "We couldn't find a corn leaf",
+  advice: invalidImageAdviceEn,
+  message: `${invalidImageAdviceEn} This photo wasn't saved.`,
+  screenTitle: 'Scan result',
+  tipsPrompt: 'This is a corn leaf?',
+  tipsLink: 'See photo tips',
+  takeAnother: 'Take another photo',
+  useCameraInstead: 'Use camera instead',
+};
+
 export const en: Translations = {
   common: {
     back: 'Back',
@@ -493,19 +528,18 @@ export const en: Translations = {
     corn: 'Corn',
     bucketToday: 'Today',
     bucketYesterday: 'Yesterday',
-    bucketLastWeek: 'Last Week',
+    bucketLastWeek: 'Last week',
     waitingToUpload: 'Waiting to upload',
     waitingForResult: 'Waiting for internet',
     scansNotSyncedTitle: 'Some scans could not be saved',
     scansNotSynced: (count) =>
       count === 1
-        ? '1 scan could not be saved because the server did not accept it (for example, it is older than 30 days, its photo is gone, or the photo is not a corn leaf).'
-        : `${count} scans could not be saved because the server did not accept them (for example, they are older than 30 days, their photos are gone, or the photos are not corn leaves).`,
-    scansNotCornTitle: 'Not a corn leaf',
+        ? '1 scan could not be saved because the server did not accept it (for example, it is older than 30 days, its photo is gone, or the photo could not be processed).'
+        : `${count} scans could not be saved because the server did not accept them (for example, they are older than 30 days, their photos are gone, or the photos could not be processed).`,
     scansNotCorn: (count) =>
       count === 1
-        ? '1 photo saved offline is not a corn leaf, so it was removed and not saved to your history.'
-        : `${count} photos saved offline are not corn leaves, so they were removed and not saved to your history.`,
+        ? '1 photo saved offline was removed and not saved to your history.'
+        : `${count} photos saved offline were removed and not saved to your history.`,
     scansSyncedTitle: 'Your photos have been scanned',
     scansSynced: (count) =>
       count === 1
@@ -525,27 +559,27 @@ export const en: Translations = {
   },
 
   login: {
-    welcomeBack: 'Welcome Back',
+    welcomeBack: 'Welcome back',
     subtitle: 'Sign in to continue protecting your crops.',
     usernamePlaceholder: 'Username',
     passwordPlaceholder: 'Password',
     forgotPassword: 'Forgot password?',
     rememberMe: 'Remember me',
     signingIn: 'Signing in...',
-    signIn: 'Sign In',
+    signIn: 'Sign in',
     errorEmptyUsername: 'Please enter your username.',
     errorEmptyPassword: 'Please enter your password.',
     errorGeneric: 'We could not sign you in. Please try again.',
     noAccount:
       'Accounts are provided by the City Agriculture Office. Ask them for your login details.',
-    createAccount: 'Create Account',
+    createAccount: 'Create account',
   },
 
   register: {
-    title: 'Create Account',
+    title: 'Create account',
     subtitle:
       'Set up your account to start detecting corn leaf diseases and getting treatment advice.',
-    personalInfo: 'Personal Information',
+    personalInfo: 'Personal information',
     firstName: 'First name',
     lastName: 'Last name',
     username: 'Username',
@@ -553,7 +587,7 @@ export const en: Translations = {
     confirmPasswordPlaceholder: 'Confirm password',
     phonePlaceholder: 'Mobile number (09xxxxxxxxx)',
     phoneHint: "We'll text a code to this number if you ever forget your password.",
-    farmLocation: 'Farm Location',
+    farmLocation: 'Farm location',
     addressPlaceholder: 'Barangay, City / Municipality (optional)',
     errorFullName: 'Please enter your first and last name.',
     errorUsernameLength: 'Username must be between 4 and 50 characters.',
@@ -564,27 +598,27 @@ export const en: Translations = {
     errorPhone: 'Enter a valid mobile number, for example 09171234567.',
     errorGeneric: 'We could not create your account. Please try again.',
     creatingAccount: 'Creating account...',
-    createAccount: 'Create Account',
+    createAccount: 'Create account',
     alreadyHaveAccount: 'Already have an account? ',
-    logIn: 'Log In',
+    logIn: 'Log in',
     privacyNote: 'Your details are kept private and used only for your farm profile.',
   },
 
   forgotPassword: {
-    title: 'Forgot Password',
+    title: 'Forgot password',
     subtitle:
       "Enter the mobile number on your account and we'll text you a 6-digit reset code.",
     phonePlaceholder: 'Mobile number (09xxxxxxxxx)',
     errorInvalidPhone: 'Enter the mobile number on your account, for example 09171234567.',
     errorGeneric: 'We could not send the code. Please try again.',
     sending: 'Sending...',
-    sendCode: 'Send Reset Code',
+    sendCode: 'Send reset code',
     rememberedIt: 'Remembered it? ',
-    backToSignIn: 'Back to Sign In',
+    backToSignIn: 'Back to sign in',
   },
 
   resetPassword: {
-    title: 'Reset Password',
+    title: 'Reset password',
     subtitleWithPhone: (phone) =>
       `Enter the 6-digit code texted to ${phone} and choose a new password.`,
     subtitleGeneric: 'Enter the 6-digit code from the text message and choose a new password.',
@@ -596,26 +630,26 @@ export const en: Translations = {
     errorPasswordMismatch: 'The passwords do not match.',
     errorGeneric: 'We could not reset your password. Please try again.',
     updating: 'Updating...',
-    updatePassword: 'Update Password',
+    updatePassword: 'Update password',
     didNotGetCode: "Didn't get a code? ",
     resend: 'Resend',
     resendSuccess: 'A new code is on its way. Check your text messages.',
     resendFailure: 'Could not resend right now. Try again in a moment.',
-    successTitle: 'Password Updated',
+    successTitle: 'Password updated',
     successSubtitle: 'You can now sign in with your new password.',
-    backToSignIn: 'Back to Sign In',
+    backToSignIn: 'Back to sign in',
   },
 
   tabs: {
     home: 'Home',
-    scans: 'Scans',
+    scans: 'Scan',
     history: 'History',
     library: 'Library',
-    settings: 'Setting',
+    settings: 'Settings',
   },
 
   home: {
-    goodDay: 'Good Day,',
+    goodDay: 'Good day,',
     weekly: 'Weekly',
     monthly: 'Monthly',
     scanActivity: 'SCAN ACTIVITY',
@@ -624,13 +658,13 @@ export const en: Translations = {
     diseased: 'Diseased',
     diseaseDistribution: 'DISEASE DISTRIBUTION',
     noActivityInRange: 'No scans in this period yet.',
-    recentScans: 'Recent Scans',
+    recentScans: 'Recent scans',
     viewHistory: 'View history →',
     tip: 'Keep scanning regularly to catch issues early.',
     emptyTitle: "You haven't scanned yet",
     emptyMessage:
       'Scan a corn leaf to see your first diagnosis. Your scan activity and history will build up here.',
-    emptyAction: 'Scan Your First Leaf',
+    emptyAction: 'Scan your first leaf',
     libraryTeaser: 'See what LeafScan AI can identify',
     pendingScans: (count) =>
       count === 1
@@ -641,7 +675,7 @@ export const en: Translations = {
   },
 
   history: {
-    title: 'Scan History',
+    title: 'Scan history',
     searchPlaceholder: 'Search past scans',
     filterAll: 'All',
     filterDiseased: 'Diseased',
@@ -651,12 +685,12 @@ export const en: Translations = {
   },
 
   library: {
-    title: 'Disease Library',
+    title: 'Disease library',
     searchPlaceholder: 'Search diseases',
     loadingErrorTitle: "Can't reach the server",
     loadingErrorMessage:
       'The disease library needs a connection to the City Agriculture Office server. Check your internet and try again.',
-    retry: 'Try Again',
+    retry: 'Try again',
     emptyTitle: 'No library content yet',
     emptyMessage:
       'The City Agriculture Office has not published any disease entries yet. Check back soon.',
@@ -670,7 +704,7 @@ export const en: Translations = {
     empty: 'No notifications yet',
     emptyHint: "Updates about your reports from the CAO will appear here.",
     loadError: 'Could not load your notifications. Pull to refresh or try again.',
-    retry: 'Try Again',
+    retry: 'Try again',
     markAllRead: 'Mark all read',
     clearAll: 'Clear all notifications',
     clearAllTitle: 'Clear all notifications?',
@@ -684,27 +718,27 @@ export const en: Translations = {
     months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
     reportStatus: {
       under_review: {
-        title: 'Report Under Review',
+        title: 'Report under review',
         body: 'The City Agriculture Office is now reviewing your report.',
       },
       verified: {
-        title: 'Report Verified',
+        title: 'Report verified',
         body: 'The CAO has verified the disease findings in your report.',
       },
       agriculturist_required: {
-        title: 'Report Agriculturist Visit Required',
+        title: 'Report agriculturist visit required',
         body: 'Your report requires an agriculturist field assessment. A visit is being arranged.',
       },
       agriculturist_assigned: {
-        title: 'Report Agriculturist Assigned',
+        title: 'Report agriculturist assigned',
         body: 'An agriculturist has been assigned to visit and assess your area.',
       },
       field_assessment_completed: {
-        title: 'Report Field Assessment Completed',
+        title: 'Report field assessment completed',
         body: 'The field assessment for your report has been completed.',
       },
       resolved: {
-        title: 'Report Resolved',
+        title: 'Report resolved',
         body: 'Your report has been resolved. Thank you for reporting.',
       },
     },
@@ -712,82 +746,76 @@ export const en: Translations = {
   },
 
   scan: {
-    title: 'Scan a Corn Leaf',
-    subtitle: 'Choose how you want to provide the image',
-    takePhoto: 'Take a Photo',
-    takePhotoDesc: 'Use the camera to photograph a leaf right now',
-    chooseFromGallery: 'Choose from Gallery',
-    openingGallery: 'Opening gallery...',
-    chooseFromGalleryDesc: 'Select a corn leaf photo you already have',
-    cornOnlyTitle: 'Corn leaves only',
-    cornOnlyBody:
-      'LeafScan AI can only scan corn leaves. Other crops are not supported, and photos that are not corn leaves will be disregarded.',
-    tipsTitle: 'For the best results',
-    tip1: 'Photograph a single leaf, filling most of the frame.',
-    tip2: 'Use natural daylight. Avoid deep shadow.',
-    tip3: 'Hold the phone steady so the image is sharp.',
-    tip4: 'Include the affected area if there are visible spots.',
-    tip5: 'Use a plain background where possible.',
-    permissionTitle: 'Permission Needed',
+    // Title of the camera view (the raised Scan tab opens it directly).
+    title: 'Scan a leaf',
+    chooseFromGallery: 'Choose from gallery',
+    cornOnlyTitle: 'Works with corn leaves only',
+    cornOnlyBody: "Other crops and non-leaf photos can't be scanned yet.",
+    // The tips are shown over the camera (tip1-3) and in the photo-tips sheet (all five).
+    tipsTitle: 'Tips for a clear scan',
+    tip1: 'Fill the frame with one leaf',
+    tip2: 'Use daylight, avoid deep shadow',
+    tip3: 'Keep other leaves out of the photo',
+    tip4: 'Hold the phone steady so the photo is sharp',
+    tip5: 'Show the spots or damaged area',
+    tipsGotIt: 'Got it',
+    permissionTitle: 'Permission needed',
     permissionMessage:
-      'LeafScan AI needs access to your photos so you can choose a corn leaf image. You can enable this in your phone settings.',
+      'LeafScan AI needs access to your photos so you can choose a corn leaf photo. You can enable this in your phone settings.',
     errorTitle: 'Error',
-    errorImageUnreadable: 'That image could not be read. Please try another one.',
+    errorImageUnreadable: 'That photo could not be read. Please try another one.',
     errorGalleryOpen: 'Could not open your gallery. Please try again.',
   },
 
   camera: {
-    permissionTitle: 'Camera Access Needed',
+    permissionTitle: 'Camera access needed',
     permissionMessage:
       'LeafScan AI uses your camera to photograph corn leaves for disease detection. Photos are only sent when you choose to scan.',
-    allowAccess: 'Allow Camera Access',
-    openSettings: 'Open Settings',
-    goBack: 'Go Back',
-    instruction: 'Photograph a corn leaf',
-    frameHint: 'Place the leaf inside the square',
+    allowAccess: 'Allow camera access',
+    openSettings: 'Open settings',
+    goBack: 'Go back',
     starting: 'Starting camera...',
     tapToCapture: 'Tap to capture',
   },
 
   preview: {
     backLink: '‹ Back',
-    reviewTitle: 'Review Your Image',
+    reviewTitle: 'Review your photo',
     reviewSubtitle: 'Make sure this is a corn leaf and clearly visible before sending.',
-    uploadedTitle: 'Image Uploaded',
-    uploadedSubtitle: 'The image below is being served from the server.',
-    errorGeneric: 'The image could not be uploaded. Please try again.',
-    uploadDetails: 'Upload Details',
-    fileName: 'File Name',
+    uploadedTitle: 'Photo uploaded',
+    uploadedSubtitle: 'The photo below is being served from the server.',
+    errorGeneric: 'The photo could not be uploaded. Please try again.',
+    uploadDetails: 'Upload details',
+    fileName: 'File name',
     size: 'Size',
     type: 'Type',
-    storedAt: 'Stored At',
-    useThisImage: 'Use This Image',
+    storedAt: 'Stored at',
+    useThisImage: 'Use this photo',
     uploading: 'Uploading...',
-    retakePhoto: 'Retake Photo',
-    chooseAnother: 'Choose Another Image',
+    retakePhoto: 'Retake photo',
+    chooseAnother: 'Choose another photo',
     crop: 'Crop',
-    cropTitle: 'Crop Image',
+    cropTitle: 'Crop photo',
     cropHint: 'Drag the edges or corners to frame the leaf. Drag inside to move the frame.',
     cropApply: 'Apply',
     cropCancel: 'Cancel',
     cropping: 'Cropping...',
-    cropError: 'The image could not be cropped. Please try again.',
-    viewDiagnosis: 'View Diagnosis',
-    noImage: 'No image was provided.',
-    chooseImageLink: 'Choose an Image',
-    savedOfflineTitle: 'Saved on Your Phone',
+    cropError: 'The photo could not be cropped. Please try again.',
+    viewDiagnosis: 'View diagnosis',
+    noImage: 'No photo was provided.',
+    chooseImageLink: 'Choose a photo',
+    savedOfflineTitle: 'Saved on your phone',
     savedOfflineSubtitle:
       'No internet right now. Your photo is saved on this phone and will be uploaded and scanned automatically once you are back online. You will find the result in History.',
     scanning: 'Scanning...',
-    offlineResultTitle: 'Scanned on Your Phone',
+    offlineResultTitle: 'Scanned on your phone',
     offlineResultSubtitle:
       'No internet, so your phone scanned this leaf by itself. The photo will upload automatically once you are back online.',
-    scanAnother: 'Scan Another Leaf',
-    backToHome: 'Back to Home',
-    notCornTitle: 'Not a Corn Leaf',
-    notCornMessage:
-      'This photo does not look like a corn leaf, so it was not saved to your history. Please take a clear, close photo of a corn leaf, or choose another image.',
+    scanAnother: 'Scan another leaf',
+    backToHome: 'Back to home',
   },
+
+  invalidImage: invalidImageEn,
 
   treatmentLevels: {
     level: 'Level',
@@ -816,12 +844,12 @@ export const en: Translations = {
     healthyLabel: 'HEALTHY LEAF',
     diseaseDetectedLabel: 'DISEASE DETECTED',
     confidence: 'CONFIDENCE',
-    detectionResult: 'Detection Result',
+    detectionResult: 'Detection result',
     statusLabel: 'Status',
     noDiseaseDetected: 'No disease detected',
     healthyNote:
       'This leaf appears healthy. Keep monitoring the plant and scan again if symptoms appear.',
-    recommendedActions: 'Recommended Actions',
+    recommendedActions: 'Recommended actions',
     noTreatmentNeeded:
       'No treatment needed - keep monitoring the plant and scan again if symptoms appear.',
     noTreatmentPublished:
@@ -838,21 +866,21 @@ export const en: Translations = {
   },
 
   report: {
-    totalScan: 'Total Scan',
-    cornAffected: 'Corn Affected',
+    totalScan: 'Total scan',
+    cornAffected: 'Corn affected',
     healthy: 'Healthy',
     breakdownTitle: 'CORN DISEASE BREAKDOWN',
     plantsScanned: (count) => `${count} plants scanned`,
     affected: (count) => `${count} affected`,
     detailsTitle: 'REPORT DETAILS',
-    estimatedArea: 'Estimated Affected Area',
+    estimatedArea: 'Estimated affected area',
     areaRequired: 'Please enter the estimated affected area (in hectares) before submitting.',
     hectare: 'ha',
     barangay: 'Barangay',
     notSet: 'Not set',
     remarksTitle: 'REMARKS',
     remarksPlaceholder: 'Add remarks (e.g. observed symptoms, field conditions...)',
-    submit: 'Submit Report to CAO',
+    submit: 'Submit report to CAO',
     submitting: 'Sending...',
     errorGeneric: 'We could not send your report. Please try again.',
     allSentTitle: 'All scans reported',
@@ -861,60 +889,60 @@ export const en: Translations = {
   },
 
   reportSuccess: {
-    title: 'Report Submitted!',
+    title: 'Report submitted!',
     subtitle: 'Your report has been sent to the City Agriculture Office of Pagadian City.',
-    backToHome: 'Back to Home',
+    backToHome: 'Back to home',
   },
 
   settings: {
     title: 'Settings',
-    submitReport: 'Submit Report',
+    submitReport: 'Submit report',
     profileInfo: 'PROFILE INFORMATION',
     editProfile: 'Edit',
     phone: 'Phone',
     barangay: 'Barangay',
     municipality: 'Municipality',
-    farmArea: 'Farm Area',
-    mainCrop: 'Main Crop',
+    farmArea: 'Farm area',
+    mainCrop: 'Main crop',
     notSet: 'Not set',
     language: 'LANGUAGE',
     languageHint: 'Select your preferred language',
-    logOut: 'Log Out',
-    logOutTitle: 'Log Out?',
+    logOut: 'Log out',
+    logOutTitle: 'Log out?',
     logOutMessage: 'Are you sure you want to log out of your account?',
-    yesLogOut: 'Yes, Log out',
+    yesLogOut: 'Yes, log out',
     footer: 'LeafScan AI · City Agriculture Office of Pagadian City',
 
-    editProfileTitle: 'Edit Profile',
+    editProfileTitle: 'Edit profile',
     phonePlaceholder: 'Mobile number',
     barangayPlaceholder: 'Barangay',
     municipalityPlaceholder: 'Municipality / City',
-    cornTypeLabel: 'Corn Type',
-    cornTypeWhite: 'White Corn',
-    cornTypeYellow: 'Yellow Corn',
-    cornTypeBoth: 'White & Yellow',
-    saveChanges: 'Save Changes',
+    cornTypeLabel: 'Corn type',
+    cornTypeWhite: 'White corn',
+    cornTypeYellow: 'Yellow corn',
+    cornTypeBoth: 'White & yellow',
+    saveChanges: 'Save changes',
     savingChanges: 'Saving...',
     profileErrorPhone: 'Enter a valid mobile number, for example 09171234567.',
     profileErrorGeneric: 'We could not update your profile. Please try again.',
 
-    changePassword: 'Change Password',
-    changePasswordTitle: 'Change Password',
+    changePassword: 'Change password',
+    changePasswordTitle: 'Change password',
     changePasswordHint: 'Enter your current password, then choose a new one only you know.',
     currentPasswordPlaceholder: 'Current password',
     newPasswordPlaceholder: 'New password',
     confirmPasswordPlaceholder: 'Confirm new password',
-    changePasswordCta: 'Change Password',
+    changePasswordCta: 'Change password',
     changingPassword: 'Changing...',
     passwordChanged: 'Your password has been changed.',
     passwordErrorLength: 'Your new password must be at least 8 characters.',
     passwordErrorMismatch: 'The new password and its confirmation do not match.',
     passwordErrorGeneric: 'We could not change your password. Please try again.',
 
-    changePhoto: 'Change Photo',
-    takePhoto: 'Take Photo',
-    chooseFromGallery: 'Choose from Gallery',
-    removePhoto: 'Remove Photo',
+    changePhoto: 'Change photo',
+    takePhoto: 'Take photo',
+    chooseFromGallery: 'Choose from gallery',
+    removePhoto: 'Remove photo',
     photoPermissionMessage:
       'LeafScan AI needs access to your photos to set a profile picture. You can enable this in your phone settings.',
     photoErrorGeneric: 'We could not update your photo. Please try again.',
@@ -944,8 +972,9 @@ export const en: Translations = {
     SERVICE_UNAVAILABLE: 'The service is temporarily unavailable. Please try again shortly.',
     AI_UNAVAILABLE: 'The leaf scanner is unavailable right now. Please try again in a moment.',
     AI_REJECTED_IMAGE: 'This photo could not be read. Please take a clear photo of a corn leaf.',
-    NOT_A_CORN_LEAF: 'Try again. This does not look like a corn leaf. Please take a clear, close photo of a corn leaf.',
-    NOT_CORN: 'This does not look like a corn leaf. Please take a clear, close photo of a corn leaf.',
+    // Both failed corn-leaf checks read the same as the on-screen error (see `invalidImage`).
+    NOT_A_CORN_LEAF: invalidImageEn.message,
+    NOT_CORN: invalidImageEn.message,
     AI_BAD_GATEWAY: 'The disease checker had a problem. Please try again in a moment.',
     AI_BAD_RESPONSE: 'The disease checker had a problem. Please try again in a moment.',
     IMAGE_NOT_FOUND: 'The uploaded photo could not be found. Please scan again.',
@@ -955,6 +984,20 @@ export const en: Translations = {
   },
 };
 
+/** Defined once so `apiErrors` below can reuse the message instead of keeping a second copy. */
+const invalidImageAdviceCeb =
+  'Sulayi ang duol ug klaro nga litrato sa usa ka dahon sa mais ilalom sa suga sa adlaw.';
+const invalidImageCeb: Translations['invalidImage'] = {
+  title: 'Wala kami makakita og dahon sa mais',
+  advice: invalidImageAdviceCeb,
+  message: `${invalidImageAdviceCeb} Wala natipigi kini nga litrato.`,
+  screenTitle: 'Resulta sa scan',
+  tipsPrompt: 'Dahon kini sa mais?',
+  tipsLink: 'Tan-awa ang mga tip sa litrato',
+  takeAnother: 'Pagkuha og lain nga litrato',
+  useCameraInstead: 'Gamita na lang ang camera',
+};
+
 export const ceb: Translations = {
   common: {
     back: 'Balik',
@@ -962,15 +1005,14 @@ export const ceb: Translations = {
     corn: 'Mais',
     bucketToday: 'Karon',
     bucketYesterday: 'Kagahapon',
-    bucketLastWeek: 'Miaging Semana',
+    bucketLastWeek: 'Miaging semana',
     waitingToUpload: 'Naghulat ma-upload',
     waitingForResult: 'Naghulat og internet',
     scansNotSyncedTitle: 'Dili ma-save ang ubang scan',
     scansNotSynced: (count) =>
-      `${count} ka scan wala ma-save kay wala kini gidawat sa server (pananglitan, lapas na sa 30 ka adlaw, nawala na ang litrato, o dili dahon sa mais ang litrato).`,
-    scansNotCornTitle: 'Dili dahon sa mais',
+      `${count} ka scan wala ma-save kay wala kini gidawat sa server (pananglitan, lapas na sa 30 ka adlaw, nawala na ang litrato, o dili maproseso ang litrato).`,
     scansNotCorn: (count) =>
-      `${count} ka litrato nga gitipigan offline dili dahon sa mais, busa gitangtang kini ug wala i-save sa imong History.`,
+      `${count} ka litrato nga gitipigan offline gitangtang ug wala i-save sa imong History.`,
     scansSyncedTitle: 'Na-scan na ang imong mga litrato',
     scansSynced: (count) =>
       `${count} ka litrato nga gitipigan offline ang na-upload ug na-scan na. Ablihi ang History aron makita ang resulta.`,
@@ -990,27 +1032,27 @@ export const ceb: Translations = {
   },
 
   login: {
-    welcomeBack: 'Maayong Pagbalik',
+    welcomeBack: 'Maayong pagbalik',
     subtitle: 'Pag-sign in aron magpadayon sa pagpanalipod sa imong tanom.',
     usernamePlaceholder: 'Username',
     passwordPlaceholder: 'Password',
     forgotPassword: 'Nalimtan ang password?',
     rememberMe: 'Hinumdumi ako',
     signingIn: 'Nag-sign in...',
-    signIn: 'Mag-sign In',
+    signIn: 'Mag-sign in',
     errorEmptyUsername: 'Palihug isulat ang imong username.',
     errorEmptyPassword: 'Palihug isulat ang imong password.',
     errorGeneric: 'Dili ka namo ma-sign in. Palihug sulayi pag-usab.',
     noAccount:
       'Ang account gihatag sa City Agriculture Office. Pangayoa kanila ang imong login details.',
-    createAccount: 'Paghimo og Account',
+    createAccount: 'Paghimo og account',
   },
 
   register: {
-    title: 'Paghimo og Account',
+    title: 'Paghimo og account',
     subtitle:
       'I-set up ang imong account aron makasugod sa pag-ila sa sakit sa dahon sa mais ug makadawat og payo sa tambal.',
-    personalInfo: 'Personal nga Impormasyon',
+    personalInfo: 'Personal nga impormasyon',
     firstName: 'Ngalan',
     lastName: 'Apelyido',
     username: 'Username',
@@ -1018,7 +1060,7 @@ export const ceb: Translations = {
     confirmPasswordPlaceholder: 'Kumpirmaha ang password',
     phonePlaceholder: 'Numero sa selpon (09xxxxxxxxx)',
     phoneHint: 'Padad-an namo og code ining numeroha kung malimtan nimo ang imong password.',
-    farmLocation: 'Lokasyon sa Uma',
+    farmLocation: 'Lokasyon sa uma',
     addressPlaceholder: 'Barangay, Lungsod / Munisipyo (opsyonal)',
     errorFullName: 'Palihug isulat ang imong ngalan ug apelyido.',
     errorUsernameLength: 'Ang username kinahanglan tunga sa 4 ug 50 ka letra.',
@@ -1029,14 +1071,14 @@ export const ceb: Translations = {
     errorPhone: 'Pagbutang og saktong numero sa selpon, pananglitan 09171234567.',
     errorGeneric: 'Dili namo mahimo ang imong account. Palihug sulayi pag-usab.',
     creatingAccount: 'Ginahimo ang account...',
-    createAccount: 'Paghimo og Account',
+    createAccount: 'Paghimo og account',
     alreadyHaveAccount: 'Naa na kay account? ',
-    logIn: 'Mag-log In',
+    logIn: 'Mag-log in',
     privacyNote: 'Ang imong impormasyon gitago nga pribado ug gigamit lang para sa imong farm profile.',
   },
 
   forgotPassword: {
-    title: 'Nalimtan ang Password',
+    title: 'Nalimtan ang password',
     subtitle:
       'Isulat ang numero sa selpon nga naka-rehistro sa imong account ug padad-an ka namo og 6-digit nga code.',
     phonePlaceholder: 'Numero sa selpon (09xxxxxxxxx)',
@@ -1044,13 +1086,13 @@ export const ceb: Translations = {
       'Isulat ang numero sa selpon nga naka-rehistro sa imong account, pananglitan 09171234567.',
     errorGeneric: 'Dili namo mapadala ang code. Palihug sulayi pag-usab.',
     sending: 'Gina-padala...',
-    sendCode: 'Ipadala ang Reset Code',
+    sendCode: 'Ipadala ang reset code',
     rememberedIt: 'Nahinumdoman na nimo? ',
-    backToSignIn: 'Balik sa Sign In',
+    backToSignIn: 'Balik sa sign in',
   },
 
   resetPassword: {
-    title: 'I-reset ang Password',
+    title: 'I-reset ang password',
     subtitleWithPhone: (phone) =>
       `Isulat ang 6-digit nga code nga gipadala sa ${phone} ug pagpili og bag-ong password.`,
     subtitleGeneric: 'Isulat ang 6-digit nga code gikan sa text message ug pagpili og bag-ong password.',
@@ -1062,14 +1104,14 @@ export const ceb: Translations = {
     errorPasswordMismatch: 'Wala magtugma ang password.',
     errorGeneric: 'Dili namo ma-reset ang imong password. Palihug sulayi pag-usab.',
     updating: 'Ginabag-o...',
-    updatePassword: 'I-update ang Password',
+    updatePassword: 'I-update ang password',
     didNotGetCode: 'Wala ka makadawat og code? ',
-    resend: 'Ipadala Pag-usab',
+    resend: 'Ipadala pag-usab',
     resendSuccess: 'Padulong na ang bag-ong code. Susiha ang imong text messages.',
     resendFailure: 'Dili karon mapadala pag-usab. Sulayi human sa makadiyot.',
-    successTitle: 'Na-update na ang Password',
+    successTitle: 'Na-update na ang password',
     successSubtitle: 'Pwede ka na mag-sign in gamit ang imong bag-ong password.',
-    backToSignIn: 'Balik sa Sign In',
+    backToSignIn: 'Balik sa sign in',
   },
 
   tabs: {
@@ -1077,26 +1119,26 @@ export const ceb: Translations = {
     scans: 'Scan',
     history: 'Kasaysayan',
     library: 'Librarya',
-    settings: 'Setting',
+    settings: 'Settings',
   },
 
   home: {
-    goodDay: 'Maayong Adlaw,',
-    weekly: 'Kada Semana',
-    monthly: 'Kada Bulan',
+    goodDay: 'Maayong adlaw,',
+    weekly: 'Kada semana',
+    monthly: 'Kada bulan',
     scanActivity: 'KALIHOKAN SA SCAN',
     totalScans: 'kinatibuk-ang scan',
     healthy: 'Himsog',
     diseased: 'Nasakit',
     diseaseDistribution: 'PAG-APOD-APOD SA SAKIT',
     noActivityInRange: 'Wala pay scan ani nga panahon.',
-    recentScans: 'Bag-ong mga Scan',
+    recentScans: 'Bag-ong mga scan',
     viewHistory: 'Tan-awa ang kasaysayan →',
     tip: 'Padayon sa regular nga pag-scan aron masayran dayon ang problema.',
     emptyTitle: 'Wala ka pa makascan',
     emptyMessage:
       'I-scan ang usa ka dahon sa mais aron makita ang imong unang diagnosis. Dinhi motubo ang imong kalihokan ug kasaysayan sa scan.',
-    emptyAction: 'I-scan ang Unang Dahon',
+    emptyAction: 'I-scan ang unang dahon',
     libraryTeaser: 'Tan-awa kung unsa ang mahibaloan sa LeafScan AI',
     pendingScans: (count) =>
       count === 1
@@ -1107,7 +1149,7 @@ export const ceb: Translations = {
   },
 
   history: {
-    title: 'Kasaysayan sa Scan',
+    title: 'Kasaysayan sa scan',
     searchPlaceholder: 'Pangitaa ang naunang mga scan',
     filterAll: 'Tanan',
     filterDiseased: 'Nasakit',
@@ -1117,12 +1159,12 @@ export const ceb: Translations = {
   },
 
   library: {
-    title: 'Librarya sa Sakit',
+    title: 'Librarya sa sakit',
     searchPlaceholder: 'Pangitaa ang sakit',
     loadingErrorTitle: 'Dili maabot ang server',
     loadingErrorMessage:
       'Kinahanglan og koneksyon sa server sa City Agriculture Office ang librarya sa sakit. Susiha ang imong internet ug sulayi pag-usab.',
-    retry: 'Sulayi Pag-usab',
+    retry: 'Sulayi pag-usab',
     emptyTitle: 'Wala pay sulod ang librarya',
     emptyMessage:
       'Wala pa mag-publish ang City Agriculture Office og mga entry sa sakit. Balik ug susiha sa ulahi.',
@@ -1132,11 +1174,11 @@ export const ceb: Translations = {
   },
 
   notifications: {
-    title: 'Mga Notipikasyon',
+    title: 'Mga notipikasyon',
     empty: 'Wala pay notipikasyon',
     emptyHint: 'Ang mga update sa imong report gikan sa CAO makita dinhi.',
     loadError: 'Wala ma-load ang imong mga notipikasyon. I-refresh o sulayi pag-usab.',
-    retry: 'Sulayi Pag-usab',
+    retry: 'Sulayi pag-usab',
     markAllRead: 'Markahi tanan nga nabasa',
     clearAll: 'Kuhaa tanan nga notipikasyon',
     clearAllTitle: 'Kuhaon ba ang tanan nga notipikasyon?',
@@ -1150,27 +1192,27 @@ export const ceb: Translations = {
     months: ['Ene', 'Peb', 'Mar', 'Abr', 'May', 'Hun', 'Hul', 'Ago', 'Sep', 'Okt', 'Nob', 'Dis'],
     reportStatus: {
       under_review: {
-        title: 'Gisusi ang Report',
+        title: 'Gisusi ang report',
         body: 'Gisusi na karon sa City Agriculture Office ang imong report.',
       },
       verified: {
-        title: 'Napamatud-an ang Report',
+        title: 'Napamatud-an ang report',
         body: 'Gipamatud-an sa CAO ang mga nakit-an nga sakit sa imong report.',
       },
       agriculturist_required: {
-        title: 'Gikinahanglan ang Pagbisita sa Agriculturist',
+        title: 'Gikinahanglan ang pagbisita sa agriculturist',
         body: 'Ang imong report nagkinahanglan og field assessment gikan sa agriculturist. Gihikay na ang pagbisita.',
       },
       agriculturist_assigned: {
-        title: 'Naitudlo ang Agriculturist',
+        title: 'Naitudlo ang agriculturist',
         body: 'Adunay agriculturist nga gitudlo aron mobisita ug mosusi sa imong lugar.',
       },
       field_assessment_completed: {
-        title: 'Nahuman ang Field Assessment',
+        title: 'Nahuman ang field assessment',
         body: 'Nahuman na ang field assessment sa imong report.',
       },
       resolved: {
-        title: 'Nasulbad ang Report',
+        title: 'Nasulbad ang report',
         body: 'Nasulbad na ang imong report. Salamat sa pag-report.',
       },
     },
@@ -1178,82 +1220,76 @@ export const ceb: Translations = {
   },
 
   scan: {
-    title: 'I-scan ang Dahon sa Mais',
-    subtitle: 'Pilia kung unsaon paghatag sa hulagway',
-    takePhoto: 'Pagkuha og Litrato',
-    takePhotoDesc: 'Gamita ang camera aron makuha dayon ang litrato sa dahon',
-    chooseFromGallery: 'Pagpili gikan sa Gallery',
-    openingGallery: 'Ginaabli ang gallery...',
-    chooseFromGalleryDesc: 'Pagpili og litrato sa dahon sa mais nga naa na nimo',
-    cornOnlyTitle: 'Dahon sa mais lang',
-    cornOnlyBody:
-      'Ang LeafScan AI para lang sa pag-scan sa dahon sa mais. Dili kini magamit sa ubang tanom, ug ang mga litrato nga dili dahon sa mais dili tagdon.',
-    tipsTitle: 'Para sa labing maayong resulta',
-    tip1: 'Kuhaa ang usa lang ka dahon, punua ang kadaghanan sa frame.',
-    tip2: 'Gamita ang natural nga suga sa adlaw. Likayi ang lawom nga landong.',
-    tip3: 'Kupti og lig-on ang telepono aron klaro ang litrato.',
-    tip4: 'Iapil ang naapektuhan nga bahin kung naay makita nga mantsa.',
-    tip5: 'Gamita ang yano nga background kung mahimo.',
-    permissionTitle: 'Gikinahanglan ang Pagtugot',
+    // Title of the camera view (the raised Scan tab opens it directly).
+    title: 'I-scan ang dahon',
+    chooseFromGallery: 'Pagpili gikan sa gallery',
+    cornOnlyTitle: 'Para lang sa dahon sa mais',
+    cornOnlyBody: 'Ang ubang tanom ug mga litrato nga dili dahon dili pa ma-scan.',
+    // The tips are shown over the camera (tip1-3) and in the photo-tips sheet (all five).
+    tipsTitle: 'Mga tip para klaro ang scan',
+    tip1: 'Punui sa usa ka dahon ang frame',
+    tip2: 'Gamita ang suga sa adlaw, likayi ang lawom nga landong',
+    tip3: 'Ayaw apila ang ubang dahon sa litrato',
+    tip4: 'Kupti og lig-on ang telepono aron klaro ang litrato',
+    tip5: 'Ipakita ang mga mantsa o nadaot nga bahin',
+    tipsGotIt: 'Nakasabot ko',
+    permissionTitle: 'Gikinahanglan ang pagtugot',
     permissionMessage:
-      'Kinahanglan sa LeafScan AI ang access sa imong mga litrato aron makapili ka og hulagway sa dahon sa mais. Pwede nimo i-enable kini sa settings sa imong telepono.',
+      'Kinahanglan sa LeafScan AI ang access sa imong mga litrato aron makapili ka og litrato sa dahon sa mais. Pwede nimo i-enable kini sa settings sa imong telepono.',
     errorTitle: 'Sayop',
-    errorImageUnreadable: 'Dili mabasa kanang hulagway. Palihug sulayi ang lain.',
+    errorImageUnreadable: 'Dili mabasa kanang litrato. Palihug sulayi ang lain.',
     errorGalleryOpen: 'Dili maablihan ang imong gallery. Palihug sulayi pag-usab.',
   },
 
   camera: {
-    permissionTitle: 'Gikinahanglan ang Access sa Camera',
+    permissionTitle: 'Gikinahanglan ang access sa camera',
     permissionMessage:
       'Gigamit sa LeafScan AI ang imong camera aron makakuha og litrato sa dahon sa mais para sa pag-ila sa sakit. Ang litrato ipadala lang kung mag-scan ka.',
-    allowAccess: 'Tugoti ang Access sa Camera',
-    openSettings: 'Ablihi ang Settings',
+    allowAccess: 'Tugoti ang access sa camera',
+    openSettings: 'Ablihi ang settings',
     goBack: 'Balik',
-    instruction: 'Kuhaa ang litrato sa dahon sa mais',
-    frameHint: 'Ibutang ang dahon sulod sa kwadrado',
     starting: 'Ginasugdan ang camera...',
     tapToCapture: 'Tapika aron mokuha',
   },
 
   preview: {
     backLink: '‹ Balik',
-    reviewTitle: 'Susiha ang Imong Litrato',
+    reviewTitle: 'Susiha ang imong litrato',
     reviewSubtitle: 'Siguroha nga dahon kini sa mais ug klaro kini sa wala pa ipadala.',
-    uploadedTitle: 'Na-upload na ang Litrato',
+    uploadedTitle: 'Na-upload na ang litrato',
     uploadedSubtitle: 'Ang litrato sa ubos gikan na sa server.',
     errorGeneric: 'Wala ma-upload ang litrato. Palihug sulayi pag-usab.',
-    uploadDetails: 'Detalye sa Upload',
-    fileName: 'Ngalan sa File',
+    uploadDetails: 'Detalye sa upload',
+    fileName: 'Ngalan sa file',
     size: 'Gidak-on',
     type: 'Klase',
     storedAt: 'Gitipigan sa',
-    useThisImage: 'Gamiton Kini nga Litrato',
+    useThisImage: 'Gamiton kini nga litrato',
     uploading: 'Ginaupload...',
-    retakePhoto: 'Pagkuha Pag-usab',
-    chooseAnother: 'Pagpili og Lain nga Litrato',
+    retakePhoto: 'Pagkuha pag-usab',
+    chooseAnother: 'Pagpili og lain nga litrato',
     crop: 'I-crop',
-    cropTitle: 'I-crop ang Litrato',
+    cropTitle: 'I-crop ang litrato',
     cropHint: 'Ibira ang mga ngilit o suok aron maframe ang dahon. Ibira sa sulod aron ibalhin ang frame.',
     cropApply: 'Gamiton',
     cropCancel: 'Kanselahon',
     cropping: 'Gi-crop...',
     cropError: 'Wala ma-crop ang litrato. Palihug sulayi pag-usab.',
-    viewDiagnosis: 'Tan-awa ang Diagnosis',
+    viewDiagnosis: 'Tan-awa ang diagnosis',
     noImage: 'Walay litrato nga gihatag.',
-    chooseImageLink: 'Pagpili og Litrato',
-    savedOfflineTitle: 'Gitipigan sa Imong Telepono',
+    chooseImageLink: 'Pagpili og litrato',
+    savedOfflineTitle: 'Gitipigan sa imong telepono',
     savedOfflineSubtitle:
       'Walay internet karon. Gitipigan ang imong litrato ug awtomatiko kini i-upload ug i-scan inig naa na pud kay internet. Makita nimo ang resulta sa History.',
     scanning: 'Gi-scan...',
-    offlineResultTitle: 'Na-scan sa Imong Telepono',
+    offlineResultTitle: 'Na-scan sa imong telepono',
     offlineResultSubtitle:
       'Walay internet, busa ang imong telepono mismo ang nag-scan niini nga dahon. Awtomatiko ma-upload ang litrato inig naa na pud kay internet.',
-    scanAnother: 'Mag-scan og Lain nga Dahon',
-    backToHome: 'Balik sa Home',
-    notCornTitle: 'Dili Dahon sa Mais',
-    notCornMessage:
-      'Dili ni murag dahon sa mais ang litrato, busa wala kini i-save sa imong History. Palihug kuhai og klaro ug suod nga litrato sa dahon sa mais, o pagpili og lain nga litrato.',
+    scanAnother: 'Mag-scan og lain nga dahon',
+    backToHome: 'Balik sa home',
   },
+
+  invalidImage: invalidImageCeb,
 
   treatmentLevels: {
     level: 'Lebel',
@@ -1282,12 +1318,12 @@ export const ceb: Translations = {
     healthyLabel: 'HIMSOG NGA DAHON',
     diseaseDetectedLabel: 'NAAY NAKITA NGA SAKIT',
     confidence: 'KASIGUROHAN',
-    detectionResult: 'Resulta sa Pag-ila',
+    detectionResult: 'Resulta sa pag-ila',
     statusLabel: 'Kahimtang',
     noDiseaseDetected: 'Walay nakita nga sakit',
     healthyNote:
       'Kini nga dahon morag himsog. Padayon sa pagbantay sa tanom ug pag-scan pag-usab kung naay motungha nga simtomas.',
-    recommendedActions: 'Girekomendang mga Aksyon',
+    recommendedActions: 'Girekomendang mga aksyon',
     noTreatmentNeeded:
       'Walay kinahanglan nga tambal - padayon sa pagbantay sa tanom ug pag-scan pag-usab kung naay motungha nga simtomas.',
     noTreatmentPublished:
@@ -1295,9 +1331,9 @@ export const ceb: Translations = {
     pendingUploadNote:
       'Na-scan sa imong telepono. Awtomatiko ma-upload ang litrato inig naa na pud kay internet.',
     viewTreatmentPlan: 'Tan-awa ang plano sa tambal →',
-    confidenceLevelLabel: 'Lebel sa Kasigurohan',
+    confidenceLevelLabel: 'Lebel sa kasigurohan',
     confidenceLevels: { low: 'Ubos', moderate: 'Kasarangan', high: 'Taas' },
-    riskLevelLabel: 'Lebel sa Kakuyaw',
+    riskLevelLabel: 'Lebel sa kakuyaw',
     riskLevels: {
       none: 'Walay kakuyaw',
       low: 'Ubos',
@@ -1309,21 +1345,21 @@ export const ceb: Translations = {
   },
 
   report: {
-    totalScan: 'Total nga Scan',
-    cornAffected: 'Naapektuhang Mais',
+    totalScan: 'Total nga scan',
+    cornAffected: 'Naapektuhang mais',
     healthy: 'Himsog',
     breakdownTitle: 'PAGKABAHIN SA SAKIT SA MAIS',
     plantsScanned: (count) => `${count} ka tanom nga na-scan`,
     affected: (count) => `${count} naapektuhan`,
     detailsTitle: 'DETALYE SA REPORT',
-    estimatedArea: 'Gibanabana nga Sukod sa Naapektuhan',
+    estimatedArea: 'Gibanabana nga sukod sa naapektuhan',
     areaRequired: 'Palihug i-input ang gibanabana nga sukod sa naapektuhan (sa ektarya) sa dili pa ipadala.',
     hectare: 'ha',
     barangay: 'Barangay',
     notSet: 'Wala pa gibutang',
     remarksTitle: 'MGA KOMENTO',
     remarksPlaceholder: 'Pagdugang og komento (pananglitan, naobserbahang simtomas, kahimtang sa uma...)',
-    submit: 'Ipadala ang Report sa CAO',
+    submit: 'Ipadala ang report sa CAO',
     submitting: 'Ginapadala...',
     errorGeneric: 'Dili namo mapadala ang imong report. Palihug sulayi pag-usab.',
     allSentTitle: 'Naipadala na tanang scan',
@@ -1332,61 +1368,61 @@ export const ceb: Translations = {
   },
 
   reportSuccess: {
-    title: 'Napadala na ang Report!',
+    title: 'Napadala na ang report!',
     subtitle: 'Ang imong report gipadala na sa City Agriculture Office sa Pagadian City.',
-    backToHome: 'Balik sa Home',
+    backToHome: 'Balik sa home',
   },
 
   settings: {
     title: 'Mga Setting',
-    submitReport: 'Ipadala ang Report',
+    submitReport: 'Ipadala ang report',
     profileInfo: 'IMPORMASYON SA PROFILE',
     editProfile: 'I-edit',
     phone: 'Telepono',
     barangay: 'Barangay',
     municipality: 'Munisipyo',
-    farmArea: 'Sukod sa Uma',
-    mainCrop: 'Punoan nga Tanom',
+    farmArea: 'Sukod sa uma',
+    mainCrop: 'Punoan nga tanom',
     notSet: 'Wala pa gibutang',
     language: 'PINULONGAN',
     languageHint: 'Pilia ang imong gustong pinulongan',
-    logOut: 'Mag-log Out',
-    logOutTitle: 'Mag-log Out?',
+    logOut: 'Mag-log out',
+    logOutTitle: 'Mag-log out?',
     logOutMessage: 'Sigurado ka ba nga gusto ka mag-log out sa imong account?',
-    yesLogOut: 'Oo, Mag-log out',
+    yesLogOut: 'Oo, mag-log out',
     footer: 'LeafScan AI · City Agriculture Office of Pagadian City',
 
-    editProfileTitle: 'I-edit ang Profile',
+    editProfileTitle: 'I-edit ang profile',
     phonePlaceholder: 'Numero sa selpon',
     barangayPlaceholder: 'Barangay',
     municipalityPlaceholder: 'Munisipyo / Siyudad',
-    cornTypeLabel: 'Klase sa Mais',
-    cornTypeWhite: 'Puti nga Mais',
-    cornTypeYellow: 'Dalag nga Mais',
-    cornTypeBoth: 'Puti ug Dalag',
-    saveChanges: 'I-save ang mga Pagbag-o',
+    cornTypeLabel: 'Klase sa mais',
+    cornTypeWhite: 'Puti nga mais',
+    cornTypeYellow: 'Dalag nga mais',
+    cornTypeBoth: 'Puti ug dalag',
+    saveChanges: 'I-save ang mga pagbag-o',
     savingChanges: 'Ginatipig...',
     profileErrorPhone: 'Pagbutang og saktong numero sa selpon, pananglitan 09171234567.',
     profileErrorGeneric: 'Dili namo mahimo i-update ang imong profile. Palihug sulayi pag-usab.',
 
-    changePassword: 'Ilisan ang Password',
-    changePasswordTitle: 'Ilisan ang Password',
+    changePassword: 'Ilisan ang password',
+    changePasswordTitle: 'Ilisan ang password',
     changePasswordHint:
       'Isulod ang imong kasamtangang password, dayon pagpili og bag-o nga ikaw ra ang nakabalo.',
     currentPasswordPlaceholder: 'Kasamtangang password',
     newPasswordPlaceholder: 'Bag-ong password',
     confirmPasswordPlaceholder: 'Kumpirmaha ang bag-ong password',
-    changePasswordCta: 'Ilisan ang Password',
+    changePasswordCta: 'Ilisan ang password',
     changingPassword: 'Ginailisan...',
     passwordChanged: 'Nailisan na ang imong password.',
     passwordErrorLength: 'Ang bag-ong password kinahanglan labing menos 8 ka karakter.',
     passwordErrorMismatch: 'Ang bag-ong password ug ang kumpirmasyon niini wala magkatugma.',
     passwordErrorGeneric: 'Dili namo mailisan ang imong password. Palihug sulayi pag-usab.',
 
-    changePhoto: 'Ilisan ang Litrato',
-    takePhoto: 'Pagkuha og Litrato',
-    chooseFromGallery: 'Pagpili gikan sa Gallery',
-    removePhoto: 'Kuhaon ang Litrato',
+    changePhoto: 'Ilisan ang litrato',
+    takePhoto: 'Pagkuha og litrato',
+    chooseFromGallery: 'Pagpili gikan sa gallery',
+    removePhoto: 'Kuhaon ang litrato',
     photoPermissionMessage:
       'Kinahanglan sa LeafScan AI ang access sa imong mga litrato aron makabutang og profile picture. Pwede nimo i-enable kini sa settings sa imong telepono.',
     photoErrorGeneric: 'Dili namo mahimo i-update ang imong litrato. Palihug sulayi pag-usab.',
@@ -1416,8 +1452,9 @@ export const ceb: Translations = {
     SERVICE_UNAVAILABLE: 'Dili karon ma-abot ang serbisyo. Palihug sulayi sa lain nga higayon.',
     AI_UNAVAILABLE: 'Dili karon magamit ang pag-scan sa dahon. Palihug sulayi pag-usab sa makadiyot.',
     AI_REJECTED_IMAGE: 'Dili mabasa kini nga litrato. Palihug kuhai og klaro nga litrato sa dahon sa mais.',
-    NOT_A_CORN_LEAF: 'Sulayi pag-usab. Dili ni murag dahon sa mais. Palihug kuhai og klaro ug suod nga litrato sa dahon sa mais.',
-    NOT_CORN: 'Dili ni murag dahon sa mais. Palihug kuhai og klaro ug suod nga litrato sa dahon sa mais.',
+    // Both failed corn-leaf checks read the same as the on-screen error (see `invalidImage`).
+    NOT_A_CORN_LEAF: invalidImageCeb.message,
+    NOT_CORN: invalidImageCeb.message,
     AI_BAD_GATEWAY: 'Naay problema sa pag-check sa sakit. Palihug sulayi pag-usab human sa pipila ka gutlo.',
     AI_BAD_RESPONSE: 'Naay problema sa pag-check sa sakit. Palihug sulayi pag-usab human sa pipila ka gutlo.',
     IMAGE_NOT_FOUND: 'Wala makit-i ang na-upload nga litrato. Palihug pag-scan pag-usab.',

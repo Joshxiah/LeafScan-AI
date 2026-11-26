@@ -47,10 +47,15 @@ export function PendingScanSync() {
             // One alert, even if both happened in the same sync (a second Alert.alert
             // right after the first can replace it on Android).
             const lines: string[] = [];
-            if (notCorn > 0) lines.push(t.common.scansNotCorn(notCorn));
+            if (notCorn > 0) {
+              // A photo that failed the corn-leaf check: the same title and advice as the
+              // on-screen error (<InvalidImageError>), plus how many were removed. `advice`
+              // rather than `message`, since the "removed" line already says it was not saved.
+              lines.push(t.common.scansNotCorn(notCorn), t.invalidImage.advice);
+            }
             if (dropped > 0) lines.push(t.common.scansNotSynced(dropped));
             Alert.alert(
-              notCorn > 0 ? t.common.scansNotCornTitle : t.common.scansNotSyncedTitle,
+              notCorn > 0 ? t.invalidImage.title : t.common.scansNotSyncedTitle,
               lines.join('\n\n')
             );
           } else if (uploaded > 0) {

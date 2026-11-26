@@ -1,18 +1,22 @@
 /**
  * Bottom tab navigation for the signed-in farmer.
  *
- * Home · History · Scan (centre, raised) · Library · Setting
+ * Home · History · Scan (centre, raised) · Library · Settings
+ *
+ * Home keeps the big logo header (<AppHeader>); every other tab gets
+ * the compact <AppBar> with its own screen title.
  *
  * Full-screen flows that should hide the tab bar (camera,
  * preview, the CAO report) live one level up in app/(app)/ and
  * are pushed over this navigator.
  */
 
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { AppBar } from '../../../src/components/AppBar';
 import { AppHeader } from '../../../src/components/AppHeader';
 import { brand } from '../../../src/constants/theme';
 import { useLanguage } from '../../../src/context/LanguageContext';
@@ -30,6 +34,7 @@ const ICONS: Record<TabName, keyof typeof Ionicons.glyphMap> = {
 export default function TabsLayout() {
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   const labels: Record<TabName, string> = {
     home: t.tabs.home,
@@ -39,13 +44,22 @@ export default function TabsLayout() {
     settings: t.tabs.settings,
   };
 
+  // App-bar title of each inner tab (Home has none: it keeps the big header).
+  const titles: Record<Exclude<TabName, 'home'>, string> = {
+    scan: t.scan.title,
+    history: t.history.title,
+    library: t.library.title,
+    settings: t.settings.title,
+  };
+
   return (
     <Tabs
       screenOptions={({ route }) => {
         const name = route.name as TabName;
         return {
           headerShown: true,
-          header: () => <AppHeader />,
+          header: () =>
+            name === 'home' ? <AppHeader /> : <AppBar title={titles[name]} />,
           // Strong dark green for the selected tab so it clearly
           // stands out against the muted grey of the others.
           tabBarActiveTintColor: brand.accentDark,
@@ -126,7 +140,17 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="home" />
       <Tabs.Screen name="history" />
-      <Tabs.Screen name="scan" />
+      {/* The raised centre button is an action, not a place: it opens the camera
+          directly (which also has the gallery button) instead of switching tabs. */}
+      <Tabs.Screen
+        name="scan"
+        listeners={{
+          tabPress: (event) => {
+            event.preventDefault();
+            router.push('/camera');
+          },
+        }}
+      />
       <Tabs.Screen name="library" />
       <Tabs.Screen name="settings" />
     </Tabs>

@@ -4,7 +4,7 @@
  * Route: /preview?imageUri=...&source=camera|gallery
  *
  * Shows the chosen image and lets the farmer retake it or send it.
- * "Use this image" uploads the photo (POST /api/uploads), then asks
+ * "Use this photo" uploads the photo (POST /api/uploads), then asks
  * the server to classify it (POST /api/detections/scan), which runs
  * the real model and records the scan. The verdict is also logged to
  * src/services/scanLog.ts.
@@ -19,20 +19,16 @@
  * later, as before.
  */
 
-import { useEffect, useRef, useState } from 'react';
-import {
-  View,
-  Text,
-  Image,
-  Pressable,
-  ScrollView,
-  ActivityIndicator,
-} from 'react-native';
+import { useEffect, useState } from 'react';
+import { View, Text, Image, Pressable, ScrollView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import ActionButton from '../../src/components/ActionButton';
+import AlertBadge from '../../src/components/AlertBadge';
 import CropModal from '../../src/components/CropModal';
+import InvalidImageError, { isInvalidImageError } from '../../src/components/InvalidImageError';
 import { uploadLeafImage, UploadResult } from '../../src/services/upload.service';
 import { getErrorMessage, ApiError } from '../../src/services/api';
 import { goToDiagnosis } from '../../src/navigation/diagnosis';
@@ -65,12 +61,10 @@ export default function PreviewScreen() {
 
   const [isUploading, setIsUploading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  // The server read the photo fine but it is not a corn leaf. Shown as a
-  // gentle "try again" note instead of a red error.
-  const [notCornLeaf, setNotCornLeaf] = useState(false);
-  // The model itself said "not corn" (code NOT_CORN). Unlike the note above this
-  // swaps the whole screen for a friendly "not a corn leaf" one; nothing is saved.
-  const [notCorn, setNotCorn] = useState(false);
+  // The photo failed the corn-leaf check - the colour check (NOT_A_CORN_LEAF) or the
+  // model's own "not corn" (NOT_CORN), on the phone or the server. Either way the whole
+  // screen becomes the one <InvalidImageError> state and nothing is saved.
+  const [invalidImage, setInvalidImage] = useState(false);
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
   // The server's verdict. Set once the photo has been classified.
   const [scanResult, setScanResult] = useState<ScanLeafResult | null>(null);
@@ -82,7 +76,7 @@ export default function PreviewScreen() {
   const [offlineScan, setOfflineScan] = useState<PendingScan | null>(null);
   // The phone is working through the model (a moment), as opposed to uploading.
   const [isScanningOnPhone, setIsScanningOnPhone] = useState(false);
-  // The gallery is opening / open ("Choose Another Image").
+  // The gallery is opening / open ("Choose another photo").
   const [isOpeningGallery, setIsOpeningGallery] = useState(false);
 
   // Load the model while the farmer looks at the photo, so the scan itself is quick.
@@ -93,8 +87,10 @@ export default function PreviewScreen() {
   if (!imageUri) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-white">
+        {/* Light page: dark status-bar icons (the app default is light). */}
+        <StatusBar style="dark" />
         <Text className="text-base text-gray-600">{t.preview.noImage}</Text>
-        <Pressable onPress={() => router.replace('/scan')} className="mt-4">
+        <Pressable onPress={() => router.replace('/camera')} className="mt-4">
           <Text className="text-base font-semibold text-leaf-700">
             {t.preview.chooseImageLink}
           </Text>
@@ -105,8 +101,7 @@ export default function PreviewScreen() {
 
   async function handleUpload() {
     setErrorMessage(null);
-    setNotCornLeaf(false);
-    setNotCorn(false);
+    setInvalidImage(false);
     setIsUploading(true);
 
     // Where the photo already is on the server, if the upload got through
@@ -160,7 +155,8 @@ export default function PreviewScreen() {
    * Scans the leaf with the on-device model and queues the photo with that
    * result, so the farmer sees a diagnosis right now and the upload happens
    * whenever there is internet. Throws for a photo that is not a leaf
-   * (NOT_A_CORN_LEAF). If the phone cannot scan at all - no model in this
+   * (NOT_A_CORN_LEAF / NOT_CORN) before anything is queued, so nothing is saved
+   * for it. If the phone cannot scan at all - no model in this
    * build (Expo Go, web), or it failed - the photo is just saved for the
    * server to scan later, so the farmer is never blocked.
    */
@@ -180,8 +176,14 @@ export default function PreviewScreen() {
   }
 
   function showError(error: unknown) {
-    setNotCornLeaf(error instanceof ApiError && error.code === 'NOT_A_CORN_LEAF');
-    setNotCorn(error instanceof ApiError && error.code === 'NOT_CORN');
+    // A failed corn-leaf check has its own screen with its own text: no red box here.
+    if (isInvalidImageError(error)) {
+      setInvalidImage(true);
+      setErrorMessage(null);
+      return;
+    }
+
+    setInvalidImage(false);
     setErrorMessage(getErrorMessage(error, t.preview.errorGeneric, t.apiErrors));
   }
 
@@ -191,7 +193,7 @@ export default function PreviewScreen() {
     // A photo uploaded earlier (e.g. before a failed scan) is the uncropped one.
     setUploadResult(null);
     setErrorMessage(null);
-    setNotCornLeaf(false);
+    setInvalidImage(false);
     setIsCropOpen(false);
   }
 
@@ -212,8 +214,7 @@ export default function PreviewScreen() {
       setUploadResult(null);
       setScanResult(null);
       setErrorMessage(null);
-      setNotCornLeaf(false);
-      setNotCorn(false);
+      setInvalidImage(false);
       setSavedOffline(false);
       setOfflineScan(null);
       setIsScanningOnPhone(false);
@@ -273,10 +274,31 @@ export default function PreviewScreen() {
     goToDiagnosis(router, { ...scan, localUri: imageUri }, { replace: true });
   }
 
+  // The photo failed the corn-leaf check (either check, on the phone or the server): one
+  // shared full-screen state, with its own app bar and buttons, and no way to go on with
+  // this photo. Which buttons come first depends on where the photo came from: `source`
+  // is the route param, and handleChooseAnother() updates it to 'gallery'.
+  if (invalidImage) {
+    return (
+      <InvalidImageError
+        imageUri={imageUri}
+        source={source === 'camera' ? 'camera' : 'gallery'}
+        onBack={() => router.back()}
+        onUseCamera={() => router.replace('/camera')}
+        onUseGallery={handleChooseAnother}
+        isOpeningGallery={isOpeningGallery}
+        showWholePhoto={croppedUri !== null}
+      />
+    );
+  }
+
   return (
     // 'bottom' too: with edge-to-edge on Android the system nav bar would
     // otherwise sit on top of the last button (View Diagnosis).
     <SafeAreaView className="flex-1 bg-gray-50" edges={['top', 'bottom']}>
+      {/* Light page: dark status-bar icons (the app default is light, for the green headers). */}
+      <StatusBar style="dark" />
+
       <ScrollView
         contentContainerClassName="px-6 pb-10 pt-4"
         showsVerticalScrollIndicator={false}
@@ -285,62 +307,34 @@ export default function PreviewScreen() {
           <Text className="text-base text-leaf-700">{t.preview.backLink}</Text>
         </Pressable>
 
-        {/* Not a corn leaf (either check): no title + subtitle here, the red box sits above the image. */}
-        {!notCorn && !notCornLeaf && (
-          <>
-            <Text className="mt-5 text-2xl font-bold text-gray-900">
-              {savedOffline
-                ? t.preview.savedOfflineTitle
-                : offlineScan
-                  ? t.preview.offlineResultTitle
-                  : scanResult
-                    ? t.preview.uploadedTitle
-                    : t.preview.reviewTitle}
-            </Text>
-            <Text className="mt-1 text-sm text-gray-500">
-              {savedOffline
-                ? t.preview.savedOfflineSubtitle
-                : offlineScan
-                  ? t.preview.offlineResultSubtitle
-                  : scanResult
-                    ? t.preview.uploadedSubtitle
-                    : t.preview.reviewSubtitle}
-            </Text>
-          </>
-        )}
-
-        {/* Not a corn leaf: the disclaimer goes ABOVE the image so it is read first. */}
-        {notCorn && (
-          <View className="mt-5 flex-row items-center rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-            <AlertBadge />
-            <View className="ml-3 flex-1">
-              <Text className="text-lg font-bold text-red-800">{t.preview.notCornTitle}</Text>
-              <Text className="mt-1 text-sm text-red-700">{t.preview.notCornMessage}</Text>
-            </View>
-          </View>
-        )}
-
-        {/* The colour check said "not a corn leaf" (NOT_A_CORN_LEAF): same spot, above the
-            image. The buttons below stay, since the photo was kept and can be cropped / retried. */}
-        {notCornLeaf && errorMessage && (
-          <View className="mt-5 flex-row items-center rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-            <AlertBadge />
-            <Text className="ml-3 flex-1 text-sm text-red-700">{errorMessage}</Text>
-          </View>
-        )}
+        <Text className="mt-5 text-2xl font-bold text-gray-900">
+          {savedOffline
+            ? t.preview.savedOfflineTitle
+            : offlineScan
+              ? t.preview.offlineResultTitle
+              : scanResult
+                ? t.preview.uploadedTitle
+                : t.preview.reviewTitle}
+        </Text>
+        <Text className="mt-1 text-sm text-gray-500">
+          {savedOffline
+            ? t.preview.savedOfflineSubtitle
+            : offlineScan
+              ? t.preview.offlineResultSubtitle
+              : scanResult
+                ? t.preview.uploadedSubtitle
+                : t.preview.reviewSubtitle}
+        </Text>
 
         {/* ---------- The image ---------- */}
-        <View
-          className={`${notCorn || notCornLeaf ? 'mt-5' : 'mt-6'} overflow-hidden rounded-2xl bg-white`}
-        >
+        <View className="mt-6 overflow-hidden rounded-2xl bg-white">
           <Image
             // Once uploaded, show the SERVER copy. If this renders,
             // the file genuinely arrived and is readable. Saved offline,
-            // the server copy cannot be loaded, so show the local photo. Same for
-            // "not corn": the server deletes that photo, so its copy may be gone.
+            // the server copy cannot be loaded, so show the local photo.
             source={{
               uri:
-                uploadResult && !savedOffline && !offlineScan && !notCorn
+                uploadResult && !savedOffline && !offlineScan
                   ? withAuthToken(uploadResult.imageUrl, token)
                   : imageUri,
             }}
@@ -351,8 +345,8 @@ export default function PreviewScreen() {
         </View>
 
         {/* ---------- Error ---------- */}
-        {/* Red for every error. The two "not a corn leaf" ones are shown above the image instead. */}
-        {errorMessage && !notCorn && !notCornLeaf && (
+        {/* A failed corn-leaf check is not shown here: see <InvalidImageError> above. */}
+        {errorMessage && (
           <View className="mt-5 flex-row items-center rounded-xl border border-red-200 bg-red-50 px-4 py-3">
             <AlertBadge />
             <Text className="ml-3 flex-1 text-sm text-red-700">{errorMessage}</Text>
@@ -360,7 +354,7 @@ export default function PreviewScreen() {
         )}
 
         {/* ---------- Upload details ---------- */}
-        {uploadResult && !notCornLeaf && !notCorn && !savedOffline && !offlineScan && (
+        {uploadResult && !savedOffline && !offlineScan && (
           <View className="mt-5 rounded-2xl bg-white p-5">
             <Text className="mb-3 text-base font-semibold text-gray-900">
               {t.preview.uploadDetails}
@@ -377,25 +371,10 @@ export default function PreviewScreen() {
         )}
 
         {/* ---------- Actions ---------- */}
-        {notCorn ? (
-          // Not a corn leaf: nothing was saved, so the only way on is a different photo.
-          <View className="mt-7">
-            <ActionButton
-              onPress={() => router.replace('/camera')}
-              label={t.preview.retakePhoto}
-            />
-
-            <ActionButton
-              onPress={handleChooseAnother}
-              disabled={isOpeningGallery}
-              label={t.preview.chooseAnother}
-              className="mt-3"
-            />
-          </View>
-        ) : savedOffline ? (
+        {savedOffline ? (
           <View className="mt-7">
             <Pressable
-              onPress={() => router.replace('/scan')}
+              onPress={() => router.replace('/camera')}
               className="items-center rounded-xl bg-leaf-600 py-4 active:bg-leaf-700"
             >
               <Text className="text-base font-semibold text-white">
@@ -460,73 +439,6 @@ export default function PreviewScreen() {
         onApply={handleCropped}
       />
     </SafeAreaView>
-  );
-}
-
-/**
- * White button with a green outline. Pressing it fills it green and turns the
- * text white (there is no hover on a phone, so the press is the effect).
- */
-function ActionButton({
-  label,
-  onPress,
-  disabled,
-  loading,
-  className = '',
-}: {
-  label: string;
-  onPress: () => void;
-  disabled?: boolean;
-  loading?: boolean;
-  className?: string;
-}) {
-  // Own press state instead of the `active:` variant. A quick tap on some of
-  // these buttons leaves the screen straight away (e.g. Retake Photo), so the
-  // green is held ~150 ms after the finger lifts to make sure it is seen.
-  const [isPressed, setIsPressed] = useState(false);
-  const releaseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (releaseTimer.current) clearTimeout(releaseTimer.current);
-    };
-  }, []);
-
-  function handlePressIn() {
-    if (releaseTimer.current) clearTimeout(releaseTimer.current);
-    setIsPressed(true);
-  }
-
-  function handlePressOut() {
-    releaseTimer.current = setTimeout(() => setIsPressed(false), 150);
-  }
-
-  return (
-    <Pressable
-      onPress={onPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      disabled={disabled}
-      className={`flex-row items-center justify-center rounded-xl border-2 border-leaf-600 py-4 ${
-        isPressed ? 'bg-leaf-600' : 'bg-white'
-      } ${disabled ? 'opacity-60' : ''} ${className}`}
-    >
-      {loading && <ActivityIndicator size="small" color="#2a752c" className="mr-2" />}
-      <Text
-        className={`text-base font-semibold ${isPressed ? 'text-white' : 'text-leaf-700'}`}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
-/** Round red badge with a warning icon, at the left of the red error / disclaimer boxes. */
-function AlertBadge() {
-  return (
-    <View className="h-9 w-9 items-center justify-center rounded-full bg-red-100">
-      <Ionicons name="alert-circle" size={22} color="#B91C1C" />
-    </View>
   );
 }
 

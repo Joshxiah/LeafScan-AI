@@ -17,6 +17,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { View, Text, Image, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -104,6 +105,9 @@ export default function DiagnosisScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={['top', 'bottom']}>
+      {/* Light page: dark status-bar icons (the app default is light). */}
+      <StatusBar style="dark" />
+
       {/* ---------- Header ---------- */}
       <View className="flex-row items-center px-5 py-4">
         <Pressable

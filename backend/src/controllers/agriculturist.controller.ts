@@ -16,7 +16,8 @@ import {
 
 /**
  * GET /api/agriculturists?status=active&search=grace&barangay=Tiguma&page=1&pageSize=20
- * CAO admin only.
+ * CAO admin only. `barangay` matches anyone who covers that barangay
+ * (an agriculturist can cover several).
  */
 export async function listAgriculturists(req: Request, res: Response): Promise<void> {
   const statusParam = typeof req.query.status === 'string' ? req.query.status : undefined;

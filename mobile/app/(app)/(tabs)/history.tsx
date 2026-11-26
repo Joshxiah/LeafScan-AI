@@ -114,11 +114,8 @@ export default function HistoryScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={[]}>
-      <View className="px-6 pb-3 pt-4">
-        <Text className="text-center text-[17px] font-bold text-[#16241B]">
-          {t.history.title}
-        </Text>
-      </View>
+      {/* The screen title is in the app bar above (see (tabs)/_layout.tsx). */}
+      <View className="h-4" />
 
       {!scans ? (
         <View className="flex-1 items-center justify-center">
@@ -130,7 +127,7 @@ export default function HistoryScreen() {
           title={t.home.emptyTitle}
           message={t.home.emptyMessage}
           actionLabel={t.home.emptyAction}
-          onAction={() => router.push('/scan')}
+          onAction={() => router.push('/camera')}
         />
       ) : (
         <>

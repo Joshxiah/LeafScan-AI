@@ -327,7 +327,8 @@ export interface AgriculturistSummary {
   phoneNumber: string | null;
   email: string | null;
   avatarPath: string | null;
-  barangay: string | null;
+  /** Every barangay this agriculturist handles (alphabetical; empty = none set). */
+  barangays: string[];
   municipality: string | null;
   isActive: boolean;
   createdAt: string;

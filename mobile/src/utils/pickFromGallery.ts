@@ -1,8 +1,8 @@
 /**
  * Opens the phone's gallery so the farmer can pick a corn-leaf photo.
  *
- * Shared by the Scan tab ("Choose from Gallery") and the preview screen
- * ("Choose Another Image"), so both ask for permission and report problems the
+ * Shared by the Scan tab ("Choose from gallery") and the preview screen
+ * ("Choose another photo"), so both ask for permission and report problems the
  * same way. There is no crop step here: the preview screen offers one, and the
  * model resizes the photo itself.
  */

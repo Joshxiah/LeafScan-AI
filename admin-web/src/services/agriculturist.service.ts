@@ -39,7 +39,8 @@ export interface AgriculturistPayload {
   fullName?: string;
   phoneNumber?: string;
   email?: string;
-  barangay?: string;
+  /** The agriculturist's whole service area; replaces the saved set when sent. */
+  barangays?: string[];
   municipality?: string;
   /** From uploadImage() in upload.service.ts, or '' to remove the photo. */
   avatarPath?: string;

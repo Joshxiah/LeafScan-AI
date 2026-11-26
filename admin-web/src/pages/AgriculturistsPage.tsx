@@ -13,13 +13,14 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { AdminLayout } from '../components/layout/AdminLayout';
-import { BarangayInput } from '../components/BarangayInput';
+import { BarangayMultiSelect } from '../components/BarangayMultiSelect';
 import { ApiError } from '../services/api';
 import * as agriculturistService from '../services/agriculturist.service';
 import * as farmerService from '../services/farmer.service';
 import * as uploadService from '../services/upload.service';
 import { mediaUrl } from '../services/media';
 import { PHONE_MAX_LENGTH, sanitizePhone } from '../utils/phone';
+import { formatServiceArea, sameBarangays } from '../utils/serviceArea';
 import type { AgriculturistAccountStatus, AgriculturistSummary } from '../types';
 
 const PAGE_SIZE = 20;
@@ -225,8 +226,11 @@ export function AgriculturistsPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-gray-600">{agriculturist.phoneNumber ?? '—'}</td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {agriculturist.barangay ?? '—'}
+                    <td
+                      className="px-4 py-3 text-gray-600"
+                      title={agriculturist.barangays.join(', ') || undefined}
+                    >
+                      {formatServiceArea(agriculturist.barangays)}
                       {agriculturist.municipality ? `, ${agriculturist.municipality}` : ''}
                     </td>
                     <td className="px-4 py-3">
@@ -313,7 +317,7 @@ function CreateAgriculturistModal({
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [email, setEmail] = useState('');
-  const [barangay, setBarangay] = useState('');
+  const [selectedBarangays, setSelectedBarangays] = useState<string[]>([]);
   const [avatarPath, setAvatarPath] = useState<string | undefined>();
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -347,7 +351,7 @@ function CreateAgriculturistModal({
         fullName: fullName.trim(),
         phoneNumber: phoneNumber.trim() || undefined,
         email: email.trim() || undefined,
-        barangay: barangay.trim() || undefined,
+        barangays: selectedBarangays.length > 0 ? selectedBarangays : undefined,
         avatarPath,
       });
       onCreated();
@@ -375,9 +379,14 @@ function CreateAgriculturistModal({
           onChange={setEmail}
           placeholder="name@cao.pagadian.gov.ph"
         />
-        <BarangayInput value={barangay} onChange={setBarangay} barangays={barangays} />
+        <BarangayMultiSelect
+          value={selectedBarangays}
+          onChange={setSelectedBarangays}
+          barangays={barangays}
+        />
         <p className="text-xs text-gray-400">
-          The service area is used on the Reports page to list the nearest agriculturist first.
+          Add every barangay this agriculturist handles. The Reports page lists them first for a
+          report from any of these barangays.
         </p>
 
         <label className="block">
@@ -443,7 +452,7 @@ function AgriculturistDetailModal({
   const [fullName, setFullName] = useState(agriculturist.fullName);
   const [phoneNumber, setPhoneNumber] = useState(agriculturist.phoneNumber ?? '');
   const [email, setEmail] = useState(agriculturist.email ?? '');
-  const [barangay, setBarangay] = useState(agriculturist.barangay ?? '');
+  const [selectedBarangays, setSelectedBarangays] = useState<string[]>(agriculturist.barangays);
   const [avatarPath, setAvatarPath] = useState(agriculturist.avatarPath ?? '');
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -455,7 +464,7 @@ function AgriculturistDetailModal({
     fullName.trim() !== current.fullName ||
     phoneNumber.trim() !== (current.phoneNumber ?? '') ||
     email.trim() !== (current.email ?? '') ||
-    barangay.trim() !== (current.barangay ?? '') ||
+    !sameBarangays(selectedBarangays, current.barangays) ||
     avatarPath !== (current.avatarPath ?? '');
 
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -484,7 +493,9 @@ function AgriculturistDetailModal({
           phoneNumber:
             phoneNumber.trim() !== (current.phoneNumber ?? '') ? phoneNumber.trim() : undefined,
           email: email.trim() !== (current.email ?? '') ? email.trim() : undefined,
-          barangay: barangay.trim() !== (current.barangay ?? '') ? barangay.trim() : undefined,
+          barangays: sameBarangays(selectedBarangays, current.barangays)
+            ? undefined
+            : selectedBarangays,
           avatarPath: avatarPath !== (current.avatarPath ?? '') ? avatarPath : undefined,
           ...extra,
         }
@@ -536,7 +547,11 @@ function AgriculturistDetailModal({
           placeholder="09171234567"
         />
         <Field label="Email" value={email} onChange={setEmail} />
-        <BarangayInput value={barangay} onChange={setBarangay} barangays={barangays} />
+        <BarangayMultiSelect
+          value={selectedBarangays}
+          onChange={setSelectedBarangays}
+          barangays={barangays}
+        />
 
         <label className="block">
           <span className="text-xs font-semibold uppercase tracking-wide text-gray-400">

@@ -170,7 +170,7 @@ export default function ReportScreen() {
           title={allSent ? t.report.allSentTitle : t.home.emptyTitle}
           message={allSent ? t.report.allSentMessage : t.home.emptyMessage}
           actionLabel={t.home.emptyAction}
-          onAction={() => router.push('/scan')}
+          onAction={() => router.push('/camera')}
         />
       </SafeAreaView>
     );

@@ -29,6 +29,7 @@ USE leafscan_ai;
 DROP TABLE IF EXISTS detections;
 DROP TABLE IF EXISTS treatment_recommendations;
 DROP TABLE IF EXISTS password_reset_codes;
+DROP TABLE IF EXISTS agriculturist_barangays;
 DROP TABLE IF EXISTS agriculturists;
 DROP TABLE IF EXISTS farm_plots;
 DROP TABLE IF EXISTS farmers;
@@ -206,6 +207,23 @@ CREATE TABLE agriculturists (
     PRIMARY KEY (id),
     KEY idx_agriculturists_is_active (is_active),
     KEY idx_agriculturists_barangay (barangay)
+
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- An agriculturist's service area: one row per barangay they cover
+-- (an agriculturist can handle several). agriculturists.barangay above
+-- is the legacy single-barangay column - kept, but no longer used.
+-- See database/add_agriculturist_barangays.sql.
+CREATE TABLE agriculturist_barangays (
+    agriculturist_id INT UNSIGNED NOT NULL,
+    barangay         VARCHAR(150) NOT NULL,
+
+    PRIMARY KEY (agriculturist_id, barangay),
+    KEY idx_agriculturist_barangays_barangay (barangay),
+
+    CONSTRAINT fk_agriculturist_barangays_agriculturist
+        FOREIGN KEY (agriculturist_id) REFERENCES agriculturists (id)
+        ON DELETE CASCADE ON UPDATE CASCADE
 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

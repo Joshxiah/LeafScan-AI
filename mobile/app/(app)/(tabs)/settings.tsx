@@ -246,14 +246,9 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-[#F5FAF6]" edges={[]}>
-      <View className="px-6 pb-2 pt-4">
-        <Text className="text-center text-[17px] font-bold text-[#16241B]">
-          {t.settings.title}
-        </Text>
-      </View>
-
+      {/* The screen title is in the app bar above (see (tabs)/_layout.tsx). */}
       <ScrollView
-        contentContainerClassName="px-6 pb-10 pt-3"
+        contentContainerClassName="px-6 pb-10 pt-4"
         showsVerticalScrollIndicator={false}
       >
         {/* ---------- Profile card ---------- */}

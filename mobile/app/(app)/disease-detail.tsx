@@ -57,6 +57,8 @@ export default function DiseaseDetailScreen() {
   if (!disease) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-white px-8">
+        {/* White screen: dark status-bar icons (the normal view below is light-on-green). */}
+        <StatusBar style="dark" />
         <Text className="text-center text-[14px] text-[#6C8073]">
           {t.diseaseDetail.couldNotLoad}
         </Text>

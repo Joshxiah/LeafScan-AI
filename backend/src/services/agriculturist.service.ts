@@ -9,10 +9,12 @@
  * name as free text, so history survives an edit or delete here.
  *
  * Mirrors farmer.service.ts, minus the users/farmers join - an
- * agriculturist is a single self-contained row.
+ * agriculturist is one row plus the list of barangays they cover
+ * (agriculturist_barangays), since one person can handle several.
  */
 
 import { ResultSetHeader, RowDataPacket } from 'mysql2';
+import { PoolConnection } from 'mysql2/promise';
 import { pool } from '../config/database';
 import { ApiError } from '../utils/ApiError';
 import { CreateAgriculturistInput, UpdateAgriculturistInput } from '../utils/validation';
@@ -25,7 +27,12 @@ export interface AgriculturistSummary {
   phoneNumber: string | null;
   email: string | null;
   avatarPath: string | null;
-  barangay: string | null;
+  /**
+   * Every barangay this agriculturist handles (their service area),
+   * alphabetical. Empty when none is set. Lives in the
+   * agriculturist_barangays table - see database/add_agriculturist_barangays.sql.
+   */
+  barangays: string[];
   municipality: string | null;
   isActive: boolean;
   createdAt: Date;
@@ -37,20 +44,19 @@ interface AgriculturistRow extends RowDataPacket {
   phone_number: string | null;
   email: string | null;
   avatar_path: string | null;
-  barangay: string | null;
   municipality: string | null;
   is_active: number;
   created_at: Date;
 }
 
-function toSummary(row: AgriculturistRow): AgriculturistSummary {
+function toSummary(row: AgriculturistRow, barangays: string[]): AgriculturistSummary {
   return {
     id: row.id,
     fullName: row.full_name,
     phoneNumber: row.phone_number,
     email: row.email,
     avatarPath: row.avatar_path,
-    barangay: row.barangay,
+    barangays,
     municipality: row.municipality,
     isActive: row.is_active === 1,
     createdAt: row.created_at,
@@ -58,10 +64,63 @@ function toSummary(row: AgriculturistRow): AgriculturistSummary {
 }
 
 const SELECT_AGRICULTURIST = `
-  SELECT id, full_name, phone_number, email, avatar_path, barangay, municipality,
+  SELECT id, full_name, phone_number, email, avatar_path, municipality,
          is_active, created_at
   FROM agriculturists
 `;
+
+/**
+ * The barangays for a batch of agriculturists in ONE query, keyed by
+ * agriculturist id (an id with none set is simply absent from the map).
+ */
+async function loadBarangays(ids: number[]): Promise<Map<number, string[]>> {
+  const byAgriculturist = new Map<number, string[]>();
+  if (ids.length === 0) return byAgriculturist;
+
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT agriculturist_id, barangay
+     FROM agriculturist_barangays
+     WHERE agriculturist_id IN (?)
+     ORDER BY barangay ASC`,
+    [ids]
+  );
+  for (const row of rows) {
+    const id = Number(row.agriculturist_id);
+    const list = byAgriculturist.get(id);
+    if (list) list.push(row.barangay as string);
+    else byAgriculturist.set(id, [row.barangay as string]);
+  }
+  return byAgriculturist;
+}
+
+/** Trims, drops blanks and removes repeats, keeping the first occurrence. */
+function uniqueBarangays(barangays: string[]): string[] {
+  const seen = new Set<string>();
+  for (const barangay of barangays) {
+    const trimmed = barangay.trim();
+    if (trimmed) seen.add(trimmed);
+  }
+  return [...seen];
+}
+
+/** Replaces an agriculturist's whole set of barangays (inside the caller's transaction). */
+async function replaceBarangays(
+  connection: PoolConnection,
+  agriculturistId: number,
+  barangays: string[]
+): Promise<void> {
+  await connection.query('DELETE FROM agriculturist_barangays WHERE agriculturist_id = ?', [
+    agriculturistId,
+  ]);
+
+  const unique = uniqueBarangays(barangays);
+  if (unique.length === 0) return;
+
+  await connection.query(
+    'INSERT INTO agriculturist_barangays (agriculturist_id, barangay) VALUES ?',
+    [unique.map((barangay) => [agriculturistId, barangay])]
+  );
+}
 
 export interface ListAgriculturistsOptions {
   status?: AgriculturistAccountStatus;
@@ -92,7 +151,11 @@ export async function listAgriculturists(
     params.push(status === 'active' ? 1 : 0);
   }
   if (barangay) {
-    conditions.push('barangay = ?');
+    // Anyone who covers this barangay, even if they cover others too.
+    conditions.push(
+      `EXISTS (SELECT 1 FROM agriculturist_barangays ab
+               WHERE ab.agriculturist_id = agriculturists.id AND ab.barangay = ?)`
+    );
     params.push(barangay);
   }
   if (search) {
@@ -114,8 +177,10 @@ export async function listAgriculturists(
     params
   );
 
+  const barangaysById = await loadBarangays(rows.map((row) => row.id));
+
   return {
-    agriculturists: rows.map(toSummary),
+    agriculturists: rows.map((row) => toSummary(row, barangaysById.get(row.id) ?? [])),
     total: Number(countRows[0].total),
     page,
     pageSize,
@@ -132,28 +197,46 @@ export async function getAgriculturistById(id: number): Promise<AgriculturistSum
   if (!row) {
     throw ApiError.notFound('Agriculturist not found');
   }
-  return toSummary(row);
+  const barangaysById = await loadBarangays([row.id]);
+  return toSummary(row, barangaysById.get(row.id) ?? []);
 }
 
 /** CAO admin only. Adds a directory entry. */
 export async function createAgriculturist(
   input: CreateAgriculturistInput
 ): Promise<AgriculturistSummary> {
-  const [result] = await pool.query<ResultSetHeader>(
-    `INSERT INTO agriculturists
-       (full_name, phone_number, email, avatar_path, barangay, municipality)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [
-      input.fullName,
-      input.phoneNumber || null,
-      input.email || null,
-      input.avatarPath || null,
-      input.barangay || null,
-      input.municipality || 'Pagadian City',
-    ]
-  );
+  const connection = await pool.getConnection();
+  let insertId: number;
+  try {
+    await connection.beginTransaction();
+    try {
+      const [result] = await connection.query<ResultSetHeader>(
+        `INSERT INTO agriculturists
+           (full_name, phone_number, email, avatar_path, municipality)
+         VALUES (?, ?, ?, ?, ?)`,
+        [
+          input.fullName,
+          input.phoneNumber || null,
+          input.email || null,
+          input.avatarPath || null,
+          input.municipality || 'Pagadian City',
+        ]
+      );
+      insertId = result.insertId;
 
-  return getAgriculturistById(result.insertId);
+      if (input.barangays) {
+        await replaceBarangays(connection, insertId, input.barangays);
+      }
+      await connection.commit();
+    } catch (error) {
+      await connection.rollback();
+      throw error;
+    }
+  } finally {
+    connection.release();
+  }
+
+  return getAgriculturistById(insertId);
 }
 
 /** CAO admin only. Edit details or activate / deactivate. */
@@ -188,10 +271,6 @@ export async function updateAgriculturist(
     sets.push('avatar_path = ?');
     params.push(input.avatarPath || null);
   }
-  if (input.barangay !== undefined) {
-    sets.push('barangay = ?');
-    params.push(input.barangay || null);
-  }
   if (input.municipality !== undefined) {
     sets.push('municipality = ?');
     params.push(input.municipality || null);
@@ -201,11 +280,28 @@ export async function updateAgriculturist(
     params.push(input.isActive ? 1 : 0);
   }
 
-  if (sets.length > 0) {
-    await pool.query(
-      `UPDATE agriculturists SET ${sets.join(', ')} WHERE id = ?`,
-      [...params, id]
-    );
+  if (sets.length > 0 || input.barangays !== undefined) {
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      try {
+        if (sets.length > 0) {
+          await connection.query(
+            `UPDATE agriculturists SET ${sets.join(', ')} WHERE id = ?`,
+            [...params, id]
+          );
+        }
+        if (input.barangays !== undefined) {
+          await replaceBarangays(connection, id, input.barangays);
+        }
+        await connection.commit();
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      }
+    } finally {
+      connection.release();
+    }
   }
 
   return getAgriculturistById(id);

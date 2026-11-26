@@ -166,7 +166,7 @@ export default function HomeScreen() {
             </Text>
 
             <Pressable
-              onPress={() => router.push('/scan')}
+              onPress={() => router.push('/camera')}
               className="mt-7 h-14 flex-row items-center justify-center rounded-full bg-[#2F6D46] px-8 active:bg-[#1F4E31]"
               style={shadows.raised}
             >

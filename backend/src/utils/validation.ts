@@ -11,11 +11,14 @@ import { BARANGAYS } from '../constants/barangays';
 import { ApiError } from './ApiError';
 
 /**
- * A farmer's or agriculturist's barangay must be one of the fixed
- * list (constants/barangays.ts), or left unset - keeps both sides of
- * the CAO/Farmers barangay matching on the same values.
+ * An agriculturist's service area: every barangay they cover, each one
+ * from the fixed list (constants/barangays.ts) - keeps the CAO side of
+ * the barangay matching on the same values as the farmers'. An
+ * agriculturist can handle several, so this is a list (empty = no
+ * service area set). Duplicates are dropped by the service layer, not
+ * rejected here.
  */
-const barangayRule = z.enum(BARANGAYS).optional().or(z.literal(''));
+const serviceAreaRule = z.array(z.enum(BARANGAYS)).max(BARANGAYS.length);
 
 /**
  * Usernames are lowercase letters, numbers, underscore and dot.
@@ -202,7 +205,7 @@ export const changePasswordSchema = z.object({
  * (Phase 13 - see backend/src/services/scanLog equivalent on mobile).
  */
 export const createReportSchema = z.object({
-  // Free text, not the fixed barangayRule enum: this comes from
+  // Free text, not the fixed BARANGAYS enum: this comes from
   // farmers.address, which a farmer can still self-edit as free text
   // on the mobile Settings screen - constraining it here would reject
   // real report submissions from anyone whose saved address predates
@@ -302,7 +305,7 @@ export const farmPlotSchema = z.object({
  * Region/province/city-municipality/barangay come from the Create
  * Account form's cascading picker (backed by /api/address), not free
  * text, so they are plain trimmed strings rather than the closed
- * `barangayRule` enum used elsewhere - the picker itself is what
+ * BARANGAYS enum used for agriculturist service areas - the picker itself is what
  * keeps them consistent, and it covers far more than this app's
  * usual Pagadian-City-only barangay list. Meaningful for both roles;
  * farmSizeHectares/plots/yearsFarming are farmer-only.
@@ -366,8 +369,8 @@ export const updateFarmerSchema = z.object({
     .or(z.literal('')),
   // Same shape as createAccountSchema's address fields below - free
   // text from the Region/Province/City/Barangay cascade, which spans
-  // the whole country, not just the fixed Pagadian-City `barangayRule`
-  // enum used by the older agriculturist forms.
+  // the whole country, not just the fixed Pagadian-City BARANGAYS
+  // enum used by the agriculturist service-area forms.
   region: z.string().trim().max(100).optional().or(z.literal('')),
   province: z.string().trim().max(100).optional().or(z.literal('')),
   municipality: z.string().trim().max(100).optional().or(z.literal('')),
@@ -403,7 +406,8 @@ export const createAgriculturistSchema = z.object({
     .email('Enter a valid email address')
     .optional()
     .or(z.literal('')),
-  barangay: barangayRule,
+  /** Every barangay this agriculturist handles. */
+  barangays: serviceAreaRule.optional(),
   municipality: z.string().trim().max(100).optional().or(z.literal('')),
   /** Relative path from a prior POST /api/uploads. */
   avatarPath: z.string().trim().max(255).optional().or(z.literal('')),
@@ -420,7 +424,8 @@ export const updateAgriculturistSchema = z.object({
     .email('Enter a valid email address')
     .optional()
     .or(z.literal('')),
-  barangay: barangayRule,
+  /** Replaces the agriculturist's whole set of barangays when present. */
+  barangays: serviceAreaRule.optional(),
   municipality: z.string().trim().max(100).optional().or(z.literal('')),
   /** Relative path from a prior POST /api/uploads, or '' to remove the photo. */
   avatarPath: z.string().trim().max(255).optional().or(z.literal('')),

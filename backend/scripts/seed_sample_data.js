@@ -192,15 +192,20 @@ async function ensureAgriculturist(connection, agriculturist) {
   }
 
   const [result] = await connection.query(
-    `INSERT INTO agriculturists (full_name, phone_number, email, barangay, specialization)
-     VALUES (?, ?, ?, ?, ?)`,
+    `INSERT INTO agriculturists (full_name, phone_number, email, specialization)
+     VALUES (?, ?, ?, ?)`,
     [
       agriculturist.fullName,
       agriculturist.phone,
       agriculturist.email,
-      agriculturist.barangay,
       agriculturist.specialization,
     ]
+  );
+
+  // Service area lives in its own table (an agriculturist can cover several barangays).
+  await connection.query(
+    'INSERT IGNORE INTO agriculturist_barangays (agriculturist_id, barangay) VALUES (?, ?)',
+    [result.insertId, agriculturist.barangay]
   );
 
   return result.insertId;

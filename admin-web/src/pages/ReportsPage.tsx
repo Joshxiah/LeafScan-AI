@@ -21,6 +21,7 @@ import * as reportService from '../services/report.service';
 import * as agriculturistService from '../services/agriculturist.service';
 import { downloadExcel, todayStamp } from '../services/excel';
 import { useNotifications } from '../context/NotificationsContext';
+import { formatServiceArea } from '../utils/serviceArea';
 import {
   RISK_NAME,
   STATUS_LABEL,
@@ -502,13 +503,13 @@ function ReportDetailModal({
   const agriculturistRelevant =
     nextStatus === 'agriculturist_assigned' || !!report?.assignedAgriculturist;
 
-  // Agriculturists whose service area matches this report's barangay
-  // float to the top of the dropdown.
+  // Agriculturists whose service area includes this report's barangay
+  // (they may cover several) float to the top of the dropdown.
   const sortedAgriculturists = useMemo(() => {
     const barangay = report?.barangay;
     return [...agriculturists].sort((a, b) => {
-      const aMatch = barangay && a.barangay === barangay ? 0 : 1;
-      const bMatch = barangay && b.barangay === barangay ? 0 : 1;
+      const aMatch = barangay && a.barangays.includes(barangay) ? 0 : 1;
+      const bMatch = barangay && b.barangays.includes(barangay) ? 0 : 1;
       if (aMatch !== bMatch) return aMatch - bMatch;
       return a.fullName.localeCompare(b.fullName);
     });
@@ -767,8 +768,8 @@ function ReportDetailModal({
                       {sortedAgriculturists.map((a) => (
                         <option key={a.id} value={a.id}>
                           {a.fullName}
-                          {a.barangay ? ` — ${a.barangay}` : ''}
-                          {report.barangay && a.barangay === report.barangay
+                          {a.barangays.length > 0 ? ` — ${formatServiceArea(a.barangays, 2)}` : ''}
+                          {report.barangay && a.barangays.includes(report.barangay)
                             ? ' (this barangay)'
                             : ''}
                         </option>

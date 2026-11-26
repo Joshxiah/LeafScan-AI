@@ -31,6 +31,7 @@ import type { TensorflowModel } from 'react-native-fast-tflite';
 
 import { ApiError } from './api';
 import { ScanClassLabel } from '../data/scanStats';
+import { en } from '../i18n/translations';
 import { ConfidenceLevel } from '../types';
 import {
   MODEL_INPUT_SIZE,
@@ -195,11 +196,9 @@ export async function classifyOnDevice(imageUri: string): Promise<OnDeviceVerdic
     console.log(
       `[onDeviceScan] Not a leaf: plant=${(leaf.plantFraction * 100).toFixed(1)}% lumaStd=${leaf.lumaStd.toFixed(1)}`
     );
-    throw new ApiError(
-      422,
-      'This does not look like a corn leaf. Please take a clear photo of a corn leaf.',
-      'NOT_A_CORN_LEAF'
-    );
+    // The screens show t.apiErrors / t.invalidImage by code; this raw text is only the
+    // fallback, so it reuses the shared message instead of keeping its own wording.
+    throw new ApiError(422, en.invalidImage.message, 'NOT_A_CORN_LEAF');
   }
 
   const outputs = await model.run([rgbToModelInput(pixels)]);
@@ -210,15 +209,11 @@ export async function classifyOnDevice(imageUri: string): Promise<OnDeviceVerdic
   const top = pickTopClass(scores, CLASS_LABELS);
 
   // The model's own "not corn" answer is the same outcome as the server's, so it is thrown
-  // the same way (ApiError 422 NOT_CORN): Preview shows the "Not a Corn Leaf" screen, and
-  // because this throws BEFORE the caller queues anything, nothing is saved to the history or
-  // to the upload queue.
+  // the same way (ApiError 422 NOT_CORN): Preview shows the same <InvalidImageError> screen
+  // as for the colour check, and because this throws BEFORE the caller queues anything,
+  // nothing is saved to the history or to the upload queue.
   if (top.classLabel === 'not_corn') {
-    throw new ApiError(
-      422,
-      'This does not look like a corn leaf. Please take a clear photo of a corn leaf.',
-      'NOT_CORN'
-    );
+    throw new ApiError(422, en.invalidImage.message, 'NOT_CORN');
   }
 
   // TypeScript has narrowed top.classLabel to the 4 corn classes by here.
